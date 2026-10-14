@@ -1,0 +1,42 @@
+name: Device report
+description: Share how a wireless receiver or charger talks to RF Ranger, to help add or fix support for it.
+title: "Device report: <model>"
+labels: ["device-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping RF Ranger support more hardware. To make a report:
+        1. Run RF Ranger and open **Engineer → Inspector** on the computer running it.
+        2. Enter the device's IP address and press **Watch**, then **Get all**. For receivers, also press **Sample meters 30 s**.
+        3. Fill in **What is this device?** and press **Export report**. Names and addresses are removed by default.
+        4. Attach the exported `.json` file below.
+  - type: input
+    id: model
+    attributes:
+      label: Device model
+      placeholder: e.g. QLXD4, SLXD4D, EW-DX EM 2
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware version
+      placeholder: e.g. 2.7.6
+  - type: input
+    id: transmitters
+    attributes:
+      label: Transmitters and batteries used
+      placeholder: e.g. SLXD2 handhelds with SB903 rechargeables
+  - type: textarea
+    id: report
+    attributes:
+      label: Exported report
+      description: Drag the rf-ranger-device-report-*.json file here.
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: What did you see?
+      description: Anything RF Ranger showed incorrectly, plus what the device's own screen showed at the time.

@@ -5,9 +5,9 @@ import { useEffect, useState } from 'react';
  * bookmarked and reopens straight into that view:
  *   #/                   launch screen
  *   #/pickup?group=Vocals
- *   #/engineer  #/engineer/attention  #/engineer/devices
+ *   #/engineer  #/engineer/attention  #/engineer/devices  #/engineer/inspector
  */
-export type View = 'launch' | 'pickup' | 'engineer' | 'attention' | 'devices';
+export type View = 'launch' | 'pickup' | 'engineer' | 'attention' | 'devices' | 'inspector';
 
 export interface Route {
   view: View;
@@ -22,6 +22,7 @@ export function parseRoute(hash: string): Route {
   if (parts[0] === 'engineer') {
     if (parts[1] === 'attention') return { view: 'attention', group };
     if (parts[1] === 'devices') return { view: 'devices', group };
+    if (parts[1] === 'inspector') return { view: 'inspector' };
     return { view: 'engineer', group };
   }
   return { view: 'launch' };
@@ -34,6 +35,7 @@ export function href(route: Route): string {
     engineer: '/engineer',
     attention: '/engineer/attention',
     devices: '/engineer/devices',
+    inspector: '/engineer/inspector',
   }[route.view];
   return `#${path}${route.group ? `?group=${encodeURIComponent(route.group)}` : ''}`;
 }

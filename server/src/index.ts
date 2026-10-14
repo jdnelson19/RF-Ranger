@@ -13,6 +13,7 @@ import { parseArgs } from 'node:util';
 import { loadConfig, normalizeConfig, type Config } from './server/config.js';
 import { startDemo } from './server/demo.js';
 import { startHttp } from './server/http.js';
+import { Inspector } from './server/inspector.js';
 import { LiveManager, parseTarget } from './server/live.js';
 import { Runtime } from './server/runtime.js';
 import type { RunMode } from './server/snapshot.js';
@@ -72,7 +73,8 @@ if (mode === 'live') {
   await liveManager.start();
 }
 
-const server = await startHttp(runtime, { port: config.port, webDir, photosDir: config.photosDir });
+const inspector = new Inspector(runtime);
+const server = await startHttp(runtime, { port: config.port, webDir, photosDir: config.photosDir, inspector });
 
 const label = { demo: '(DEMO: simulated hardware) ', live: '(live: auto-discovery) ', config: '' }[mode];
 console.log(`RF Ranger ${label}on http://localhost:${config.port}`);
@@ -85,6 +87,7 @@ async function shutdown() {
   stopping = true;
   console.log('\nStopping: switching receiver metering off…');
   liveManager?.stop();
+  await inspector.closeAll();
   server.close();
   await runtime.stop();
   await stopDemo?.();

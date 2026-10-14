@@ -17,6 +17,7 @@ Shure is the first supported hardware ecosystem. Sennheiser is planned next.
 - [Architecture](docs/architecture.md): data model, readings, readiness rules
 - [Shure protocol notes](docs/shure-protocol.md): per-family fields, units, sentinels
 - [Hardware validation](docs/hardware-validation.md): how to test against real receivers
+- [Device reports](docs/device-reports.md): help add support for hardware you have
 
 ## Try it
 

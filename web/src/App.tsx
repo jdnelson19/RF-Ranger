@@ -14,7 +14,7 @@ export function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (document.querySelector('.drawer')) return;
+      if (document.querySelector('.drawer') || route.view === 'inspector') return;
       const groups = live.snapshot?.groups ?? [];
       if (e.key === 'f') {
         if (document.fullscreenElement) void document.exitFullscreen();
@@ -35,7 +35,7 @@ export function App() {
       {live.snapshot?.demo && route.view !== 'pickup' && <DemoBanner />}
       {route.view === 'launch' && <Launch live={live} />}
       {route.view === 'pickup' && <Pickup live={live} route={route} />}
-      {(route.view === 'engineer' || route.view === 'attention' || route.view === 'devices') && <Engineer live={live} route={route} />}
+      {(route.view === 'engineer' || route.view === 'attention' || route.view === 'devices' || route.view === 'inspector') && <Engineer live={live} route={route} />}
     </>
   );
 }

@@ -2,6 +2,7 @@ import { createReadStream, existsSync, statSync } from 'node:fs';
 import http from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
+import { handleInspector, type Inspector } from './inspector.js';
 import type { Runtime } from './runtime.js';
 
 const MIME: Record<string, string> = {
@@ -25,12 +26,14 @@ export interface HttpOptions {
   photosDir?: string;
   /** Max snapshot pushes per second while data is changing. */
   pushHz?: number;
+  /** Local-only device inspector (see inspector.ts). */
+  inspector?: Inspector;
 }
 
 /**
- * Read-only API: GET /api/snapshot and a /ws stream of snapshots. Nothing
- * here can change receiver or config state, so it is safe to expose to the
- * production network for TVs and tablets.
+ * Read-only API: GET /api/snapshot and a /ws stream of snapshots, safe to
+ * expose to the production network for TVs and tablets. The one exception,
+ * /api/inspector, answers only the computer running RF Ranger.
  */
 export function startHttp(runtime: Runtime, opts: HttpOptions): Promise<http.Server> {
   const server = http.createServer((req, res) => {
@@ -39,6 +42,11 @@ export function startHttp(runtime: Runtime, opts: HttpOptions): Promise<http.Ser
     if (url.pathname === '/api/snapshot') {
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
       res.end(JSON.stringify(runtime.snapshot()));
+      return;
+    }
+
+    if (url.pathname.startsWith('/api/inspector') && opts.inspector) {
+      void handleInspector(opts.inspector, req, res, url);
       return;
     }
 

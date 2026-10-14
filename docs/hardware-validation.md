@@ -75,7 +75,17 @@ Open the **Engineer → Devices** tab to see what was found and each connection'
 
 Press **Ctrl+C** to stop. This switches metering off on every receiver.
 
-### Step 3 (optional): raw probe of one receiver
+### Step 3: Device Inspector (one report per model)
+
+On the laptop running RF Ranger, open **Engineer → Inspector**. For each receiver model, and for the charger:
+
+- [ ] **Watch** it, press **Get all**, and (for receivers) **Sample meters 30 s** while someone talks into a transmitter
+- [ ] Switch a transmitter off and on while watching
+- [ ] Fill in **What is this device?**, then **Export report**. Untick *Remove names & addresses* for our own testing, if you're happy to keep names in.
+
+These reports are the reference data for every model RF Ranger supports.
+
+### Step 4 (optional): raw probe of one receiver
 
 If anything looks wrong, capture one receiver's full conversation:
 

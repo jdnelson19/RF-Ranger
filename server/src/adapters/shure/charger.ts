@@ -110,6 +110,10 @@ export class ShureCharger extends EventEmitter<Events> {
     return this.conn.stop();
   }
 
+  send(frame: string): void {
+    this.conn.send(frame);
+  }
+
   private handle(msg: ShureMessage, now: number): void {
     if (msg.kind !== 'rep') return;
 

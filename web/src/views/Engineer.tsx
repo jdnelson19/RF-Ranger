@@ -6,6 +6,7 @@ import { TONE_RANK, slotTone } from '../format';
 import { href, navigate, type Route } from '../route';
 import type { Live } from '../useSnapshot';
 import { Devices } from './Devices';
+import { Inspector } from './Inspector';
 
 type Sort = 'slot' | 'status';
 
@@ -51,6 +52,7 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
           <a className={`tab${route.view === 'devices' ? ' tab--active' : ''}`} href={href({ view: 'devices' })}>
             Devices {rxDown.length > 0 && <span className="tab__badge tab__badge--bad">{rxDown.length}</span>}
           </a>
+          <a className={`tab${route.view === 'inspector' ? ' tab--active' : ''}`} href={href({ view: 'inspector' })}>Inspector</a>
         </nav>
         <div className="topbar__right">
           <a className="btn btn--ghost" href={href({ view: 'pickup', group: route.group })}>Pickup view ↗</a>
@@ -62,7 +64,9 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
         <div className="frozen-banner" role="alert">No link to the RF Ranger server. Values below are frozen and may be out of date.</div>
       )}
 
-      {route.view === 'devices' ? (
+      {route.view === 'inspector' ? (
+        <Inspector live={live} />
+      ) : route.view === 'devices' ? (
         <Devices live={live} />
       ) : (
         <>
