@@ -11,7 +11,7 @@
 #   SIGN_IDENTITY       "Developer ID Application: Name (TEAMID)", in a keychain
 #   APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD    for notarytool
 #   BUNDLE_ID           defaults to io.github.jdnelson19.rfranger
-set -euo pipefail
+set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
@@ -29,7 +29,23 @@ DMG="$OUT/RF-Ranger-$VERSION.dmg"
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
-step() { printf '\n==> %s\n' "$*"; }
+LOG="$OUT/build.log"
+exec > >(tee -a "$LOG") 2>&1
+CURRENT_STEP="start"
+step() { CURRENT_STEP="$*"; printf '\n==> %s\n' "$*"; }
+
+# On GitHub Actions, surface the failing step and its last output lines as an
+# annotation: annotations are visible on the run page (and API) without
+# opening the full log.
+on_error() {
+  local code=$1 line=$2
+  [ -n "${GITHUB_ACTIONS:-}" ] || return 0
+  sleep 1 # let tee flush
+  local tail
+  tail="$(tail -n 30 "$LOG" | sed -e 's/%/%25/g' -e 's/\r//g' | awk '{printf "%s%%0A", $0}')"
+  echo "::error title=macOS build failed during: $CURRENT_STEP::exit $code at build.sh line $line%0A$tail"
+}
+trap 'on_error $? $LINENO' ERR
 
 step "RF Ranger $VERSION (build $BUILD) with Node $NODE_VERSION"
 

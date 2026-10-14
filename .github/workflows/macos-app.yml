@@ -25,10 +25,10 @@ jobs:
       HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
       BUNDLE_ID: ${{ vars.MACOS_BUNDLE_ID || 'io.github.jdnelson19.rfranger' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # The Node shipped inside the app. Node 22 runs on macOS 11 and later.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
 
