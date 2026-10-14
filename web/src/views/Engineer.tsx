@@ -7,6 +7,7 @@ import { href, navigate, type Route } from '../route';
 import type { Live } from '../useSnapshot';
 import { Devices } from './Devices';
 import { Inspector } from './Inspector';
+import { PlanningCenter } from './PlanningCenter';
 
 type Sort = 'slot' | 'status';
 
@@ -53,6 +54,7 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
             Devices {rxDown.length > 0 && <span className="tab__badge tab__badge--bad">{rxDown.length}</span>}
           </a>
           <a className={`tab${route.view === 'inspector' ? ' tab--active' : ''}`} href={href({ view: 'inspector' })}>Inspector</a>
+          <a className={`tab${route.view === 'planning-center' ? ' tab--active' : ''}`} href={href({ view: 'planning-center' })}>Planning Center</a>
         </nav>
         <div className="topbar__right">
           <a className="btn btn--ghost" href={href({ view: 'pickup', group: route.group })}>Pickup view ↗</a>
@@ -66,6 +68,8 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
 
       {route.view === 'inspector' ? (
         <Inspector live={live} />
+      ) : route.view === 'planning-center' ? (
+        <PlanningCenter />
       ) : route.view === 'devices' ? (
         <Devices live={live} />
       ) : (

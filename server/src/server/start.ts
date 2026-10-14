@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import type http from 'node:http';
 import { dirname, isAbsolute, resolve } from 'node:path';
+import { PlanningCenterLink } from '../integrations/planning-center/link.js';
 import { loadConfig, normalizeConfig, type Config } from './config.js';
 import { startDemo } from './demo.js';
 import { startHttp } from './http.js';
@@ -21,6 +22,8 @@ export interface StartOptions {
   webDir?: string;
   /** Running as the desktop app: enables Quit from the UI on this computer. */
   app?: { onQuit: () => void };
+  /** Defaults to this user's saved link (see integrations/planning-center). */
+  planningCenter?: PlanningCenterLink;
   log?: (msg: string) => void;
 }
 
@@ -60,15 +63,27 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
 
   const runtime = new Runtime(config, opts.mode);
   const inspector = new Inspector(runtime);
+  const planningCenter = opts.planningCenter ?? new PlanningCenterLink();
   let server: http.Server;
   try {
-    server = await startHttp(runtime, { port: config.port, webDir: opts.webDir, photosDir: config.photosDir, inspector, onQuit: opts.app?.onQuit });
+    server = await startHttp(runtime, {
+      port: config.port,
+      webDir: opts.webDir,
+      photosDir: config.photosDir,
+      inspector,
+      planningCenter,
+      onQuit: opts.app?.onQuit,
+    });
   } catch (err) {
     await stopDemo?.();
     throw err;
   }
   runtime.app = opts.app !== undefined;
   runtime.start();
+  // Check a saved Planning Center link in the background; never delays startup.
+  if (planningCenter.status().configured) {
+    void planningCenter.refresh().then((s) => log(s.connected ? `  Planning Center: ${s.organization?.name}` : `  Planning Center: ${s.error}`));
+  }
 
   let liveManager: LiveManager | undefined;
   if (opts.mode === 'live') {

@@ -352,7 +352,7 @@ export async function handleInspector(inspector: Inspector, req: http.IncomingMe
   }
 }
 
-function readJson(req: http.IncomingMessage): Promise<unknown> {
+export function readJson(req: http.IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
     let data = '';
     req.setEncoding('utf8');

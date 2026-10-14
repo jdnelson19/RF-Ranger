@@ -2,7 +2,9 @@ import { createReadStream, existsSync, statSync } from 'node:fs';
 import http from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
+import type { PlanningCenterLink } from '../integrations/planning-center/link.js';
 import { handleInspector, isLocalRequest, type Inspector } from './inspector.js';
+import { handlePco } from './pco-http.js';
 import type { Runtime } from './runtime.js';
 
 const MIME: Record<string, string> = {
@@ -30,12 +32,14 @@ export interface HttpOptions {
   inspector?: Inspector;
   /** Desktop app: POST /api/app/quit from this computer stops RF Ranger. */
   onQuit?: () => void;
+  /** Local-only Planning Center settings (see pco-http.ts). */
+  planningCenter?: PlanningCenterLink;
 }
 
 /**
  * Read-only API: GET /api/snapshot and a /ws stream of snapshots, safe to
- * expose to the production network for TVs and tablets. The one exception,
- * /api/inspector, answers only the computer running RF Ranger.
+ * expose to the production network for TVs and tablets. The exceptions,
+ * /api/inspector and /api/pco, answer only the computer running RF Ranger.
  */
 export function startHttp(runtime: Runtime, opts: HttpOptions): Promise<http.Server> {
   const server = http.createServer((req, res) => {
@@ -62,6 +66,11 @@ export function startHttp(runtime: Runtime, opts: HttpOptions): Promise<http.Ser
 
     if (url.pathname.startsWith('/api/inspector') && opts.inspector) {
       void handleInspector(opts.inspector, req, res, url);
+      return;
+    }
+
+    if (url.pathname.startsWith('/api/pco') && opts.planningCenter) {
+      void handlePco(opts.planningCenter, req, res, url);
       return;
     }
 

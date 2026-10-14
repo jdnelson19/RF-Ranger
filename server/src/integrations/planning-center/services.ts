@@ -8,13 +8,12 @@
  * (c) 2018-2023 Joseph Adams).
  */
 import type { PcoClient, PcoDocument, PcoResource } from './client.js';
+import type { Organization, ServiceType } from './types.js';
+
+export type { Organization, ServiceType } from './types.js';
 
 const SERVICES = '/services/v2';
 
-export interface ServiceType {
-  id: string;
-  name: string;
-}
 
 export interface PlanTime {
   id: string;
@@ -66,6 +65,15 @@ export interface LiveState {
 }
 
 // ---- fetches -------------------------------------------------------------
+
+/**
+ * The organization the credentials belong to. Only name and time zone are
+ * kept: the full resource includes account details (even a `secret`).
+ */
+export async function organization(client: PcoClient): Promise<Organization> {
+  const doc = await client.get<PcoResource<{ name?: string; time_zone?: string }>>(SERVICES);
+  return { id: doc.data.id, name: doc.data.attributes.name ?? 'Planning Center', timeZone: doc.data.attributes.time_zone || undefined };
+}
 
 export async function serviceTypes(client: PcoClient): Promise<ServiceType[]> {
   const doc = await client.getAll<{ name: string }>(`${SERVICES}/service_types`, { order: 'sequence' });

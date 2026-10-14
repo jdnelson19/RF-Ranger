@@ -6,13 +6,43 @@
  *   1. PCO_APP_ID and PCO_SECRET environment variables
  *   2. ~/.rf-ranger/planning-center.json  ({ "appId": "...", "secret": "..." })
  */
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import type { PcoCredentials } from './client.js';
 
 export function credentialsPath(home = homedir()): string {
   return join(home, '.rf-ranger', 'planning-center.json');
+}
+
+/** Non-secret choices (which service type to follow), kept apart from the token. */
+export function settingsPath(home = homedir()): string {
+  return join(home, '.rf-ranger', 'planning-center.settings.json');
+}
+
+export interface PcoSettings {
+  /** The account these choices belong to; another account's IDs mean nothing. */
+  organizationId?: string;
+  serviceTypeId?: string;
+  /** For display while offline; the ID is what counts (names aren't unique). */
+  serviceTypeName?: string;
+}
+
+export function loadSettings(path = settingsPath()): PcoSettings {
+  try {
+    return JSON.parse(readFileSync(path, 'utf8')) as PcoSettings;
+  } catch {
+    return {};
+  }
+}
+
+export function saveSettings(s: PcoSettings, path = settingsPath()): void {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, JSON.stringify(s, null, 2) + '\n');
+}
+
+export function deleteCredentials(path = credentialsPath()): void {
+  rmSync(path, { force: true });
 }
 
 export function loadCredentials(env: NodeJS.ProcessEnv = process.env, path = credentialsPath()): (PcoCredentials & { source: string }) | undefined {

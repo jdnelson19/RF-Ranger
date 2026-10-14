@@ -1,8 +1,42 @@
-# Planning Center integration (groundwork)
+# Planning Center integration
 
 Goal: fill RF slots with the people scheduled for the next service, and show Services Live timers in the Engineer and Pickup views. When a service ends, move to the next one on its own.
 
-**Status:** the API client, credentials, and data reads are built and tested against recorded response shapes. Nothing is wired into the runtime or UI yet. Use `npm run pco` to check that real data comes back as expected.
+**Status:**
+- Each church links its own account in the app: **Engineer → Planning Center**. It shows the linked organization, the service type to follow, and the next service with its head count.
+- Tested against a real account (Grace Church): 34 service types, and the next plan with 35 scheduled.
+- Positions are not yet mapped to RF slots. That's next.
+
+## Linking an account (each church, in the app)
+
+Open **Engineer → Planning Center** on the computer running RF Ranger, then:
+1. Paste a Personal Access Token and click **Connect**. The screen links to where to create one.
+2. Choose the service type to follow.
+3. Check the summary of the next service.
+
+The screen only works on that computer, like the Device Inspector: a token is as good as a password.
+
+- **Token handling.** RF Ranger checks a token with Planning Center *before* saving it, so a rejected token is never written to disk. The secret is never sent back to the browser; the screen shows only the organization's name and the token's last four characters.
+- **Service types are chosen by ID.** Names repeat: one account has two different "Special Services".
+- **Switching accounts.** The chosen service type is recorded with the organization it belongs to. Linking a different account clears it, because another account's IDs mean nothing.
+- **Disconnect** deletes the token and choices from this computer.
+- **A saved link is re-checked at startup**, in the background, so startup never waits on it.
+
+The code is in `server/src/integrations/planning-center/link.ts` (connection), `server/src/server/pco-http.ts` (local-only API) and `web/src/views/PlanningCenter.tsx` (screen).
+
+### Sign in with Planning Center (planned)
+
+Pasting a token works for everyone today, but the token belongs to one person's account. A one-click **Sign in with Planning Center** is the better long-term experience. Planning Center supports it for apps installed on a church's own computer: OAuth for **public** apps, which have no client secret and must use PKCE.
+- Endpoints: `https://api.planningcenteronline.com/oauth/authorize` and `/oauth/token`.
+- The scope needed is `services`.
+- Access tokens last 2 hours. Refresh tokens are honored for 90 days, so a church that doesn't open RF Ranger for 90 days would sign in again.
+- Since March 2023, only **Organization Administrators** can create OAuth applications.
+
+Still to test with a registered app:
+1. Whether `http://localhost:<port>` is accepted as the redirect URI.
+2. Whether users of *other* organizations can authorize an app registered by one organization. This is the multi-church case.
+
+The plan is to register the app in one Planning Center account, then sign in from a different church's account. The sign-in would slot into the same connection and screen as the token.
 
 ## Credentials (per user)
 
@@ -10,12 +44,16 @@ Planning Center uses a **Personal Access Token**: an Application ID plus a Secre
 
 Credentials are kept out of the show config on purpose, because configs get copied and shared. They're looked up in this order:
 
-1. `PCO_APP_ID` and `PCO_SECRET` environment variables
-2. `~/.rf-ranger/planning-center.json`, which `npm run pco -- setup` writes after checking the token works
+1. `PCO_APP_ID` and `PCO_SECRET` environment variables. The app shows these, but can't change or remove them.
+2. `~/.rf-ranger/planning-center.json`, written by the app's Connect screen or by `npm run pco -- setup`, after the token has been checked.
+
+Non-secret choices (organization, service type) are kept in `~/.rf-ranger/planning-center.settings.json`.
 
 RF Ranger only ever reads.
 
-## Try it
+## Command-line check
+
+On Windows PowerShell, if `npm` is blocked by the script policy, use `npm.cmd` instead. Without the `--`, npm still passes arguments through: `npm.cmd run pco types`.
 
 ```
 cd server

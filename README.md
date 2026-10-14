@@ -19,7 +19,7 @@ Shure is the first supported hardware ecosystem. Sennheiser is planned next.
 - [Hardware validation](docs/hardware-validation.md): how to test against real receivers
 - [Device reports](docs/device-reports.md): help add support for hardware you have
 - [macOS app](docs/macos-app.md): using the app, and how it's built, signed and notarized
-- [Planning Center](docs/planning-center.md): scheduled people and live timers (groundwork; `npm run pco`)
+- [Planning Center](docs/planning-center.md): link your church's account (Engineer → Planning Center); scheduled people and live timers
 
 ## Try it
 
