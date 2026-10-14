@@ -128,6 +128,10 @@ export class ShureSim {
       timers.delete(ch);
       if (ms > 0) timers.set(ch, setInterval(() => this.write(socket, this.sample(ch)), Math.max(100, ms)));
       this.write(socket, `< REP ${ch} METER_RATE ${pad(ms, 5)} >`);
+    } else if (verb === 'GET' && a && /^\d+$/.test(a) && b && b !== 'METER_RATE') {
+      const prefix = `< REP ${a} ${b} `;
+      const reply = this.channels[Number(a) - 1] ? this.channelReports(Number(a)).find((f) => f.startsWith(prefix)) : undefined;
+      this.write(socket, reply ?? '< REP ERR >');
     } else if (verb === 'GET' && a && b === 'METER_RATE') {
       this.write(socket, `< REP ${a} METER_RATE 00000 >`);
     } else if (parseMessage(frame).kind === 'unknown') {

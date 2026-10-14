@@ -51,6 +51,23 @@ describe.each<ShureFamilyId>(['ulxd', 'axd', 'slxd'])('ShureReceiver against sim
   });
 });
 
+describe('ShureReceiver polling', () => {
+  it('keeps an unchanging battery reading fresh by re-reading it', async () => {
+    const sim = new ShureSim({ family: 'axd' });
+    const port = await sim.listen();
+    const rx = new ShureReceiver({ id: 'rx', host: '127.0.0.1', port, family: 'axd', pollIntervalMs: 150 });
+    cleanup.push(() => sim.close(), () => rx.stop());
+    rx.start();
+
+    const bars = () => rx.channels.get(1)!.telemetry.batteryBars;
+    await until(() => bars().state === 'ok');
+    const first = bars();
+    if (first.state !== 'ok') throw new Error('unreachable');
+    await until(() => { const b = bars(); return b.state === 'ok' && b.at > first.at + 250; });
+    expect(bars()).toMatchObject({ state: 'ok', value: first.value });
+  });
+});
+
 describe('ShureReceiver connection handling', () => {
   it('reconnects after the receiver drops the connection', async () => {
     const { sim, rx } = await setup('ulxd');

@@ -21,6 +21,11 @@ export interface ShureFamily {
   supports: ReadonlySet<Metric>;
   reports: Readonly<Record<string, Apply>>;
   applySample: Apply;
+  /**
+   * Reported-on-change values that are re-read periodically, so a value that
+   * simply hasn't changed stays fresh and a missed report self-corrects.
+   */
+  poll: readonly string[];
 }
 
 // ---- value parsers -------------------------------------------------------
@@ -106,6 +111,7 @@ const ulxd: ShureFamily = {
     RF_INT_DET: (t, a, now) => { t.interference = flag(a[0], now, ['CRITICAL'], ['NONE']); },
     ENCRYPTION_WARNING: (t, a, now) => { t.encryptionFault = flag(a[0], now, ['ON'], ['OFF']); },
   },
+  poll: ['BATT_BARS', 'BATT_CHARGE', 'BATT_RUN_TIME', 'TX_TYPE', 'TX_OFFSET', 'AUDIO_MUTE', 'RF_INT_DET', 'ENCRYPTION_WARNING'],
   // < SAMPLE x ALL nn aaa eee >  nn: AX/XB/XX, aaa: RF 0-115 (dBm = aaa-128), eee: audio 0-50
   applySample: (t, a, now) => {
     const [ant, rf, audio] = a;
@@ -145,6 +151,7 @@ const axd: ShureFamily = {
     ENCRYPTION_STATUS: (t, a, now) => { t.encryptionFault = flag(a[0], now, ['ERROR'], ['OK']); },
     UNREGISTERED_TX_STATUS: (t, a, now) => { t.unregisteredTx = flag(a[0], now, ['ERROR'], ['OK']); },
   },
+  poll: ['TX_BATT_BARS', 'TX_BATT_CHARGE_PERCENT', 'TX_BATT_MINS', 'TX_MODEL', 'TX_DEVICE_ID', 'TX_OFFSET', 'AUDIO_MUTE', 'INTERFERENCE_STATUS', 'ENCRYPTION_STATUS', 'UNREGISTERED_TX_STATUS'],
   // < SAMPLE x ALL qual audBitmap audPeak audRms ant (bitmap rssi)×N [ant2 (bitmap rssi)×N] >
   // N = ant.length (2, or 4 with Quadversity). The second block exists only in FD-C mode.
   applySample: (t, a, now) => {
@@ -194,6 +201,7 @@ const slxd: ShureFamily = {
     TX_BATT_TYPE: battType,
     TX_MODEL: txModel,
   },
+  poll: ['TX_BATT_BARS', 'TX_BATT_MINS', 'TX_MODEL', 'AUDIO_MUTE'],
   // < SAMPLE x ALL audPeak audRms rssi >, all encoded as value - 120
   applySample: (t, a, now) => {
     const [peak, rms, rf] = a;

@@ -1,0 +1,34 @@
+{
+  "port": 8058,
+  "groups": ["Vocals", "Speakers", "Band"],
+  "photosDir": "./photos",
+  "receivers": [
+    { "id": "AD4Q-1", "family": "axd", "host": "192.168.1.60" },
+    { "id": "ULXD4Q-1", "family": "ulxd", "host": "192.168.1.50" }
+  ],
+  "chargers": [
+    { "id": "SBC220-A", "host": "192.168.1.70" }
+  ],
+  "slots": [
+    {
+      "slot": 1, "receiver": "AD4Q-1", "channel": 1, "label": "H1", "kind": "handheld", "group": "Vocals",
+      "assignment": {
+        "artist": "Lead Vocalist", "role": "Worship Leader", "photo": "lead.jpg",
+        "expectedTxId": "LeadVox",
+        "charger": { "id": "SBC220-A", "bay": 1 }
+      }
+    },
+    {
+      "slot": 2, "receiver": "ULXD4Q-1", "channel": 1, "label": "BP1", "kind": "bodypack", "group": "Speakers",
+      "assignment": { "artist": "Pastor", "role": "Teaching" }
+    },
+    { "slot": 3, "receiver": "ULXD4Q-1", "channel": 2, "label": "BP2", "kind": "bodypack", "group": "Speakers" }
+  ],
+  "thresholds": {
+    "chargerReadyPercent": 90,
+    "warningPercent": 50,
+    "criticalPercent": 20,
+    "rfWeakDbm": -85,
+    "runtimeWarnMin": 60
+  }
+}

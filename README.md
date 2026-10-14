@@ -9,7 +9,7 @@ RF Ranger monitors wireless microphone systems for live production. It has two v
 
 Shure is the first supported hardware ecosystem. Sennheiser is planned next.
 
-> **Status:** Early development. The Shure protocol adapter (ULX-D, Axient Digital, SLX-D) and readiness rules exist and are tested against a simulator; real-hardware validation is next. There is no UI yet.
+> **Status:** Early development. The Shure adapter (ULX-D, Axient Digital, SLX-D, SBC220/SBC240 chargers), readiness rules, and the Engineer and Pickup UIs run end-to-end against simulated hardware. Validation against real receivers is next.
 
 ## Docs
 
@@ -20,20 +20,20 @@ Shure is the first supported hardware ecosystem. Sennheiser is planned next.
 
 ## Try it
 
-Requires Node.js 20+.
+Requires Node.js 20 or newer, on macOS or Windows.
 
 ```
-cd server
-npm install
-npm test
-npm run sim -- ulxd                      # simulated receiver on :2202
-npm run probe -- ulxd 127.0.0.1          # live table + raw log (use a real receiver IP for hardware)
+cd web && npm install && npm run build
+cd ../server && npm install
+npm run demo                 # simulated receivers and charger -> http://localhost:8058
 ```
 
-## Relationship to Micboard
+Opening the app shows a launch screen with two choices: **Artist Pickup** (the TV display at the RF table) or **Engineer**. Every view has its own URL, so a backstage TV can be bookmarked straight to `#/pickup?group=Vocals`.
 
-RF Ranger is an **independent project** inspired by and building on [Micboard](https://github.com/karlcswanson/micboard) by Karl Swanson. Micboard established a practical way to visualize Shure wireless systems for artists and engineers, and RF Ranger aims to keep that value available to the people who rely on it.
+With real hardware, copy `server/rf-ranger.config.example.json` to `server/rf-ranger.config.json`, edit it, and run `npm start`.
 
-RF Ranger is **not** an official continuation of Micboard and is not endorsed by its author. Portions derived from Micboard are used under the MIT License. See [NOTICE](NOTICE).
+**UI development:** run `npm run demo` in `server/` and `npm run dev` in `web/` (Vite on :5173, with proxying to the server).
 
-Shure and Sennheiser are trademarks of their respective owners. RF Ranger is not affiliated with or endorsed by either company.
+**Hardware check:** `npm run probe -- ulxd <receiver-ip>` (see [docs/hardware-validation.md](docs/hardware-validation.md)).
+
+**Keyboard:** `1`–`9` select a group, `0` shows all groups, `f` toggles fullscreen, `Esc` returns to the launch screen.

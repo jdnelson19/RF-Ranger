@@ -15,6 +15,8 @@ export interface ShureReceiverOptions {
   meterRateMs?: number;
   /** Drop and reconnect when nothing is heard for this long. */
   silenceTimeoutMs?: number;
+  /** Re-read reported-on-change values this often. */
+  pollIntervalMs?: number;
   connectTimeoutMs?: number;
   /** Injectable clock for tests. */
   now?: () => number;
@@ -44,10 +46,13 @@ export class ShureReceiver extends EventEmitter<Events> {
   readonly channels = new Map<number, ChannelState>();
   readonly deviceRaw: Record<string, string> = {};
   private readonly conn: ShureConnection;
+  private pollTimer: NodeJS.Timeout | undefined;
+  private readonly pollIntervalMs: number;
 
   constructor(opts: ShureReceiverOptions) {
     super();
     this.family = SHURE_FAMILIES[opts.family];
+    this.pollIntervalMs = opts.pollIntervalMs ?? 30_000;
     const meterRateMs = Math.max(100, opts.meterRateMs ?? 250);
     const channelCount = opts.channels ?? this.family.defaultChannels;
     this.info = { id: opts.id, manufacturer: 'shure', family: this.family.id, host: opts.host, channelCount };
@@ -82,10 +87,19 @@ export class ShureReceiver extends EventEmitter<Events> {
 
   start(): void {
     this.conn.start();
+    this.pollTimer = setInterval(() => this.poll(), this.pollIntervalMs);
   }
 
   stop(): Promise<void> {
+    clearInterval(this.pollTimer);
     return this.conn.stop();
+  }
+
+  private poll(): void {
+    if (this.conn.status.state !== 'connected') return;
+    for (const ch of this.channels.keys()) {
+      for (const key of this.family.poll) this.send(getCommand(ch, key));
+    }
   }
 
   send(frame: string): void {

@@ -1,0 +1,130 @@
+import { useEffect } from 'react';
+import { SEVERITY_TONE, mhz, runtime, show } from '../format';
+import type { ChannelTelemetry, Reading, SlotView } from '../types';
+import { StatusPill, ToneIcon } from './ui';
+
+type Row = [label: string, key: keyof ChannelTelemetry, fmt?: (v: any) => string];
+
+const ROWS: Array<[section: string, rows: Row[]]> = [
+  ['Transmitter', [
+    ['Model', 'txModel'],
+    ['Device ID', 'txDeviceId'],
+    ['Mute switch', 'txMuted', (v: boolean) => (v ? 'Muted' : 'Open')],
+    ['Offset', 'txOffsetDb', (v: number) => `${v > 0 ? '+' : ''}${v} dB`],
+  ]],
+  ['Battery', [
+    ['Bars', 'batteryBars', (v: number) => `${v} / 5`],
+    ['Charge', 'batteryPercent', (v: number) => `${v}%`],
+    ['Runtime', 'batteryRuntimeMin', (v: number) => `${runtime(v)} h`],
+    ['Type', 'batteryType'],
+  ]],
+  ['RF', [
+    ['Frequency', 'frequencyKhz', (v: number) => `${mhz(v)} MHz`],
+    ['Group / channel', 'groupChannel'],
+    ['RSSI', 'rfDbm', (v: number[]) => v.map((x) => `${x} dBm`).join('  ·  ')],
+    ['Antennas', 'antennas'],
+    ['Link quality', 'linkQuality', (v: number) => `${v} / 5`],
+    ['Interference', 'interference', (v: boolean) => (v ? 'Detected' : 'None')],
+    ['Encryption', 'encryptionFault', (v: boolean) => (v ? 'Mismatch' : 'OK')],
+    ['Registration', 'unregisteredTx', (v: boolean) => (v ? 'Unregistered TX' : 'OK')],
+  ]],
+  ['Audio', [
+    ['RMS', 'audioRmsDbfs', (v: number) => `${v} dBFS`],
+    ['Peak', 'audioPeakDbfs', (v: number) => `${v} dBFS`],
+    ['Receiver output', 'rxMuted', (v: boolean) => (v ? 'Muted' : 'On')],
+  ]],
+];
+
+const STATE_NOTE: Record<Reading<unknown>['state'], string> = {
+  ok: '',
+  absent: 'device reports unavailable',
+  unsupported: 'not supported by this hardware',
+  unknown: 'not received yet',
+};
+
+export function ChannelDetail({ s, now, onClose }: { s: SlotView; now: number; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const a = s.assignment;
+  return (
+    <div className="drawer-backdrop" onClick={onClose}>
+      <aside className="drawer" onClick={(e) => e.stopPropagation()} aria-label={`Channel ${s.label} details`}>
+        <header className="drawer__head">
+          <div>
+            <div className="drawer__label">{s.label}</div>
+            <div className="drawer__title">{a?.artist ?? 'Unassigned'}</div>
+            <div className="drawer__sub">{[a?.role, s.group, `${s.receiverId} ch${s.channel}`, s.family.toUpperCase()].filter(Boolean).join(' · ')}</div>
+          </div>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">✕</button>
+        </header>
+
+        <section className="drawer__section">
+          <div className="drawer__readiness">
+            <StatusPill label={s.readiness.label} size="lg" />
+            <span className="drawer__reason">{s.readiness.reason ?? (s.readiness.label === 'READY' ? 'All checks passed' : '')}</span>
+          </div>
+          <p className="drawer__note">Pickup display shows: <b>{s.readiness.label.replace(/_/g, ' ')}</b>{s.readiness.source === 'charger' ? ' (from charger bay)' : ''}</p>
+          {s.alerts.length > 0 && (
+            <ul className="alert-list">
+              {s.alerts.map((al) => (
+                <li key={al.code} className={`alert-list__item alert-list__item--${SEVERITY_TONE[al.severity]}`}>
+                  <ToneIcon tone={SEVERITY_TONE[al.severity]} /> {al.message}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {a && (
+          <section className="drawer__section">
+            <h3>Assignment</h3>
+            <dl className="kv">
+              <dt>Expected TX ID</dt><dd>{a.expectedTxId ?? <span className="dim">not set</span>}</dd>
+              <dt>Charger bay</dt><dd>{a.charger ? `${a.charger.id} · bay ${a.charger.bay}` : <span className="dim">none</span>}</dd>
+              {a.notes && (<><dt>Notes</dt><dd>{a.notes}</dd></>)}
+            </dl>
+          </section>
+        )}
+
+        {s.bay && (
+          <section className="drawer__section">
+            <h3>Charger bay</h3>
+            <dl className="kv">
+              <dt>Battery</dt><dd>{show(s.bay.batteryPresent, (v) => (v ? 'Docked' : 'Empty'))}</dd>
+              <dt>Charge</dt><dd>{show(s.bay.chargePercent, (v) => `${v}%`)}</dd>
+              <dt>Time to full</dt><dd>{show(s.bay.minutesToFull, (v) => (v === 0 ? 'Full' : `${v} min`))}</dd>
+              <dt>Health</dt><dd>{show(s.bay.healthPercent, (v) => `${v}%`)}</dd>
+              <dt>Fault</dt><dd>{show(s.bay.error, (v) => v ?? 'None')}</dd>
+            </dl>
+          </section>
+        )}
+
+        {ROWS.map(([section, rows]) => (
+          <section key={section} className="drawer__section">
+            <h3>{section}</h3>
+            <dl className="kv">
+              {rows.map(([label, key, fmt]) => {
+                const reading = s.telemetry[key] as Reading<unknown>;
+                const age = reading.state === 'ok' ? Math.max(0, Math.round((now - reading.at) / 1000)) : undefined;
+                return (
+                  <div key={label} className="kv__row">
+                    <dt>{label}</dt>
+                    <dd className={reading.state === 'ok' ? '' : 'dim'}>
+                      {show(reading, fmt ?? String)}
+                      {reading.state !== 'ok' && <span className="kv__why">{STATE_NOTE[reading.state]}</span>}
+                      {age !== undefined && age > 10 && <span className="kv__why">{age}s ago</span>}
+                    </dd>
+                  </div>
+                );
+              })}
+            </dl>
+          </section>
+        ))}
+      </aside>
+    </div>
+  );
+}

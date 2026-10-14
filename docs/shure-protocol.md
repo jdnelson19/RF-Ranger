@@ -112,3 +112,7 @@ Source: Shure *SBC220 SBC240 Command Strings*, v2.0 (2020-K). Same transport (TC
 Values are reported **on change only**. There is no metering, so RF Ranger polls `GET DEVICE_ID` to prove the link is alive. **The charger does not identify which transmitter is docked.** It has no model, serial, or frequency per bay.
 
 The older SBC450/SBC850 (SB900 batteries) use a different string set, documented in the ULX-D bulletin. It only identifies ULXD6/ULXD8 transmitters and is not implemented yet.
+
+## Freshness of reported values
+
+`REP` values (battery, TX model, faults) arrive **only on change**. A battery that sits at 92 % sends nothing new. RF Ranger therefore re-reads each family's key reported values every 30 s (`ShureFamily.poll`). This keeps steady values fresh and corrects any missed report. Readings older than 2 minutes are treated as unknown, so a link that silently stops answering polls can never leave a stale "good" value on screen.
