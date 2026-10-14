@@ -69,7 +69,7 @@ export class ShureReceiver extends EventEmitter<Events> {
 
     this.conn = new ShureConnection({
       host: opts.host,
-      port: opts.port,
+      port: opts.port ?? family.defaultPort,
       silenceTimeoutMs: opts.silenceTimeoutMs,
       connectTimeoutMs: opts.connectTimeoutMs,
       now: opts.now,

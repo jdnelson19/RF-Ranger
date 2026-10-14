@@ -21,6 +21,8 @@ export interface ShureFamily {
   defaultChannels: number;
   /** Device-level name key: Wireless Workbench's device name. */
   deviceIdKey: 'DEVICE_ID' | 'DEVICE_NAME';
+  /** TCP control port: 2202 for receivers and chargers, 2201 for the PSM 1000. */
+  defaultPort: number;
   /**
    * Whether `GET 0 ALL` returns every channel value. Without it, each report
    * key is read individually per channel on connect.
@@ -113,6 +115,7 @@ const ulxd: ShureFamily = {
   role: 'mic',
   defaultChannels: 4,
   deviceIdKey: 'DEVICE_ID',
+  defaultPort: 2202,
   getAll: true,
   supports: new Set<Metric>([
     'name', 'frequencyKhz', 'groupChannel', 'txModel', 'txDeviceId', 'txOffsetDb', 'txMuted',
@@ -161,6 +164,7 @@ const axd: ShureFamily = {
   role: 'mic',
   defaultChannels: 4,
   deviceIdKey: 'DEVICE_ID',
+  defaultPort: 2202,
   getAll: true,
   supports: new Set<Metric>([
     'name', 'frequencyKhz', 'groupChannel', 'txModel', 'txDeviceId', 'txOffsetDb', 'txMuted',
@@ -228,6 +232,7 @@ const slxd: ShureFamily = {
   role: 'mic',
   defaultChannels: 2,
   deviceIdKey: 'DEVICE_ID',
+  defaultPort: 2202,
   getAll: true,
   supports: new Set<Metric>([
     'name', 'frequencyKhz', 'groupChannel', 'txModel',
@@ -271,6 +276,8 @@ const psm1000: ShureFamily = {
   role: 'iem',
   defaultChannels: 2,
   deviceIdKey: 'DEVICE_NAME',
+  // Shure's PSM1000 command strings give port 2201, not the receivers' 2202.
+  defaultPort: 2201,
   getAll: false,
   supports: new Set<Metric>(['name', 'frequencyKhz', 'groupChannel', 'rfOutputMw', 'rfMuted', 'audioMode']),
   reports: {

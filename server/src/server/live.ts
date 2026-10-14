@@ -1,6 +1,7 @@
 import { ShureDiscovery } from '../adapters/shure/discovery.js';
-import { SHURE_FAMILY_IDS as FAMILIES, type ShureFamilyId } from '../adapters/shure/families.js';
-import { identifyShure, type Identity } from '../adapters/shure/identify.js';
+import { SHURE_PORTS } from '../adapters/shure/connection.js';
+import { SHURE_FAMILIES, SHURE_FAMILY_IDS as FAMILIES, type ShureFamilyId } from '../adapters/shure/families.js';
+import { identifyShure, identifyShureOnPorts, type Identity } from '../adapters/shure/identify.js';
 import type { Runtime } from './runtime.js';
 import type { DiscoveredView } from './snapshot.js';
 
@@ -106,27 +107,33 @@ export class LiveManager {
     this.entries.set(key, entry);
     this.runtime.emit('dirty');
 
-    const id = await identifyShure(host, target?.port);
+    // An explicit port is used as given. Otherwise try the family's own port
+    // first (2201 for psm1000@host), then the rest of 2202 / 2201.
+    const familyPort = target?.family ? SHURE_FAMILIES[target.family].defaultPort : undefined;
+    const ports = familyPort ? [familyPort, ...SHURE_PORTS.filter((p) => p !== familyPort)] : SHURE_PORTS;
+    const id = target?.port ? await identifyShure(host, target.port) : await identifyShureOnPorts(host, ports);
+    // Connect where the device actually answered.
+    const port = target?.port ?? (id.reachable ? id.port : undefined);
     Object.assign(entry, { model: id.model, deviceId: id.deviceId || undefined, kind: target?.charger ? 'charger' : (target?.family ?? id.kind) });
 
     if (!id.reachable && !target?.family && !target?.charger) {
-      Object.assign(entry, { state: 'unreachable', note: 'No answer on port 2202' });
+      Object.assign(entry, { state: 'unreachable', note: target?.port ? `No answer on port ${target.port}` : `No answer on port ${ports.join(' or ')}` });
     } else if (target?.charger || id.kind === 'charger') {
-      this.runtime.addCharger({ id: this.deviceName(id, 'SBC'), host, port: target?.port });
+      this.runtime.addCharger({ id: this.deviceName(id, 'SBC'), host, port });
       Object.assign(entry, { state: 'monitoring', note: undefined });
       this.log(`Monitoring charger ${id.model ?? ''} at ${host}`);
     } else if (target?.family || id.kind) {
       const family = (target?.family ?? id.kind) as ShureFamilyId;
       const name = this.deviceName(id, family.toUpperCase());
       this.runtime.addReceiver(
-        { id: name, family, host, port: target?.port, channels: target?.channels ?? id.channels },
+        { id: name, family, host, port, channels: target?.channels ?? id.channels },
         name,
       );
       Object.assign(entry, {
         state: 'monitoring',
         note: id.reachable ? undefined : 'Not answering yet; will keep trying',
       });
-      this.log(`Monitoring ${id.model ?? family} at ${host} (${target?.channels ?? id.channels ?? 'default'} channels)`);
+      this.log(`Monitoring ${id.model ?? family} at ${host}:${port ?? SHURE_FAMILIES[family].defaultPort} (${target?.channels ?? id.channels ?? 'default'} channels)`);
     } else {
       Object.assign(entry, { state: 'unsupported', note: id.unsupported });
     }

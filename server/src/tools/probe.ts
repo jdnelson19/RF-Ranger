@@ -3,7 +3,7 @@
  * a file, and print the normalised telemetry once a second so it can be
  * compared with the receiver's front panel / Wireless Workbench.
  *
- *   npm run probe -- <ulxd|axd|slxd> <host> [--port 2202] [--channels 4] [--meter 250]
+ *   npm run probe -- <ulxd|axd|slxd|psm1000> <host> [--port 2202, or 2201 for psm1000] [--channels 4] [--meter 250]
  */
 import { createWriteStream, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -25,7 +25,7 @@ const { values, positionals } = parseArgs({
 
 const [family, host] = positionals;
 if (!family || !host || !(family in SHURE_FAMILIES)) {
-  console.error('usage: npm run probe -- <ulxd|axd|slxd> <host> [--port 2202] [--channels N] [--meter ms]');
+  console.error('usage: npm run probe -- <ulxd|axd|slxd|psm1000> <host> [--port 2202|2201] [--channels N] [--meter ms]');
   process.exit(1);
 }
 

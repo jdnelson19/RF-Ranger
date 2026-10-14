@@ -1,6 +1,6 @@
 import type http from 'node:http';
-import { ShureConnection } from '../adapters/shure/connection.js';
-import { identifyShure, type Identity } from '../adapters/shure/identify.js';
+import { SHURE_PORT, SHURE_PORTS, ShureConnection } from '../adapters/shure/connection.js';
+import { identifyShure, identifyShureOnPorts, type Identity } from '../adapters/shure/identify.js';
 import { getCommand, meterRateCommand, parseMessage } from '../adapters/shure/protocol.js';
 import { VERSION } from '../version.js';
 import type { Runtime } from './runtime.js';
@@ -63,7 +63,7 @@ export class Inspector {
 
   constructor(private readonly runtime: Runtime) {}
 
-  open(host: string, port = 2202): Session {
+  open(host: string, port = SHURE_PORT): Session {
     if (!/^[\w.-]+$/.test(host)) throw new Error('Enter an IP address or host name');
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid port');
     const id = `${host}:${port}`;
@@ -79,7 +79,8 @@ export class Inspector {
     // Reuse the live connection if RF Ranger already monitors this device.
     const device = [...this.runtime.receivers.values(), ...this.runtime.chargers.values()].find((d) => {
       const cfg = [...this.runtime.config.receivers, ...this.runtime.config.chargers].find((c) => c.id === d.info.id);
-      return d.info.host === host && (cfg?.port ?? 2202) === port;
+      const familyPort = 'family' in d && d.family ? d.family.defaultPort : SHURE_PORT;
+      return d.info.host === host && (cfg?.port ?? familyPort) === port;
     });
 
     if (device) {
@@ -97,7 +98,8 @@ export class Inspector {
         heartbeat: getCommand(undefined, 'DEVICE_ID'),
         heartbeatMs: 5_000,
         silenceTimeoutMs: 15_000,
-        onConnect: () => [getCommand(undefined, 'MODEL'), getCommand(undefined, 'DEVICE_ID'), getCommand(undefined, 'FW_VER')],
+        // DEVICE_NAME: the PSM 1000's name for what receivers call DEVICE_ID.
+        onConnect: () => [getCommand(undefined, 'MODEL'), getCommand(undefined, 'DEVICE_ID'), getCommand(undefined, 'DEVICE_NAME'), getCommand(undefined, 'FW_VER')],
         onClose: () => (session.metering ? session.metering.channels.map((ch) => meterRateCommand(ch, 0)) : []),
       });
       conn.on('wire', record);
@@ -330,7 +332,12 @@ export async function handleInspector(inspector: Inspector, req: http.IncomingMe
       const body = (await readJson(req)) as Record<string, unknown>;
       const id = String(body.id ?? '');
       if (route === 'open') {
-        const s = inspector.open(String(body.host ?? '').trim(), body.port === undefined || body.port === '' ? 2202 : Number(body.port));
+        const host = String(body.host ?? '').trim();
+        // No port given: use whichever of 2202 / 2201 (PSM 1000) answers.
+        const port = body.port === undefined || body.port === ''
+          ? (/^[\w.-]+$/.test(host) ? ((await identifyShureOnPorts(host, SHURE_PORTS, 1_500)).port ?? SHURE_PORT) : SHURE_PORT)
+          : Number(body.port);
+        const s = inspector.open(host, port);
         return json(200, { id: s.id });
       }
       if (route === 'close') { await inspector.close(id); return json(200, {}); }

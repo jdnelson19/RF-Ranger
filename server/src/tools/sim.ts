@@ -1,12 +1,12 @@
 /**
  * Run a simulated Shure receiver so the probe and UI can be exercised without hardware.
  *
- *   npm run sim -- <ulxd|axd|slxd> [--port 2202]
+ *   npm run sim -- <ulxd|axd|slxd|psm1000> [--port 2202, or 2201 for psm1000]
  *
  * Every 10 s one channel's transmitter toggles off/on and battery drifts down.
  */
 import { parseArgs } from 'node:util';
-import type { ShureFamilyId } from '../adapters/shure/families.js';
+import { SHURE_FAMILIES, type ShureFamilyId } from '../adapters/shure/families.js';
 import { ShureSim } from '../sim/shure-sim.js';
 
 const { values, positionals } = parseArgs({ allowPositionals: true, options: { port: { type: 'string' } } });
@@ -20,10 +20,10 @@ const sim = new ShureSim({
     { name: 'BGV 1', batteryBars: 3, batteryPercent: 45, runtimeMin: 140 },
     { name: 'Pastor', batteryBars: 4, batteryPercent: 70, runtimeMin: 300, txModel: family === 'ulxd' ? 'ULXD1' : undefined },
     { name: 'Spare', txOn: false },
-  ].slice(0, family === 'slxd' ? 2 : 4),
+  ].slice(0, family === 'slxd' || family === 'psm1000' ? 2 : 4),
 });
 
-const port = await sim.listen(values.port ? Number(values.port) : 2202, '0.0.0.0');
+const port = await sim.listen(values.port ? Number(values.port) : SHURE_FAMILIES[family].defaultPort, '0.0.0.0');
 console.log(`Simulated ${sim.model} listening on port ${port}. Ctrl+C to stop.`);
 
 let tick = 0;

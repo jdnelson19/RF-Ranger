@@ -1,12 +1,14 @@
 import net from 'node:net';
 import { SHURE_FAMILY_IDS, type ShureFamilyId } from './families.js';
 import { ShureFramer, parseMessage } from './protocol.js';
-import { SHURE_PORT } from './connection.js';
+import { SHURE_PORT, SHURE_PORTS } from './connection.js';
 
 export type ShureKind = ShureFamilyId | 'charger';
 
 export interface Identity {
   host: string;
+  /** The control port that was tried (the one that answered, when reachable). */
+  port?: number;
   /** False when nothing answered on the control port. */
   reachable: boolean;
   model?: string;
@@ -52,7 +54,7 @@ export function kindForModel(model: string): { kind?: ShureKind; unsupported?: s
  */
 export async function identifyShure(host: string, port = SHURE_PORT, timeoutMs = 2_500): Promise<Identity> {
   return new Promise((resolve) => {
-    const id: Identity = { host, reachable: false };
+    const id: Identity = { host, port, reachable: false };
     const channelsSeen = new Set<number>();
     const framer = new ShureFramer();
     const socket = net.connect({ host, port });
@@ -111,4 +113,24 @@ export async function identifyShure(host: string, port = SHURE_PORT, timeoutMs =
       }
     });
   });
+}
+
+/**
+ * Identify a device whose control port isn't known: try each port in turn
+ * (2202, then the PSM 1000's 2201) and keep the first that answers. A
+ * refused connection is quick, so a P10T costs well under a second extra.
+ */
+export async function identifyShureOnPorts(host: string, ports: readonly number[] = SHURE_PORTS, timeoutMs = 2_500): Promise<Identity> {
+  let last: Identity = { host, port: ports[0], reachable: false };
+  for (const port of ports) {
+    const id = await identifyShure(host, port, timeoutMs);
+    if (id.reachable) {
+      if (port !== SHURE_PORT && !id.kind && id.unsupported?.startsWith('Did not identify')) {
+        id.unsupported = `Answered on port ${port} but didn't identify. If it's a PSM 1000, add it as psm1000@${host}:${port} and send a Device Inspector report.`;
+      }
+      return id;
+    }
+    last = id;
+  }
+  return last;
 }

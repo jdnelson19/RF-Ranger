@@ -174,11 +174,15 @@ IEM is the reverse of a mic system. The networked rack unit is the **transmitter
 | Input gain | `AUDIO_IN_LVL` | dB (not used yet) |
 | Metering | `METER_RATE` / `SAMPLE` | `SAMPLE` layout unknown; ignored until captured |
 
-Differences from the receivers, handled by `ShureFamily.deviceIdKey` and `getAll: false`:
+Differences from the receivers, handled by `ShureFamily.defaultPort`, `deviceIdKey` and `getAll: false`:
+- **Port 2201, not 2202.** Shure's PSM1000 command strings give TCP **2201**; Companion's module defaults to 2202.
+  - RF Ranger uses 2201 for `psm1000`.
+  - With no port given (discovery, a bare `--receiver <ip>`, the Device Inspector), it tries 2202 and then 2201, and connects wherever the device answered.
+  - `psm1000@<ip>` tries 2201 first. An explicit `<ip>:<port>` is used as given.
 - RF Ranger doesn't rely on `GET 0 ALL`. It reads each key per channel on connect, as Companion does.
 - `MODEL` may not be answered, so identification falls back to `GET 1 AUDIO_TX_MODE`, which only a P10T answers.
 
-**To verify on hardware:** whether `MODEL` and `GET 0 ALL` work, the exact `RF_TX_LVL` / `RF_MUTE` / `AUDIO_TX_MODE` encodings, and the `SAMPLE` layout (which could add input-level metering). Run `npm run probe -- psm1000 <ip>` and attach the log to a device report.
+**To verify on hardware:** which port the P10T actually answers on (the `discover` table now shows it), whether `MODEL` and `GET 0 ALL` work, the exact `RF_TX_LVL` / `RF_MUTE` / `AUDIO_TX_MODE` encodings, and the `SAMPLE` layout (which could add input-level metering). Run `npm run probe -- psm1000 <ip>` and attach the log to a device report.
 
 Not supported yet: **PSM 900 / PSM 300** (no network control), **Axient Digital PSM** (ADTD/ADTQ; identified and declined with a message).
 

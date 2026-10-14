@@ -4,6 +4,10 @@ import type { ConnectionStatus } from '../../core/model.js';
 import { ShureFramer, parseMessage, type ShureMessage } from './protocol.js';
 
 export const SHURE_PORT = 2202;
+/** PSM 1000 (P10T) control port, per Shure's PSM1000 command strings. */
+export const PSM_PORT = 2201;
+/** Ports tried, in order, when a device's port isn't known. */
+export const SHURE_PORTS: readonly number[] = [SHURE_PORT, PSM_PORT];
 
 export interface ShureConnectionOptions {
   host: string;

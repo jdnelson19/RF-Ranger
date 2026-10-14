@@ -12,7 +12,7 @@ import { createWriteStream, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { ShureDiscovery } from '../adapters/shure/discovery.js';
-import { identifyShure, type Identity } from '../adapters/shure/identify.js';
+import { identifyShureOnPorts, type Identity } from '../adapters/shure/identify.js';
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -27,7 +27,7 @@ const results = new Map<string, Identity | 'identifying'>();
 const identify = async (ip: string) => {
   if (results.has(ip)) return;
   results.set(ip, 'identifying');
-  const id = await identifyShure(ip);
+  const id = await identifyShureOnPorts(ip); // 2202, then the PSM 1000's 2201
   results.set(ip, id);
   log.write(`${new Date().toISOString()} identify ${ip} ${JSON.stringify(id)}\n`);
   print();
@@ -39,14 +39,15 @@ function print() {
   if (!results.size) console.log('Nothing yet… (devices announce every so often; give it time)');
   const rows = [...results.entries()].map(([ip, r]) =>
     r === 'identifying'
-      ? { address: ip, model: '…', 'device id': '', type: 'identifying', channels: '', status: '' }
+      ? { address: ip, port: '', model: '…', 'device id': '', type: 'identifying', channels: '', status: '' }
       : {
           address: ip,
+          port: r.reachable ? r.port ?? '' : '',
           model: r.model ?? '?',
           'device id': r.deviceId ?? '',
           type: r.kind ?? '',
           channels: r.channels ?? '',
-          status: !r.reachable ? 'no answer on port 2202' : r.unsupported ?? 'supported ✓',
+          status: !r.reachable ? 'no answer on port 2202 or 2201' : r.unsupported ?? 'supported ✓',
         },
   );
   if (rows.length) console.table(rows);

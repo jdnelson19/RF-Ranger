@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { SHURE_FAMILIES, initialTelemetry } from '../src/adapters/shure/families.js';
-import { identifyShure, kindForModel } from '../src/adapters/shure/identify.js';
+import { identifyShure, identifyShureOnPorts, kindForModel } from '../src/adapters/shure/identify.js';
 import { parseMessage } from '../src/adapters/shure/protocol.js';
 import { ShureReceiver } from '../src/adapters/shure/receiver.js';
 import { channelAlerts } from '../src/core/alerts.js';
@@ -186,5 +186,33 @@ describe('ShureReceiver against a simulated P10T', () => {
     const since = tx.status.since;
     await new Promise((r) => setTimeout(r, 3_800));
     expect(tx.status).toMatchObject({ state: 'connected', since });
+  });
+});
+
+describe('PSM 1000 control port', () => {
+  async function closedPort(): Promise<number> {
+    const s = (await import('node:net')).createServer();
+    await new Promise<void>((r) => s.listen(0, '127.0.0.1', r));
+    const port = (s.address() as import('node:net').AddressInfo).port;
+    await new Promise<void>((r) => s.close(() => r()));
+    return port;
+  }
+
+  it('uses 2201 for the PSM 1000 and 2202 for everything else', () => {
+    expect(SHURE_FAMILIES.psm1000.defaultPort).toBe(2201);
+    for (const id of ['ulxd', 'axd', 'slxd'] as const) expect(SHURE_FAMILIES[id].defaultPort).toBe(2202);
+  });
+
+  it('finds a P10T on the second port tried, and says which port answered', async () => {
+    const sim = new ShureSim({ family: 'psm1000', deviceId: 'IEM RACK' });
+    const port = await sim.listen();
+    cleanup.push(() => sim.close());
+    const nothing = await closedPort();
+    expect(await identifyShureOnPorts('127.0.0.1', [nothing, port])).toMatchObject({ reachable: true, port, kind: 'psm1000', deviceId: 'IEM RACK' });
+  });
+
+  it('reports unreachable only after every port fails', async () => {
+    const [a, b] = [await closedPort(), await closedPort()];
+    expect(await identifyShureOnPorts('127.0.0.1', [a, b], 800)).toMatchObject({ reachable: false });
   });
 });
