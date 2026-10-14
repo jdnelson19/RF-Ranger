@@ -74,7 +74,7 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
         </nav>
         <div className="topbar__right">
           <a className="btn btn--ghost" href={href({ view: 'pickup', group: route.group })}>Pickup view ↗</a>
-          <ServerLink online={live.online} />
+          <ServerLink online={live.online} version={live.snapshot?.version} />
         </div>
       </header>
 

@@ -82,7 +82,7 @@ export function Launch({ live }: { live: Live }) {
       )}
 
       <footer className="launch__foot">
-        <ServerLink online={live.online} />
+        <ServerLink online={live.online} version={live.snapshot?.version} />
         {s?.demo && <span className="tag tag--demo">Demo data</span>}
         <span className="dim">Tip: bookmark a view to open it directly, e.g. a TV straight into Pickup.</span>
         {s?.app && isThisComputer() && <QuitButton />}

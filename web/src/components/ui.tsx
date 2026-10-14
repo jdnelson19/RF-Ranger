@@ -89,11 +89,18 @@ export function Chip({ active, onClick, children, count }: { active?: boolean; o
   );
 }
 
-export function ServerLink({ online }: { online: boolean }) {
+/**
+ * Link status, plus the version of the RF Ranger server this screen is
+ * talking to (from the snapshot), so it's easy to confirm an update took.
+ */
+export function ServerLink({ online, version }: { online: boolean; version?: string }) {
   return (
-    <span className={`link-state link-state--${online ? 'on' : 'off'}`} title={online ? 'Live link to RF Ranger server' : 'No link to RF Ranger server'}>
-      <span className="link-state__dot" />
-      {online ? 'Live' : 'Offline'}
+    <span className="server-link">
+      <span className={`link-state link-state--${online ? 'on' : 'off'}`} title={online ? 'Live link to RF Ranger server' : 'No link to RF Ranger server'}>
+        <span className="link-state__dot" />
+        {online ? 'Live' : 'Offline'}
+      </span>
+      {version && <span className="server-link__version" title={`RF Ranger ${version}`}>v{version}</span>}
     </span>
   );
 }
