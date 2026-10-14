@@ -106,6 +106,8 @@ else
   codesign --force --sign - "$APP"
 fi
 codesign --verify --strict --verbose=2 "$APP"
+# Record who signed it, the team and whether hardened runtime is on, for the build log.
+codesign --display --verbose=2 "$APP" 2>&1 | grep -E '^(Identifier|Authority|TeamIdentifier|Runtime Version|CodeDirectory)' || true
 
 if [ -n "$CAN_NOTARIZE" ]; then
   # Staple the app itself too, so it opens without a network check: production

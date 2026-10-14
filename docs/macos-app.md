@@ -4,6 +4,7 @@ RF Ranger ships as **RF Ranger.app** in a `.dmg`. It's a universal app (Apple Si
 
 ## Using the app
 
+- **Install (no admin needed):** open the `.dmg`. Dragging into the main Applications folder asks for an administrator password, so on Macs where you aren't an admin, drag RF Ranger into an **Applications** folder inside your home folder instead (create it in Finder if needed). It runs from anywhere and writes only to your own Library folder.
 - **Open:** double-click RF Ranger. It starts in the background and opens your browser at `http://localhost:8058`. If that port is taken, it uses the next free one. Opening it again while it's running just reopens the browser.
 - **First run:** macOS asks to let RF Ranger **find devices on your local network**. Click **Allow**, or it can't see the receivers. If you clicked Don't Allow, turn it back on in System Settings → Privacy & Security → Local Network. Allow incoming connections too if the firewall asks, so TVs and tablets can open the Pickup view.
 - **Quit:** use the **Quit RF Ranger** button at the bottom of the launch screen. It only appears on the Mac running RF Ranger. Logging out also stops it cleanly, and receiver metering is switched off either way.
