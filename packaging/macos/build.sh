@@ -49,6 +49,24 @@ trap 'on_error $? $LINENO' ERR
 
 step "RF Ranger $VERSION (build $BUILD) with Node $NODE_VERSION"
 
+CAN_NOTARIZE=""
+if [ -n "${SIGN_IDENTITY:-}" ] && [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ] && [ -n "${APPLE_APP_PASSWORD:-}" ]; then
+  CAN_NOTARIZE=1
+fi
+
+if [ -n "$CAN_NOTARIZE" ]; then
+  # Check the Apple credentials before spending minutes building, and say
+  # which one looks wrong without printing any of them.
+  step "Checking notarization credentials"
+  [[ "$APPLE_TEAM_ID" =~ ^[A-Z0-9]{10}$ ]] || echo "APPLE_TEAM_ID is not 10 capital letters/digits (length ${#APPLE_TEAM_ID}); check for spaces or a typo"
+  [[ "$APPLE_ID" == *@*.* ]] || echo "APPLE_ID doesn't look like an email address (length ${#APPLE_ID})"
+  [[ "$APPLE_APP_PASSWORD" =~ ^[a-z]{4}-[a-z]{4}-[a-z]{4}-[a-z]{4}$ ]] || echo "APPLE_APP_PASSWORD isn't in Apple's xxxx-xxxx-xxxx-xxxx form (length ${#APPLE_APP_PASSWORD})"
+  CERT_TEAM="$(echo "$SIGN_IDENTITY" | sed -n 's/.*(\([A-Z0-9]*\))$/\1/p')"
+  [ "$CERT_TEAM" = "$APPLE_TEAM_ID" ] || echo "APPLE_TEAM_ID does not match the signing certificate's team ($CERT_TEAM)"
+  xcrun notarytool history --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" >/dev/null
+  echo "Apple accepted the notarization credentials."
+fi
+
 step "Web UI"
 (cd web && npm ci && npm run build)
 
@@ -104,11 +122,6 @@ notarize() { # notarize <file>; staples nothing, returns non-zero unless Accepte
     return 1
   fi
 }
-
-CAN_NOTARIZE=""
-if [ -n "${SIGN_IDENTITY:-}" ] && [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ] && [ -n "${APPLE_APP_PASSWORD:-}" ]; then
-  CAN_NOTARIZE=1
-fi
 
 if [ -n "${SIGN_IDENTITY:-}" ]; then
   step "Signing with $SIGN_IDENTITY (hardened runtime)"
