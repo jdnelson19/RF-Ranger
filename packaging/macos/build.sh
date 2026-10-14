@@ -110,6 +110,19 @@ else
   echo "warning: could not render icon.svg; building without an icon"
 fi
 
+# Attach the notarization ticket. stapler fetches it from Apple's CDN, which
+# can briefly fail ("network connection was lost", or the ticket not
+# propagated yet) right after an Accepted notarization; retry before giving up.
+staple() {
+  for attempt in 1 2 3 4 5; do
+    if xcrun stapler staple "$1"; then return 0; fi
+    echo "stapler failed (attempt $attempt); retrying in $((attempt * 15)) s"
+    sleep $((attempt * 15))
+  done
+  echo "stapler failed 5 times for $1"
+  return 1
+}
+
 notarize() { # notarize <file>; staples nothing, returns non-zero unless Accepted
   local result id status
   result="$(xcrun notarytool submit "$1" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
@@ -144,7 +157,7 @@ if [ -n "$CAN_NOTARIZE" ]; then
   step "Notarizing the app"
   ditto -c -k --keepParent "$APP" "$OUT/app.zip"
   notarize "$OUT/app.zip"
-  xcrun stapler staple "$APP"
+  staple "$APP"
 fi
 
 step "Disk image"
@@ -167,7 +180,7 @@ fi
 if [ -n "$CAN_NOTARIZE" ]; then
   step "Notarizing the disk image"
   notarize "$DMG"
-  xcrun stapler staple "$DMG"
+  staple "$DMG"
   spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG"
   spctl --assess --type execute --verbose=2 "$APP"
 fi
