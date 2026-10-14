@@ -24,7 +24,7 @@ function check(patch: Partial<ChannelTelemetry> = {}, extra: Partial<ReadinessIn
 
 describe('readiness', () => {
   it('is READY when everything is fresh and good', () => {
-    expect(check()).toEqual({ label: 'READY' });
+    expect(check()).toMatchObject({ label: 'READY' });
   });
 
   it('is UNASSIGNED without an assignment', () => {
@@ -32,7 +32,7 @@ describe('readiness', () => {
   });
 
   it('is NOT_READY when the receiver is disconnected', () => {
-    expect(check({}, { connection: { state: 'disconnected', since: NOW } })).toEqual({ label: 'NOT_READY', reason: 'Receiver offline' });
+    expect(check({}, { connection: { state: 'disconnected', since: NOW } })).toMatchObject({ label: 'NOT_READY', reason: 'Receiver offline' });
   });
 
   it('is NOT_READY when the receiver has gone silent, even if "connected"', () => {
@@ -41,7 +41,7 @@ describe('readiness', () => {
 
   it('is NOT_READY when the wrong transmitter is on the channel', () => {
     const r = check({ txDeviceId: ok('Pastor', NOW) }, { expectedTxDeviceId: 'LeadVox' });
-    expect(r).toEqual({ label: 'NOT_READY', reason: 'Wrong transmitter: expected LeadVox, seeing Pastor' });
+    expect(r).toMatchObject({ label: 'NOT_READY', reason: 'Wrong transmitter: expected LeadVox, seeing Pastor' });
   });
 
   it('accepts the expected transmitter', () => {
@@ -60,13 +60,13 @@ describe('readiness', () => {
 
   it('asks to check with audio when the transmitter is off', () => {
     const r = check({ txModel: absent(NOW), batteryBars: absent(NOW), batteryPercent: absent(NOW) });
-    expect(r).toEqual({ label: 'CHECK_WITH_AUDIO', reason: 'Transmitter off or out of range' });
+    expect(r).toMatchObject({ label: 'CHECK_WITH_AUDIO', reason: 'Transmitter off or out of range' });
   });
 
   it('never treats a stale battery reading as good', () => {
     const old = NOW - 10 * 60_000;
     const r = check({ batteryBars: ok(5, old), batteryPercent: ok(95, old) });
-    expect(r).toEqual({ label: 'CHECK_WITH_AUDIO', reason: 'Battery level unknown' });
+    expect(r).toMatchObject({ label: 'CHECK_WITH_AUDIO', reason: 'Battery level unknown' });
   });
 
   it('asks to check with audio when the battery is low', () => {

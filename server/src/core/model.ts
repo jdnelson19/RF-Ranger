@@ -72,6 +72,45 @@ export function emptyTelemetry(): ChannelTelemetry {
   };
 }
 
+/**
+ * One charger bay. Networked docking chargers report the battery in a bay but
+ * not which transmitter it belongs to; that link comes from the assignment.
+ */
+export interface BayTelemetry {
+  batteryPresent: Reading<boolean>;
+  chargePercent: Reading<number>;
+  batteryBars: Reading<number>;
+  healthPercent: Reading<number>;
+  /** Minutes to the charge target; 0 once full. */
+  minutesToFull: Reading<number>;
+  full: Reading<boolean>;
+  /** Charger-reported fault for this bay; `null` means no fault. */
+  error: Reading<string | null>;
+}
+
+export function emptyBay(): BayTelemetry {
+  return {
+    batteryPresent: UNKNOWN,
+    chargePercent: UNKNOWN,
+    batteryBars: UNKNOWN,
+    healthPercent: UNKNOWN,
+    minutesToFull: UNKNOWN,
+    full: UNKNOWN,
+    error: UNKNOWN,
+  };
+}
+
+export interface ChargerInfo {
+  id: string;
+  manufacturer: Manufacturer;
+  host: string;
+  model?: string;
+  deviceId?: string;
+  firmware?: string;
+  /** Storage mode charges to a storage level, not full. */
+  storageMode?: boolean;
+}
+
 export interface ReceiverInfo {
   id: string;
   manufacturer: Manufacturer;

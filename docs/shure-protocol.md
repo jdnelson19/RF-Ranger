@@ -93,3 +93,22 @@ AD channels have 8 registration slots (`SLOT_STATUS`, `SLOT_TX_MODEL`, `SLOT_TX_
    The adapter must declare which applies. Where only the model is available, the UI should say "model matches" rather than "verified transmitter".
 3. **Battery %** exists only with Shure rechargeables. With AA batteries we have bars only, and runtime is unavailable. This is not a fault.
 4. **RF in dBm, audio in dBFS, with per-family offsets.** The adapter normalises to these units. Raw values are kept for diagnostics.
+
+## Networked chargers (SBC220 / SBC240)
+
+Source: Shure *SBC220 SBC240 Command Strings*, v2.0 (2020-K). Same transport (TCP :2202, `< … >`). Up to 4 chargers can be ganged on one connection, and bays are numbered across the gang. The charger is the server.
+
+| Key | Values | Notes |
+|---|---|---|
+| `BATT_DETECTED` | YES / NO | |
+| `BATT_CHARGE` | 000–100 % | |
+| `BATT_BARS` | 000–005 | |
+| `BATT_HEALTH` | 000–100 %, 254 error, 255 unknown | |
+| `BATT_TIME_TO_FULL` | 0–65528 min, **65529 full**, 65533 calculating, 65534 error, 65535 none | The sentinels are not minutes |
+| `BATT_STATE` | NORMAL / FULL / CALCULATING | |
+| `BATT_ERROR` | 000 none, 001–007 faults, 255 no battery | |
+| `STORAGE_MODE` | ON / OFF | Charges to storage level, not full |
+
+Values are reported **on change only**. There is no metering, so RF Ranger polls `GET DEVICE_ID` to prove the link is alive. **The charger does not identify which transmitter is docked.** It has no model, serial, or frequency per bay.
+
+The older SBC450/SBC850 (SB900 batteries) use a different string set, documented in the ULX-D bulletin. It only identifies ULXD6/ULXD8 transmitters and is not implemented yet.

@@ -62,14 +62,17 @@ All thresholds are configurable. Rules are evaluated in order, and **the first m
 | 3 | Assigned TX identity is supported **and** mismatches | NOT READY | "Wrong transmitter: expected X, seeing Y" |
 | 4 | Fault: encryption error, unregistered TX, or critical interference | NOT READY | the fault name |
 | 5 | Battery is critical (≤ 1 bar, or ≤ 20 %) | NOT READY | "Battery critical" |
-| 6 | TX not present (switched off or out of range) | CHECK WITH AUDIO | "Transmitter off" |
+| 6 | TX not present (switched off or out of range), with no charger bay assigned | CHECK WITH AUDIO | "Transmitter off" |
+| 6a | TX not present, and the assigned charger bay holds a battery at ≥ 90 % with no fault | READY (on charger) | "On charger, 95%" |
+| 6b | TX not present, and the bay is charging below 90 %, empty, offline, or in storage mode | CHECK WITH AUDIO | "Charging, 60%, full in 20 min" / "not on its charger" / … |
+| 6c | TX not present, and the bay reports a charger fault | NOT READY | "Charger: Check battery" |
 | 7 | Battery reading is anything except a fresh `ok` | CHECK WITH AUDIO | "Battery unknown" |
 | 8 | Battery is in the warning band (2–3 bars, or ≤ 50 %) | CHECK WITH AUDIO | "Battery low" |
 | 9 | Everything above passed | READY | n/a |
 
 The Pickup View shows only the label. The Engineer View shows the label **and** the reason.
 
-**Open question for production use:** before a service, transmitters are often switched off on the table, which by rule 6 shows CHECK WITH AUDIO. If the team charges and powers on everything ahead of time, this is correct. Otherwise we may want an "off but last seen charged" state. That must be *clearly* labelled, so we don't repeat Micboard's `PREV_GOOD` problem. With Axient Digital, ShowLink slot data may report battery levels for transmitters that are not on air.
+**Chargers.** Between uses, transmitters sit docked in networked chargers (SBC220 for AD1/AD2/ULXD1/ULXD2, SBC240 for ADX). While docked, the receiver sees them as off. Each assignment can name a **charger bay**, and while the transmitter is off its readiness comes from that bay (rules 6a–6c). The charger reports what's in a bay, but not *which* transmitter it is. So "READY (on charger)" means "a charged battery is in this artist's bay". Once the artist powers it on, the live receiver rules take over, and on Axient the transmitter-ID check confirms it's the right one. Bay values are trusted only while the charger connection is live, which is kept verified by polling.
 
 ## Engineer alerts (independent of readiness)
 
