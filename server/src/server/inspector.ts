@@ -1,8 +1,8 @@
-import { readFileSync } from 'node:fs';
 import type http from 'node:http';
 import { ShureConnection } from '../adapters/shure/connection.js';
 import { identifyShure, type Identity } from '../adapters/shure/identify.js';
 import { getCommand, meterRateCommand, parseMessage } from '../adapters/shure/protocol.js';
+import { VERSION } from '../version.js';
 import type { Runtime } from './runtime.js';
 
 /**
@@ -14,15 +14,7 @@ import type { Runtime } from './runtime.js';
  * metering burst (SET METER_RATE), which is always switched back off.
  */
 
-export const VERSION: string = (() => {
-  // Set at build time when bundled into the desktop app, where package.json isn't shipped.
-  if (process.env.RF_RANGER_VERSION) return process.env.RF_RANGER_VERSION;
-  try {
-    return (JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as { version: string }).version;
-  } catch {
-    return 'unknown';
-  }
-})();
+export { VERSION };
 
 export interface InspectorFrame {
   seq: number;

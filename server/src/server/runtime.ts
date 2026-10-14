@@ -6,6 +6,7 @@ import { splitChannelName, type AssignmentConfig, type SlotConfig } from '../cor
 import { emptyTelemetry, type ChannelTelemetry } from '../core/model.js';
 import { readiness, txPresent } from '../core/readiness.js';
 import type { ChargerConfig, Config, ReceiverConfig } from './config.js';
+import { VERSION } from '../version.js';
 import type { DiscoveredView, RunMode, Snapshot, SlotView } from './snapshot.js';
 
 interface Events {
@@ -138,6 +139,7 @@ export class Runtime extends EventEmitter<Events> {
       demo: this.mode === 'demo',
       mode: this.mode,
       app: this.app,
+      version: VERSION,
       serverTime: now,
       groups: [...listed, ...extra],
       slots,

@@ -26,6 +26,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { format } from 'node:util';
 import { startRfRanger, type Running } from '../server/start.js';
+import { VERSION } from '../version.js';
 
 const APP_NAME = 'RF Ranger';
 const FIRST_PORT = 8058;
@@ -61,9 +62,22 @@ function webDir(): string {
 
 async function launch(): Promise<void> {
   const running = await findRunning();
-  if (running) {
+  if (running && running.version === VERSION) {
     openBrowser(running.port);
     return;
+  }
+  if (running) {
+    // A different version is still running, typically the one this app was
+    // just installed over. Its web files on disk are now ours, so leaving it
+    // up would serve this version's screens from the old server. Replace it.
+    if (!(await replaceRunning(running))) {
+      await alert(
+        `An older ${APP_NAME} is still running`,
+        `RF Ranger ${running.version ?? '(older version)'} didn't quit. Quit it from its launch screen, then open ${APP_NAME} again.`,
+      );
+      process.exitCode = 1;
+      return;
+    }
   }
 
   // Inside a single-executable app the binary *is* the program; under plain
@@ -85,8 +99,11 @@ async function launch(): Promise<void> {
   process.exitCode = 1;
 }
 
-/** The server recorded in server.json, if it is actually answering as RF Ranger. */
-async function findRunning(): Promise<State | undefined> {
+/**
+ * The server recorded in server.json, if it is actually answering as RF
+ * Ranger, with the version it reports (versions before 0.1.3 report none).
+ */
+async function findRunning(): Promise<(State & { version?: string }) | undefined> {
   let state: State;
   try {
     state = JSON.parse(readFileSync(stateFile, 'utf8')) as State;
@@ -94,7 +111,33 @@ async function findRunning(): Promise<State | undefined> {
     return undefined;
   }
   const snapshot = await getJson(`http://127.0.0.1:${state.port}/api/snapshot`, 1_500);
-  return snapshot && typeof snapshot === 'object' && 'slots' in snapshot ? state : undefined;
+  if (!snapshot || typeof snapshot !== 'object' || !('slots' in snapshot)) return undefined;
+  const version = (snapshot as { version?: unknown }).version;
+  return { ...state, version: typeof version === 'string' ? version : undefined };
+}
+
+/** Ask a running server to quit (it switches metering off first) and wait until it has gone. */
+async function replaceRunning(old: State & { version?: string }): Promise<boolean> {
+  console.log(`Replacing RF Ranger ${old.version ?? '(older version)'} on port ${old.port} (pid ${old.pid}) with ${VERSION}.`);
+  await postJson(`http://127.0.0.1:${old.port}/api/app/quit`, 3_000);
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    await sleep(250);
+    if (!(await findRunning())) return true;
+  }
+  return false;
+}
+
+function postJson(url: string, timeoutMs: number): Promise<number | undefined> {
+  return new Promise((done) => {
+    const req = http.request(url, { method: 'POST', timeout: timeoutMs, headers: { 'content-type': 'application/json' } }, (res) => {
+      res.resume();
+      done(res.statusCode);
+    });
+    req.on('timeout', () => req.destroy());
+    req.on('error', () => done(undefined));
+    req.end('{}');
+  });
 }
 
 function getJson(url: string, timeoutMs: number): Promise<unknown> {
@@ -138,7 +181,7 @@ function alert(title: string, message: string): Promise<void> {
 async function serve(): Promise<void> {
   mkdirSync(supportDir, { recursive: true });
   logToFile();
-  console.log(`\n=== ${APP_NAME} ${process.env.RF_RANGER_VERSION ?? ''} starting ${new Date().toISOString()} (pid ${process.pid}) ===`);
+  console.log(`\n=== ${APP_NAME} ${VERSION} starting ${new Date().toISOString()} (pid ${process.pid}) ===`);
 
   const already = await findRunning();
   if (already && already.pid !== process.pid) {

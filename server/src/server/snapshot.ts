@@ -49,6 +49,8 @@ export interface Snapshot {
   mode: RunMode;
   /** Running as the desktop app, which can be quit from the UI on this computer. */
   app: boolean;
+  /** RF Ranger version of this server. The app launcher uses it to replace an older server left running. */
+  version: string;
   serverTime: number;
   groups: string[];
   slots: SlotView[];

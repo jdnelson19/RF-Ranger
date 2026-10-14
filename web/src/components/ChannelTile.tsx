@@ -17,7 +17,8 @@ export function ChannelTile({ s, frozen, onOpen }: { s: SlotView; frozen: boolea
   const bars = value(t.batteryBars);
   const top = s.alerts[0];
   const offline = s.alerts.some((a) => a.code === 'rx-offline');
-  const txOn = s.txOn;
+  // Servers before 0.1.1 don't send txOn; fall back to the older rule rather than blanking the meters.
+  const txOn = s.txOn ?? (t.batteryBars.state === 'ok' || t.txModel.state === 'ok' || t.linkQuality.state === 'ok');
   const name = s.assignment?.artist ?? (t.name.state === 'ok' ? t.name.value : 'Unassigned');
   const iem = s.role === 'iem';
   const rfMuted = value(t.rfMuted);
