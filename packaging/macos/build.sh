@@ -152,7 +152,14 @@ STAGE="$OUT/dmg"
 mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
-hdiutil create -volname "RF Ranger" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+# hdiutil intermittently fails with "Resource busy" on CI Macs while a
+# background scanner holds the new image; it succeeds on a retry.
+for attempt in 1 2 3 4 5; do
+  if hdiutil create -volname "RF Ranger" -srcfolder "$STAGE" -ov -format UDZO "$DMG"; then break; fi
+  if [ "$attempt" = 5 ]; then echo "hdiutil failed 5 times"; false; fi
+  echo "hdiutil failed (attempt $attempt); retrying in $((attempt * 5)) s"
+  sleep $((attempt * 5))
+done
 
 if [ -n "${SIGN_IDENTITY:-}" ]; then
   codesign --force --timestamp --sign "$SIGN_IDENTITY" "$DMG"
