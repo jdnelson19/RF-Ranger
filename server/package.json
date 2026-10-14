@@ -15,6 +15,7 @@
     "probe": "tsx src/tools/probe.ts",
     "sim": "tsx src/tools/sim.ts",
     "bundle:app": "node scripts/bundle-app.mjs",
+    "pco": "tsx src/tools/pco.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"

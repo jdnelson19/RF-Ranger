@@ -33,3 +33,9 @@ derived from bitfocus companion-module-shure-psm1000
 (https://github.com/bitfocus/companion-module-shure-psm1000), used under the
 MIT License, Copyright (c) 2020 Bitfocus AS - Open Source. The license text is
 identical to the one above.
+
+The Planning Center Services Live integration is informed by bitfocus
+companion-module-planningcenter-serviceslive
+(https://github.com/bitfocus/companion-module-planningcenter-serviceslive),
+used under the MIT License, Copyright (c) 2018-2023 Joseph Adams. The license
+text is identical to the one above.
