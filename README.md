@@ -43,4 +43,6 @@ Opening the app shows a launch screen with two choices: **Artist Pickup** (the T
 
 **Hardware check:** `npm run probe -- ulxd <receiver-ip>` (see [docs/hardware-validation.md](docs/hardware-validation.md)).
 
+**Show presets:** in the Engineer view, pick **Show → New preset** to save a named, ordered set of channels for one part of a service (e.g. "Worship" for the vocal mics, "Message" for the pastor and announcements). Presets are saved on the RF Ranger computer and shared live with every engineer screen. A screen can be bookmarked to one (`#/engineer?show=<id>`). The Attention tab always covers every channel. **Display ▾** picks which details each mic tile shows (battery, runtime, RF, audio, frequency, link quality, transmitter line, alert line); that setting is saved per screen.
+
 **Keyboard:** `1`–`9` select a group, `0` shows all groups, `f` toggles fullscreen, `Esc` returns to the launch screen.

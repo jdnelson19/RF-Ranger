@@ -3,6 +3,7 @@ import type http from 'node:http';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { PlanningCenterLink } from '../integrations/planning-center/link.js';
 import { loadConfig, normalizeConfig, type Config } from './config.js';
+import { PresetStore, presetsPath } from './presets.js';
 import { startDemo } from './demo.js';
 import { startHttp } from './http.js';
 import { Inspector } from './inspector.js';
@@ -24,6 +25,8 @@ export interface StartOptions {
   app?: { onQuit: () => void };
   /** Defaults to this user's saved link (see integrations/planning-center). */
   planningCenter?: PlanningCenterLink;
+  /** Defaults to ~/.rf-ranger/show-presets.json; demo mode keeps presets in memory. */
+  presets?: PresetStore;
   log?: (msg: string) => void;
 }
 
@@ -64,6 +67,9 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
   const runtime = new Runtime(config, opts.mode);
   const inspector = new Inspector(runtime);
   const planningCenter = opts.planningCenter ?? new PlanningCenterLink();
+  const presets = opts.presets ?? new PresetStore(opts.mode === 'demo' ? undefined : presetsPath());
+  runtime.presets = () => presets.list();
+  presets.on('change', () => runtime.emit('dirty'));
   let server: http.Server;
   try {
     server = await startHttp(runtime, {
@@ -72,6 +78,7 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
       photosDir: config.photosDir,
       inspector,
       planningCenter,
+      presets,
       onQuit: opts.app?.onQuit,
     });
   } catch (err) {

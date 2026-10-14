@@ -13,8 +13,8 @@ export function App() {
   // Micboard-style shortcuts: 0-9 pick a group, f fullscreen, Esc back to start.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (document.querySelector('.drawer') || route.view === 'inspector') return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (document.querySelector('.drawer, .modal') || route.view === 'inspector' || route.view === 'planning-center') return;
       const groups = live.snapshot?.groups ?? [];
       if (e.key === 'f') {
         if (document.fullscreenElement) void document.exitFullscreen();
@@ -23,7 +23,7 @@ export function App() {
         navigate({ view: 'launch' });
       } else if (/^[0-9]$/.test(e.key) && route.view !== 'launch') {
         const n = Number(e.key);
-        navigate({ view: route.view, group: n === 0 ? undefined : groups[n - 1] ?? route.group });
+        navigate({ view: route.view, group: n === 0 ? undefined : groups[n - 1] ?? route.group, show: route.show });
       }
     };
     window.addEventListener('keydown', onKey);

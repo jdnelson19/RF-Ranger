@@ -7,7 +7,7 @@ import { emptyTelemetry, type ChannelTelemetry } from '../core/model.js';
 import { readiness, txPresent } from '../core/readiness.js';
 import type { ChargerConfig, Config, ReceiverConfig } from './config.js';
 import { VERSION } from '../version.js';
-import type { DiscoveredView, RunMode, Snapshot, SlotView } from './snapshot.js';
+import type { DiscoveredView, RunMode, ShowPreset, Snapshot, SlotView } from './snapshot.js';
 
 interface Events {
   /** Device state changed; consumers should throttle snapshot rebuilds. */
@@ -20,6 +20,8 @@ export class Runtime extends EventEmitter<Events> {
   readonly chargers = new Map<string, ShureCharger>();
   /** Set by live mode to report what discovery has found. */
   discovered: () => DiscoveredView[] = () => [];
+  /** Set at startup to share show presets with every screen. */
+  presets: () => ShowPreset[] = () => [];
   /** Running as the desktop app (offers Quit in the UI). */
   app = false;
   private running = false;
@@ -113,6 +115,7 @@ export class Runtime extends EventEmitter<Events> {
 
         return {
           slot: s.slot,
+          key: `${s.receiver}/${s.channel}`,
           label,
           kind: s.kind,
           group: s.group,
@@ -150,6 +153,7 @@ export class Runtime extends EventEmitter<Events> {
         bays: Object.fromEntries(c.bays),
       })),
       discovered: this.discovered(),
+      presets: this.presets(),
     };
   }
 }

@@ -4,8 +4,22 @@ import type { BayTelemetry, ChannelRole, ChannelTelemetry, ChargerInfo, Connecti
 import type { Readiness } from '../core/readiness.js';
 import type { AssignmentConfig, SlotConfig } from '../core/assignment.js';
 
+/** A named, ordered set of channels to monitor at one point in a service (see presets.ts). */
+export interface ShowPreset {
+  id: string;
+  name: string;
+  /** Slot keys in display order. */
+  slots: string[];
+  updatedAt: number;
+}
+
 export interface SlotView {
   slot: number;
+  /**
+   * Stable identity for this channel, `receiverId/channel`. Unlike the slot
+   * number, it doesn't change with discovery order; show presets use it.
+   */
+  key: string;
   label: string;
   kind: SlotConfig['kind'];
   group?: string;
@@ -57,4 +71,6 @@ export interface Snapshot {
   receivers: DeviceView<ReceiverInfo>[];
   chargers: (DeviceView<ChargerInfo> & { bays: Record<number, BayTelemetry> })[];
   discovered: DiscoveredView[];
+  /** Show presets shared by every engineer screen. */
+  presets: ShowPreset[];
 }

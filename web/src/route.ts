@@ -6,17 +6,22 @@ import { useEffect, useState } from 'react';
  *   #/                   launch screen
  *   #/pickup?group=Vocals
  *   #/engineer  #/engineer/attention  #/engineer/devices  #/engineer/inspector  #/engineer/planning-center
+ *   #/engineer?show=<preset id>   the engineer grid limited to a show preset
  */
 export type View = 'launch' | 'pickup' | 'engineer' | 'attention' | 'devices' | 'inspector' | 'planning-center';
 
 export interface Route {
   view: View;
   group?: string;
+  /** Show preset id (engineer grid only). */
+  show?: string;
 }
 
 export function parseRoute(hash: string): Route {
   const [path = '', query = ''] = hash.replace(/^#/, '').split('?');
-  const group = new URLSearchParams(query).get('group') ?? undefined;
+  const params = new URLSearchParams(query);
+  const group = params.get('group') ?? undefined;
+  const show = params.get('show') ?? undefined;
   const parts = path.split('/').filter(Boolean);
   if (parts[0] === 'pickup') return { view: 'pickup', group };
   if (parts[0] === 'engineer') {
@@ -24,7 +29,7 @@ export function parseRoute(hash: string): Route {
     if (parts[1] === 'devices') return { view: 'devices', group };
     if (parts[1] === 'inspector') return { view: 'inspector' };
     if (parts[1] === 'planning-center') return { view: 'planning-center' };
-    return { view: 'engineer', group };
+    return { view: 'engineer', group, show };
   }
   return { view: 'launch' };
 }
@@ -39,7 +44,11 @@ export function href(route: Route): string {
     inspector: '/engineer/inspector',
     'planning-center': '/engineer/planning-center',
   }[route.view];
-  return `#${path}${route.group ? `?group=${encodeURIComponent(route.group)}` : ''}`;
+  const params = new URLSearchParams();
+  if (route.group) params.set('group', route.group);
+  if (route.show && route.view === 'engineer') params.set('show', route.show);
+  const query = params.toString();
+  return `#${path}${query ? `?${query}` : ''}`;
 }
 
 export function navigate(route: Route): void {

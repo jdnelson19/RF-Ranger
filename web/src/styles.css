@@ -483,3 +483,58 @@ select.input { padding-right: 6px; }
 .pco__plan-title { color: var(--text-2); }
 .pco .link { color: var(--accent); }
 @media (max-width: 600px) { .pco__actions { margin-left: 0; } }
+
+/* ---- Show presets and display options ------------------------------------ */
+.showbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px 0; }
+.showbar__pick { display: flex; align-items: center; gap: 8px; }
+.showbar__label { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.showbar__pick .input { flex: 0 1 260px; min-width: 180px; }
+.showbar__display { position: relative; margin-left: auto; }
+.notice { margin: 10px 16px 0; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--warn-bg); color: var(--warn); font-size: 13px; }
+
+.popover-backdrop { position: fixed; inset: 0; z-index: 40; }
+.popover {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 41; width: min(320px, calc(100vw - 32px));
+  background: var(--panel-2); border: 1px solid var(--line-2); border-radius: var(--radius); padding: 10px;
+  display: flex; flex-direction: column; gap: 2px; box-shadow: 0 12px 32px #0008;
+}
+.popover__title { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding: 4px 6px 8px; }
+.popover__item { display: flex; align-items: flex-start; gap: 10px; padding: 7px 6px; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; }
+.popover__item:hover { background: var(--panel-3); }
+.popover__item input { margin-top: 2px; accent-color: var(--accent); }
+.popover__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 6px 2px; border-top: 1px solid var(--line); margin-top: 6px; font-size: 12px; }
+
+.modal-backdrop { position: fixed; inset: 0; z-index: 70; background: #000b; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.modal {
+  width: min(920px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; gap: 14px;
+  background: var(--panel); border: 1px solid var(--line-2); border-radius: var(--radius); padding: 18px; overflow: hidden;
+}
+.modal__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.modal__head h2 { margin: 0; font-size: 18px; }
+.modal__foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.modal__spacer { flex: 1; }
+
+.show-editor__name { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
+.show-editor__panes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; min-height: 0; flex: 1; }
+.show-editor__pane { display: flex; flex-direction: column; gap: 8px; min-height: 0; border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
+.show-editor__pane h3 { margin: 0; font-size: 13px; }
+.show-editor__hint { margin: 0; font-size: 13px; }
+.show-editor__quick { display: flex; flex-wrap: wrap; gap: 6px; }
+.show-editor__list { list-style: none; margin: 0; padding: 0; overflow-y: auto; min-height: 120px; max-height: 46vh; display: flex; flex-direction: column; gap: 4px; }
+.show-editor__row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--panel-2); border: 1px solid var(--line); cursor: grab; }
+.show-editor__row--drag { opacity: 0.4; }
+.show-editor__grip { color: var(--muted); letter-spacing: -2px; user-select: none; }
+.show-editor__btns { margin-left: auto; display: flex; gap: 4px; }
+.show-editor__btns .icon-btn { width: 28px; height: 28px; }
+.show-editor__add { width: 100%; display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--radius-sm); background: none; border: 1px solid transparent; color: inherit; text-align: left; cursor: pointer; }
+.show-editor__add:hover { background: var(--panel-2); border-color: var(--line); }
+.show-editor__plus { color: var(--accent); font-weight: 700; width: 14px; }
+.show-editor__slot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 13px; min-width: 0; }
+.show-editor__slot-label { font-family: var(--mono); font-weight: 700; }
+.show-editor__slot-name { font-weight: 600; }
+@media (max-width: 720px) {
+  .show-editor__panes { grid-template-columns: 1fr; }
+  .show-editor__list { max-height: 30vh; }
+  .showbar__display { margin-left: 0; }
+  .popover { right: auto; left: 0; }
+}

@@ -5,6 +5,8 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import type { PlanningCenterLink } from '../integrations/planning-center/link.js';
 import { handleInspector, isLocalRequest, type Inspector } from './inspector.js';
 import { handlePco } from './pco-http.js';
+import type { PresetStore } from './presets.js';
+import { handlePresets } from './presets-http.js';
 import type { Runtime } from './runtime.js';
 
 const MIME: Record<string, string> = {
@@ -34,6 +36,8 @@ export interface HttpOptions {
   onQuit?: () => void;
   /** Local-only Planning Center settings (see pco-http.ts). */
   planningCenter?: PlanningCenterLink;
+  /** Show presets, editable from any engineer screen (see presets-http.ts). */
+  presets?: PresetStore;
 }
 
 /**
@@ -66,6 +70,11 @@ export function startHttp(runtime: Runtime, opts: HttpOptions): Promise<http.Ser
 
     if (url.pathname.startsWith('/api/inspector') && opts.inspector) {
       void handleInspector(opts.inspector, req, res, url);
+      return;
+    }
+
+    if (url.pathname.startsWith('/api/presets') && opts.presets) {
+      void handlePresets(opts.presets, req, res, url);
       return;
     }
 

@@ -1,4 +1,5 @@
 import { READINESS_TONE, SEVERITY_TONE, mhz, runtime, show, slotTone, value } from '../format';
+import type { DisplayOptions } from '../display';
 import type { SlotView } from '../types';
 import { Battery, Meter, StatusPill, ToneIcon } from './ui';
 
@@ -7,8 +8,13 @@ const RF_MAX = -30;
 const RF_WEAK = -85;
 const AUDIO_MIN = -60;
 
-/** Dense per-channel tile for the engineer grid. */
-export function ChannelTile({ s, frozen, onOpen }: { s: SlotView; frozen: boolean; onOpen: () => void }) {
+/**
+ * Dense per-channel tile for the engineer grid. `fields` hides details per
+ * the screen's display options; status (the readiness pill, the tile's colour,
+ * TALK and MUTED tags) always shows.
+ */
+export function ChannelTile({ s, frozen, onOpen, fields }: { s: SlotView; frozen: boolean; onOpen: () => void; fields?: DisplayOptions }) {
+  const show_ = (f: keyof DisplayOptions) => fields?.[f] ?? true;
   const t = s.telemetry;
   const tone = frozen ? 'idle' : slotTone(s);
   const rf = value(t.rfDbm);
@@ -33,11 +39,11 @@ export function ChannelTile({ s, frozen, onOpen }: { s: SlotView; frozen: boolea
       </div>
 
       <div className="tile__name" title={name}>{name}</div>
-      <div className="tile__sub">
+      {show_('transmitter') && <div className="tile__sub">
         {iem
           ? [s.assignment?.role, 'In-ear', value(t.audioMode)].filter(Boolean).join(' · ')
           : [s.assignment?.role, txOn ? show(t.txModel) : 'TX off', value(t.txDeviceId)].filter(Boolean).join(' · ')}
-      </div>
+      </div>}
 
       {iem ? (
         <div className="tile__battery">
@@ -52,34 +58,34 @@ export function ChannelTile({ s, frozen, onOpen }: { s: SlotView; frozen: boolea
         </div>
       ) : (
         <>
-          <div className="tile__battery">
-            <Battery bars={bars} percent={pct} tone={batteryTone(s)} />
-            <span className="tile__num">{pct !== undefined ? `${pct}%` : bars !== undefined ? `${bars}/5` : show(t.batteryBars)}</span>
-            <span className="tile__num tile__num--dim">
+          {(show_('battery') || show_('runtime') || (s.bay && !txOn)) && <div className="tile__battery">
+            {show_('battery') && <Battery bars={bars} percent={pct} tone={batteryTone(s)} />}
+            {show_('battery') && <span className="tile__num">{pct !== undefined ? `${pct}%` : bars !== undefined ? `${bars}/5` : show(t.batteryBars)}</span>}
+            {show_('runtime') && <span className="tile__num tile__num--dim">
               {t.batteryRuntimeMin.state === 'ok' ? runtime(t.batteryRuntimeMin.value) : t.batteryRuntimeMin.state === 'absent' && t.batteryRuntimeMin.reason === 'calculating' ? 'calc…' : ''}
-            </span>
+            </span>}
             {s.bay && !txOn && <span className="tile__charger">⚡ bay {s.assignment?.charger?.bay}</span>}
-          </div>
+          </div>}
 
-          <div className="tile__meters">
-            {(rf ?? [undefined]).map((v, i) => (
+          {(show_('rf') || show_('audio')) && <div className="tile__meters">
+            {show_('rf') && (rf ?? [undefined]).map((v, i) => (
               <Meter key={i} label={rf && rf.length > 1 ? `RF ${antennas[i]}` : 'RF'} value={txOn ? v : undefined} min={RF_MIN} max={RF_MAX} warnBelow={RF_WEAK}
                 readout={txOn && v !== undefined ? `${v}` : '—'} />
             ))}
-            <Meter label="AUD" value={txOn ? value(t.audioRmsDbfs) : undefined} min={AUDIO_MIN} max={0}
-              readout={txOn && t.audioRmsDbfs.state === 'ok' ? `${t.audioRmsDbfs.value}` : '—'} />
-          </div>
+            {show_('audio') && <Meter label="AUD" value={txOn ? value(t.audioRmsDbfs) : undefined} min={AUDIO_MIN} max={0}
+              readout={txOn && t.audioRmsDbfs.state === 'ok' ? `${t.audioRmsDbfs.value}` : '—'} />}
+          </div>}
         </>
       )}
 
       <div className="tile__foot">
-        <span className="tile__num">{t.frequencyKhz.state === 'ok' ? `${mhz(t.frequencyKhz.value)} MHz` : '— MHz'}</span>
-        {t.linkQuality.state !== 'unsupported' && <span className="tile__num tile__num--dim">Q {show(t.linkQuality)}/5</span>}
+        {show_('frequency') && <span className="tile__num">{t.frequencyKhz.state === 'ok' ? `${mhz(t.frequencyKhz.value)} MHz` : '— MHz'}</span>}
+        {show_('quality') && t.linkQuality.state !== 'unsupported' && <span className="tile__num tile__num--dim">Q {show(t.linkQuality)}/5</span>}
         {txOn && value(t.txTalkSwitch) && <span className="tag tag--talk" title="Talk switch held: audio is going to talkback">TALK</span>}
         {value(t.rxMuted) && <span className="tag tag--warn">MUTED</span>}
       </div>
 
-      <div className={`tile__alert tile__alert--${top ? SEVERITY_TONE[top.severity] : 'none'}`}>
+      {show_('alerts') && <div className={`tile__alert tile__alert--${top ? SEVERITY_TONE[top.severity] : 'none'}`}>
         {top ? (
           <>
             <ToneIcon tone={SEVERITY_TONE[top.severity]} />
@@ -89,7 +95,7 @@ export function ChannelTile({ s, frozen, onOpen }: { s: SlotView; frozen: boolea
         ) : (
           <span className="tile__ok">No issues</span>
         )}
-      </div>
+      </div>}
     </button>
   );
 }

@@ -46,7 +46,8 @@ describe.each<ShureFamilyId>(['ulxd', 'axd', 'slxd'])('ShureReceiver against sim
     rx.start();
     await until(() => rx.channels.get(2)!.telemetry.batteryBars.state === 'ok');
     sim.update(2, { txOn: false });
-    await until(() => rx.channels.get(2)!.telemetry.batteryBars.state === 'absent');
+    // The sim splits writes with pauses, so the model can land a few ms after the battery.
+    await until(() => rx.channels.get(2)!.telemetry.batteryBars.state === 'absent' && rx.channels.get(2)!.telemetry.txModel.state !== 'ok');
     expect(rx.channels.get(2)!.telemetry.txModel.state).toBe('absent');
   });
 });
