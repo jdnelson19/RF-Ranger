@@ -94,6 +94,22 @@ AD channels have 8 registration slots (`SLOT_STATUS`, `SLOT_TX_MODEL`, `SLOT_TX_
 3. **Battery %** exists only with Shure rechargeables. With AA batteries we have bars only, and runtime is unavailable. This is not a fault.
 4. **RF in dBm, audio in dBFS, with per-family offsets.** The adapter normalises to these units. Raw values are kept for diagnostics.
 
+## Confirmed on hardware: AD4Q-A with an AD2
+
+Source: a Device Inspector capture from the RF Ranger 0.1.0 macOS app, 2026-10-14. Channel 1's AD2 (Shure rechargeable) was switched on partway through. The capture is replayed in `server/test/hardware-replay.test.ts` (fixture `server/test/fixtures/ad4q-ad2-power-on.json`).
+
+- **Power-on order.** The first `SAMPLE` after power-on already shows the transmitter: quality `000` instead of `255`, antennas `BB` instead of `XX`, and real RSSI. Quality climbs to 5 over about 2.5 s. The `REP` burst (model, battery, offset, ID) arrives **about 1.5 s later**. RF Ranger therefore treats link quality as a sign the transmitter is present.
+- **Transient sentinels.** Within that burst, `TX_BATT_BARS 255` and `TX_BATT_TYPE UNKN` arrive a few milliseconds before the real `005` / `LION`.
+- **`TX_BATT_MINS 65534` = calculating.** It stayed that way for the whole 30 s after power-on, with a full battery. It's shown as "calculating", not as missing.
+- **Battery temperature is °C + 40.** `TX_BATT_TEMP_C 063` = 23 °C, and `TX_BATT_TEMP_F 113` = 73 °F agrees. Health (`089` %) and cycles (`00301`) are plain numbers.
+- **Confirmed as documented:**
+  - `TX_OFFSET 012` = 0 dB (offset 12)
+  - `TX_MUTE_MODE_STATUS ON` = mute switch open
+  - RSSI = raw − 120 (−75 to −53 dBm on air, about −100 dBm with no transmitter)
+  - link quality 0–5, and `255` with no transmitter
+- **Audio meter floor.** While on air, RMS never goes below raw `033` (−87 dBFS). In silence, peak keeps dropping below that (down to −94 dBFS), so a peak below RMS is normal when it's quiet. Whenever there's sound, peak is at or above RMS. With no transmitter, the meters read peak `005` / RMS `020`. These are floor values and shouldn't be displayed as levels.
+- **Not seen yet:** AA batteries, a transmitter switching off, interference, encryption errors, and audio from deliberate speech (levels in this capture peaked at −31 dBFS).
+
 ## Networked chargers (SBC220 / SBC240)
 
 Source: Shure *SBC220 SBC240 Command Strings*, v2.0 (2020-K). Same transport (TCP :2202, `< … >`). Up to 4 chargers can be ganged on one connection, and bays are numbered across the gang. The charger is the server.

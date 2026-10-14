@@ -193,6 +193,10 @@ export class ShureSim {
           rep('TX_MODEL', on ? ch.txModel : 'UNKNOWN'),
           rep('TX_DEVICE_ID', this.braced(on ? ch.txDeviceId : '')),
           rep('TX_OFFSET', on ? pad(ch.txOffsetDb + 12, 3) : '255'),
+          // As a real AD2 with a Shure rechargeable reports them (+40 on temperature).
+          rep('TX_BATT_HEALTH_PERCENT', on && ch.batteryPercent !== undefined ? '089' : '255'),
+          rep('TX_BATT_CYCLE_COUNT', on && ch.batteryPercent !== undefined ? '00301' : '65535'),
+          rep('TX_BATT_TEMP_C', on && ch.batteryPercent !== undefined ? '063' : '255'),
           rep('ENCRYPTION_STATUS', 'OK'),
           rep('INTERFERENCE_STATUS', 'NONE'),
           rep('UNREGISTERED_TX_STATUS', 'OK'),

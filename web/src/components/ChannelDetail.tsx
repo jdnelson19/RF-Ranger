@@ -17,6 +17,9 @@ const ROWS: Array<[section: string, rows: Row[]]> = [
     ['Charge', 'batteryPercent', (v: number) => `${v}%`],
     ['Runtime', 'batteryRuntimeMin', (v: number) => `${runtime(v)} h`],
     ['Type', 'batteryType'],
+    ['Health', 'batteryHealthPercent', (v: number) => `${v}%`],
+    ['Charge cycles', 'batteryCycles'],
+    ['Temperature', 'batteryTempC', (v: number) => `${v} °C`],
   ]],
   ['RF', [
     ['Frequency', 'frequencyKhz', (v: number) => `${mhz(v)} MHz`],
@@ -137,7 +140,7 @@ export function ChannelDetail({ s, now, onClose }: { s: SlotView; now: number; o
                     <dt>{label}</dt>
                     <dd className={reading.state === 'ok' ? '' : 'dim'}>
                       {show(reading, fmt ?? String)}
-                      {reading.state !== 'ok' && <span className="kv__why">{STATE_NOTE[reading.state]}</span>}
+                      {reading.state !== 'ok' && !(reading.state === 'absent' && reading.reason) && <span className="kv__why">{STATE_NOTE[reading.state]}</span>}
                       {age !== undefined && age > 10 && <span className="kv__why">{age}s ago</span>}
                     </dd>
                   </div>

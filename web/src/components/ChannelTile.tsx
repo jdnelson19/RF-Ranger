@@ -17,7 +17,7 @@ export function ChannelTile({ s, frozen, onOpen }: { s: SlotView; frozen: boolea
   const bars = value(t.batteryBars);
   const top = s.alerts[0];
   const offline = s.alerts.some((a) => a.code === 'rx-offline');
-  const txOn = t.batteryBars.state === 'ok' || t.txModel.state === 'ok';
+  const txOn = s.txOn;
   const name = s.assignment?.artist ?? (t.name.state === 'ok' ? t.name.value : 'Unassigned');
   const iem = s.role === 'iem';
   const rfMuted = value(t.rfMuted);
@@ -54,7 +54,9 @@ export function ChannelTile({ s, frozen, onOpen }: { s: SlotView; frozen: boolea
           <div className="tile__battery">
             <Battery bars={bars} percent={pct} tone={batteryTone(s)} />
             <span className="tile__num">{pct !== undefined ? `${pct}%` : bars !== undefined ? `${bars}/5` : show(t.batteryBars)}</span>
-            <span className="tile__num tile__num--dim">{t.batteryRuntimeMin.state === 'ok' ? runtime(t.batteryRuntimeMin.value) : ''}</span>
+            <span className="tile__num tile__num--dim">
+              {t.batteryRuntimeMin.state === 'ok' ? runtime(t.batteryRuntimeMin.value) : t.batteryRuntimeMin.state === 'absent' && t.batteryRuntimeMin.reason === 'calculating' ? 'calc…' : ''}
+            </span>
             {s.bay && !txOn && <span className="tile__charger">⚡ bay {s.assignment?.charger?.bay}</span>}
           </div>
 

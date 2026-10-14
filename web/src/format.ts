@@ -4,7 +4,7 @@ import type { ReadinessLabel, Reading, Severity, SlotView } from './types';
 export function show<T>(r: Reading<T>, fmt: (v: T) => string = String): string {
   switch (r.state) {
     case 'ok': return fmt(r.value);
-    case 'absent': return '—';
+    case 'absent': return r.reason ?? '—';
     case 'unsupported': return 'n/a';
     case 'unknown': return '…';
   }

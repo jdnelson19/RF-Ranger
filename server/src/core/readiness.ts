@@ -201,7 +201,11 @@ function fromCharger(s: StorageInput, now: number, th: ReadinessThresholds, text
  * Whether a transmitter is on air. Shure has no single flag for this; the
  * transmitter-sourced fields flip between values and sentinels as it comes
  * and goes. Must be validated per family against hardware.
+ *
+ * Axient link quality is metered, so it shows a transmitter switching on
+ * within one sample (an AD2 read 000 right away, 255 while off), about 1.5 s
+ * before the model and battery reports arrive.
  */
 export function txPresent(t: ChannelTelemetry): boolean {
-  return t.batteryBars.state === 'ok' || t.txOffsetDb.state === 'ok' || t.txModel.state === 'ok';
+  return t.batteryBars.state === 'ok' || t.txOffsetDb.state === 'ok' || t.txModel.state === 'ok' || t.linkQuality.state === 'ok';
 }

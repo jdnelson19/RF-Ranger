@@ -4,7 +4,7 @@ import { ShureReceiver } from '../adapters/shure/receiver.js';
 import { channelAlerts } from '../core/alerts.js';
 import { splitChannelName, type AssignmentConfig, type SlotConfig } from '../core/assignment.js';
 import { emptyTelemetry, type ChannelTelemetry } from '../core/model.js';
-import { readiness } from '../core/readiness.js';
+import { readiness, txPresent } from '../core/readiness.js';
 import type { ChargerConfig, Config, ReceiverConfig } from './config.js';
 import type { DiscoveredView, RunMode, Snapshot, SlotView } from './snapshot.js';
 
@@ -119,6 +119,7 @@ export class Runtime extends EventEmitter<Events> {
           channel: s.channel,
           family: rx.family.id,
           role,
+          txOn: role === 'mic' && txPresent(telemetry),
           telemetry,
           assignment: a && { ...a, photoUrl: photoUrl(a.photo) },
           bay,

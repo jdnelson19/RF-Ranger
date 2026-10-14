@@ -36,6 +36,10 @@ export interface ChannelTelemetry {
   batteryPercent: Reading<number>;
   batteryRuntimeMin: Reading<number>;
   batteryType: Reading<string>;
+  /** Shure rechargeables: capacity relative to new. */
+  batteryHealthPercent: Reading<number>;
+  batteryCycles: Reading<number>;
+  batteryTempC: Reading<number>;
 
   /** RSSI per diversity antenna, A first. */
   rfDbm: Reading<number[]>;
@@ -76,6 +80,9 @@ export function emptyTelemetry(): ChannelTelemetry {
     batteryPercent: UNKNOWN,
     batteryRuntimeMin: UNKNOWN,
     batteryType: UNKNOWN,
+    batteryHealthPercent: UNKNOWN,
+    batteryCycles: UNKNOWN,
+    batteryTempC: UNKNOWN,
     rfDbm: UNKNOWN,
     antennas: UNKNOWN,
     audioRmsDbfs: UNKNOWN,

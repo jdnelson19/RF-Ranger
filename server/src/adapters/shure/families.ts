@@ -79,8 +79,16 @@ const groupChannel: Apply = (t, a, now) => {
 const rxMute: Apply = (t, a, now) => { t.rxMuted = flag(a[0], now, ['ON'], ['OFF']); };
 const bars: Apply = (t, a, now) => { t.batteryBars = numeric(a[0], now); };
 const percent: Apply = (t, a, now) => { t.batteryPercent = numeric(a[0], now); };
-const runtime: Apply = (t, a, now) => { t.batteryRuntimeMin = numeric(a[0], now); };
+// 65534 means the transmitter is still working out its runtime: seen on an AD2
+// for at least 30 s after power-on with a full battery.
+const runtime: Apply = (t, a, now) => {
+  t.batteryRuntimeMin = a[0] === '65534' ? absent(now, 'calculating') : numeric(a[0], now);
+};
 const battType: Apply = (t, a, now) => { t.batteryType = text(a[0], now); };
+const health: Apply = (t, a, now) => { t.batteryHealthPercent = numeric(a[0], now); };
+const cycles: Apply = (t, a, now) => { t.batteryCycles = numeric(a[0], now); };
+// Encoded as °C + 40; confirmed on an AD2, where TX_BATT_TEMP_F (°F + 40) agrees.
+const tempC: Apply = (t, a, now) => { t.batteryTempC = offset(a[0], now, 40); };
 const txModel: Apply = (t, a, now) => { t.txModel = text(a[0], now); };
 const txDeviceId: Apply = (t, a, now) => { t.txDeviceId = text(a.join(' '), now); };
 
@@ -98,6 +106,7 @@ const ulxd: ShureFamily = {
   supports: new Set<Metric>([
     'name', 'frequencyKhz', 'groupChannel', 'txModel', 'txDeviceId', 'txOffsetDb', 'txMuted',
     'batteryBars', 'batteryPercent', 'batteryRuntimeMin', 'batteryType',
+    'batteryHealthPercent', 'batteryCycles', 'batteryTempC',
     'rfDbm', 'antennas', 'audioRmsDbfs', 'rxMuted', 'interference', 'encryptionFault',
   ]),
   reports: {
@@ -109,6 +118,9 @@ const ulxd: ShureFamily = {
     BATT_CHARGE: percent,
     BATT_RUN_TIME: runtime,
     BATT_TYPE: battType,
+    BATT_HEALTH: health,
+    BATT_CYCLE: cycles,
+    BATT_TEMP_C: tempC,
     TX_TYPE: (t, a, now) => {
       t.txModel = text(a[0], now);
       // Only bodypack ULXD6 / boundary ULXD8 report an identity and mute state.
@@ -146,6 +158,7 @@ const axd: ShureFamily = {
   supports: new Set<Metric>([
     'name', 'frequencyKhz', 'groupChannel', 'txModel', 'txDeviceId', 'txOffsetDb', 'txMuted',
     'batteryBars', 'batteryPercent', 'batteryRuntimeMin', 'batteryType',
+    'batteryHealthPercent', 'batteryCycles', 'batteryTempC',
     'rfDbm', 'antennas', 'audioRmsDbfs', 'audioPeakDbfs', 'linkQuality',
     'rxMuted', 'interference', 'encryptionFault', 'unregisteredTx',
   ]),
@@ -158,6 +171,9 @@ const axd: ShureFamily = {
     TX_BATT_CHARGE_PERCENT: percent,
     TX_BATT_MINS: runtime,
     TX_BATT_TYPE: battType,
+    TX_BATT_HEALTH_PERCENT: health,
+    TX_BATT_CYCLE_COUNT: cycles,
+    TX_BATT_TEMP_C: tempC,
     TX_MODEL: txModel,
     TX_DEVICE_ID: txDeviceId,
     TX_OFFSET: (t, a, now) => { t.txOffsetDb = offset(a[0], now, 12); },

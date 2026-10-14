@@ -14,6 +14,8 @@ export interface SlotView {
   family: string;
   /** `iem`: the rack unit is an in-ear monitor transmitter and the pack reports nothing. */
   role: ChannelRole;
+  /** A transmitter is on air (mic channels); the same test readiness uses. */
+  txOn: boolean;
   telemetry: ChannelTelemetry;
   assignment?: AssignmentConfig & { photoUrl?: string };
   bay?: BayTelemetry;
