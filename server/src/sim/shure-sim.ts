@@ -29,6 +29,9 @@ export interface ShureSimOptions {
   channels?: Partial<SimChannel>[];
   /** Split outgoing writes at random points to exercise client framing. */
   fragment?: boolean;
+  /** Older ULX-D firmware documents no MODEL command. */
+  answersModel?: boolean;
+  deviceId?: string;
 }
 
 const DEFAULT_MODEL: Record<ShureFamilyId, string> = { ulxd: 'ULXD4Q', axd: 'AD4Q-A', slxd: 'SLXD4D' };
@@ -47,11 +50,15 @@ export class ShureSim {
   private server = net.createServer((s) => this.onClient(s));
   private clients = new Map<net.Socket, { meterTimers: Map<number, NodeJS.Timeout> }>();
   private fragment: boolean;
+  private answersModel: boolean;
+  private deviceId: string;
 
   constructor(opts: ShureSimOptions) {
     this.family = opts.family;
     this.model = opts.model ?? DEFAULT_MODEL[opts.family];
     this.fragment = opts.fragment ?? false;
+    this.answersModel = opts.answersModel ?? true;
+    this.deviceId = opts.deviceId ?? 'SIM';
     const count = opts.channels?.length ?? (opts.family === 'slxd' ? 2 : 4);
     this.channels = Array.from({ length: count }, (_, i) => ({
       name: `CH ${i + 1}`,
@@ -110,8 +117,9 @@ export class ShureSim {
     const tokens = tokenize(frame.slice(1, -1));
     const [verb, a, b, c] = tokens;
     const deviceReply: Record<string, string> = {
-      MODEL: this.braced(this.model),
-      DEVICE_ID: this.braced('SIM'),
+      ...(this.answersModel ? { MODEL: this.braced(this.model) } : {}),
+      ...(this.family === 'ulxd' ? { HIGH_DENSITY: 'OFF' } : {}),
+      DEVICE_ID: this.braced(this.deviceId),
       FW_VER: '{0.0.0.0-sim}',
     };
 
@@ -129,9 +137,10 @@ export class ShureSim {
       if (ms > 0) timers.set(ch, setInterval(() => this.write(socket, this.sample(ch)), Math.max(100, ms)));
       this.write(socket, `< REP ${ch} METER_RATE ${pad(ms, 5)} >`);
     } else if (verb === 'GET' && a && /^\d+$/.test(a) && b && b !== 'METER_RATE') {
-      const prefix = `< REP ${a} ${b} `;
-      const reply = this.channels[Number(a) - 1] ? this.channelReports(Number(a)).find((f) => f.startsWith(prefix)) : undefined;
-      this.write(socket, reply ?? '< REP ERR >');
+      // Channel 0 means every channel.
+      const which = a === '0' ? this.channels.map((_, i) => i + 1) : this.channels[Number(a) - 1] ? [Number(a)] : [];
+      const replies = which.flatMap((ch) => this.channelReports(ch).filter((f) => f.startsWith(`< REP ${ch} ${b} `)));
+      this.write(socket, replies.length ? replies.join('') : '< REP ERR >');
     } else if (verb === 'GET' && a && b === 'METER_RATE') {
       this.write(socket, `< REP ${a} METER_RATE 00000 >`);
     } else if (parseMessage(frame).kind === 'unknown') {

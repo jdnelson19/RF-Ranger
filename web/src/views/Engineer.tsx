@@ -89,6 +89,12 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
 
           {!s ? (
             <div className="empty">Connecting to RF Ranger…</div>
+          ) : s.slots.length === 0 && s.mode === 'live' ? (
+            <div className="empty">
+              <div className="empty__title">Looking for Shure receivers…</div>
+              <p>Devices appear here as they're found. Progress is on the <a className="link" href={href({ view: 'devices' })}>Devices</a> tab.</p>
+              <p className="dim">Nothing showing up? Make sure this computer is on the receivers' network, or restart with <code>npm run live -- --receiver &lt;ip&gt;</code>.</p>
+            </div>
           ) : slots.length === 0 ? (
             <div className="empty">{route.view === 'attention' ? <><span className="ok-text">✓</span> Nothing needs attention{route.group ? ` in ${route.group}` : ''}.</> : 'No channels match.'}</div>
           ) : (

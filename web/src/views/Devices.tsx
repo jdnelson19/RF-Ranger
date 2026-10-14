@@ -20,6 +20,13 @@ function duration(sec: number): string {
   return `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m`;
 }
 
+const FOUND_TEXT = {
+  identifying: 'Identifying…',
+  monitoring: 'Monitoring',
+  unsupported: 'Not supported',
+  unreachable: 'No answer',
+} as const;
+
 /** Network and integration status for every configured device. */
 export function Devices({ live }: { live: Live }) {
   const s = live.snapshot;
@@ -28,6 +35,37 @@ export function Devices({ live }: { live: Live }) {
 
   return (
     <div className="devices">
+      {s.mode === 'live' && (
+        <section>
+          <h2 className="section-title">Found on the network</h2>
+          {s.discovered.length === 0 ? (
+            <p className="dim">
+              Listening for Shure devices… They announce themselves every so often, so this can take a minute. If nothing appears, check
+              this computer is on the same network as the receivers, or start with <code>--receiver &lt;ip&gt;</code>.
+            </p>
+          ) : (
+            <table className="table">
+              <thead>
+                <tr><th>Address</th><th>Model</th><th>Device ID</th><th>Type</th><th>Found by</th><th>Status</th><th>Note</th></tr>
+              </thead>
+              <tbody>
+                {s.discovered.map((d) => (
+                  <tr key={d.host}>
+                    <td className="num strong">{d.host}</td>
+                    <td>{d.model ?? <span className="dim">—</span>}</td>
+                    <td>{d.deviceId ?? <span className="dim">—</span>}</td>
+                    <td>{d.kind ? d.kind.toUpperCase() : <span className="dim">—</span>}</td>
+                    <td className="dim">{d.source === 'manual' ? 'Address given' : 'Discovery'}</td>
+                    <td><span className={`found found--${d.state}`}>{FOUND_TEXT[d.state]}</span></td>
+                    <td className="dim">{d.note ?? ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      )}
+
       <section>
         <h2 className="section-title">Receivers</h2>
         <table className="table">
@@ -53,7 +91,7 @@ export function Devices({ live }: { live: Live }) {
       <section>
         <h2 className="section-title">Chargers</h2>
         {s.chargers.length === 0 ? (
-          <p className="dim">No chargers configured.</p>
+          <p className="dim">{s.mode === 'live' ? 'No networked chargers found.' : 'No chargers configured.'}</p>
         ) : (
           <table className="table">
             <thead>

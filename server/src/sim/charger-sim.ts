@@ -55,6 +55,10 @@ export class ChargerSim {
         else if (a === 'FW_VER') s.write(`< REP FW_VER {${'0.0.0.0-sim'.padEnd(24)}} >`);
         else if (a === 'STORAGE_MODE') s.write('< REP STORAGE_MODE OFF >');
         else if (a === '0' && b === 'ALL') s.write(this.bays.map((_, i) => this.bayReports(i + 1)).join(''));
+        else if (a === '0' && b) {
+          const all = this.bays.map((_, i) => this.bayReports(i + 1)).join('');
+          s.write((all.match(new RegExp(`< REP \\d+ ${b} [^>]*>`, 'g')) ?? []).join(''));
+        }
       }
     });
   }

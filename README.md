@@ -30,7 +30,9 @@ npm run demo                 # simulated receivers and charger -> http://localho
 
 Opening the app shows a launch screen with two choices: **Artist Pickup** (the TV display at the RF table) or **Engineer**. Every view has its own URL, so a backstage TV can be bookmarked straight to `#/pickup?group=Vocals`.
 
-With real hardware, copy `server/rf-ranger.config.example.json` to `server/rf-ranger.config.json`, edit it, and run `npm start`.
+**With real hardware, no setup:** run `npm run live` in `server/`. It finds Shure receivers and networked chargers on the network, identifies them, and names slots from the receivers' channel names, the way Micboard does. You can also add devices by address: `npm run live -- --receiver 10.0.1.20`. Run `npm run discover` to list what's on the network.
+
+**Configured show:** copy `server/rf-ranger.config.example.json` to `server/rf-ranger.config.json`, set up artists, groups, and charger bays, then run `npm start`.
 
 **UI development:** run `npm run demo` in `server/` and `npm run dev` in `web/` (Vite on :5173, with proxying to the server).
 

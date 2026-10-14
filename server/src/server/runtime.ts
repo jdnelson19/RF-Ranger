@@ -2,10 +2,11 @@ import { EventEmitter } from 'node:events';
 import { ShureCharger } from '../adapters/shure/charger.js';
 import { ShureReceiver } from '../adapters/shure/receiver.js';
 import { channelAlerts } from '../core/alerts.js';
-import { emptyTelemetry } from '../core/model.js';
+import { splitChannelName, type AssignmentConfig, type SlotConfig } from '../core/assignment.js';
+import { emptyTelemetry, type ChannelTelemetry } from '../core/model.js';
 import { readiness } from '../core/readiness.js';
-import type { Config } from './config.js';
-import type { Snapshot, SlotView } from './snapshot.js';
+import type { ChargerConfig, Config, ReceiverConfig } from './config.js';
+import type { DiscoveredView, RunMode, Snapshot, SlotView } from './snapshot.js';
 
 interface Events {
   /** Device state changed; consumers should throttle snapshot rebuilds. */
@@ -16,37 +17,68 @@ interface Events {
 export class Runtime extends EventEmitter<Events> {
   readonly receivers = new Map<string, ShureReceiver>();
   readonly chargers = new Map<string, ShureCharger>();
+  /** Set by live mode to report what discovery has found. */
+  discovered: () => DiscoveredView[] = () => [];
+  private running = false;
 
-  constructor(readonly config: Config, readonly demo = false) {
+  constructor(readonly config: Config, readonly mode: RunMode = 'config') {
     super();
-    const dirty = () => this.emit('dirty');
+    for (const rc of config.receivers) this.createReceiver(rc);
+    for (const cc of config.chargers) this.createCharger(cc);
+  }
 
-    for (const rc of config.receivers) {
-      const usedChannels = config.slots.filter((s) => s.receiver === rc.id).map((s) => s.channel);
-      const rx = new ShureReceiver({
-        id: rc.id,
-        host: rc.host,
-        port: rc.port,
-        family: rc.family,
-        channels: rc.channels ?? (usedChannels.length ? Math.max(...usedChannels) : undefined),
-      });
-      rx.on('channel', dirty).on('status', dirty).on('info', dirty);
-      this.receivers.set(rc.id, rx);
+  /** Add a receiver while running, with one auto-named slot per channel. */
+  addReceiver(rc: ReceiverConfig, group?: string): void {
+    if (this.receivers.has(rc.id)) return;
+    this.config.receivers.push(rc);
+    const rx = this.createReceiver(rc);
+    let next = Math.max(0, ...this.config.slots.map((s) => s.slot)) + 1;
+    for (const ch of rx.channels.keys()) {
+      this.config.slots.push({ slot: next++, receiver: rc.id, channel: ch, group, autoName: true });
     }
+    if (this.running) rx.start();
+    this.emit('dirty');
+  }
 
-    for (const cc of config.chargers) {
-      const charger = new ShureCharger({ id: cc.id, host: cc.host, port: cc.port });
-      charger.on('bay', dirty).on('status', dirty).on('info', dirty);
-      this.chargers.set(cc.id, charger);
-    }
+  addCharger(cc: ChargerConfig): void {
+    if (this.chargers.has(cc.id)) return;
+    this.config.chargers.push(cc);
+    const c = this.createCharger(cc);
+    if (this.running) c.start();
+    this.emit('dirty');
   }
 
   start(): void {
+    this.running = true;
     for (const d of [...this.receivers.values(), ...this.chargers.values()]) d.start();
   }
 
   async stop(): Promise<void> {
+    this.running = false;
     await Promise.all([...this.receivers.values(), ...this.chargers.values()].map((d) => d.stop()));
+  }
+
+  private createReceiver(rc: ReceiverConfig): ShureReceiver {
+    const usedChannels = this.config.slots.filter((s) => s.receiver === rc.id).map((s) => s.channel);
+    const rx = new ShureReceiver({
+      id: rc.id,
+      host: rc.host,
+      port: rc.port,
+      family: rc.family,
+      channels: rc.channels ?? (usedChannels.length ? Math.max(...usedChannels) : undefined),
+    });
+    const dirty = () => this.emit('dirty');
+    rx.on('channel', dirty).on('status', dirty).on('info', dirty);
+    this.receivers.set(rc.id, rx);
+    return rx;
+  }
+
+  private createCharger(cc: ChargerConfig): ShureCharger {
+    const charger = new ShureCharger({ id: cc.id, host: cc.host, port: cc.port });
+    const dirty = () => this.emit('dirty');
+    charger.on('bay', dirty).on('status', dirty).on('info', dirty);
+    this.chargers.set(cc.id, charger);
+    return charger;
   }
 
   snapshot(now = Date.now()): Snapshot {
@@ -57,7 +89,7 @@ export class Runtime extends EventEmitter<Events> {
       .map((s): SlotView => {
         const rx = this.receivers.get(s.receiver)!;
         const telemetry = rx.channels.get(s.channel)?.telemetry ?? emptyTelemetry();
-        const a = s.assignment;
+        const { label, assignment: a } = s.autoName ? fromChannelName(s, telemetry) : { label: s.label ?? String(s.slot), assignment: s.assignment };
         const charger = a?.charger ? this.chargers.get(a.charger.id) : undefined;
         const bay = charger && a?.charger ? charger.bays.get(a.charger.bay) : undefined;
 
@@ -75,7 +107,7 @@ export class Runtime extends EventEmitter<Events> {
 
         return {
           slot: s.slot,
-          label: s.label ?? String(s.slot),
+          label,
           kind: s.kind,
           group: s.group,
           receiverId: s.receiver,
@@ -96,7 +128,8 @@ export class Runtime extends EventEmitter<Events> {
     const extra = [...new Set(slots.map((s) => s.group).filter((g): g is string => !!g && !listed.includes(g)))].sort();
 
     return {
-      demo: this.demo,
+      demo: this.mode === 'demo',
+      mode: this.mode,
       serverTime: now,
       groups: [...listed, ...extra],
       slots,
@@ -106,8 +139,15 @@ export class Runtime extends EventEmitter<Events> {
         status: c.status,
         bays: Object.fromEntries(c.bays),
       })),
+      discovered: this.discovered(),
     };
   }
+}
+
+function fromChannelName(s: SlotConfig, t: ChannelTelemetry): { label: string; assignment?: AssignmentConfig } {
+  const raw = t.name.state === 'ok' ? t.name.value : '';
+  const { id, name } = splitChannelName(raw);
+  return { label: id ?? String(s.slot), assignment: name ? { artist: name } : undefined };
 }
 
 function photoUrl(photo: string | undefined): string | undefined {

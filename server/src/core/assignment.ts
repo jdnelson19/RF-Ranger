@@ -22,4 +22,22 @@ export interface SlotConfig {
   kind?: 'handheld' | 'bodypack' | 'other';
   group?: string;
   assignment?: AssignmentConfig;
+  /**
+   * Take the label and artist from the receiver's channel name instead of
+   * config (quick-start mode, like Micboard). Unnamed channels show as spare.
+   */
+  autoName?: boolean;
+}
+
+/**
+ * Split a receiver channel name into an equipment ID and a person, the way
+ * Micboard does: "H01 Fatai" -> { id: "H01", name: "Fatai" }, "BP-3" -> { id: "BP-3" },
+ * "Pastor Dan" -> { name: "Pastor Dan" }.
+ */
+export function splitChannelName(raw: string): { id?: string; name?: string } {
+  const parts = raw.trim().replace(/_/g, ' ').split(/\s+/).filter(Boolean);
+  const [first, ...rest] = parts;
+  if (!first) return {};
+  if (/^[A-Za-z]*-?\d+$/.test(first)) return { id: first, name: rest.join(' ') || undefined };
+  return { name: parts.join(' ') };
 }
