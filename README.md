@@ -9,7 +9,7 @@ RF Ranger monitors wireless microphone systems for live production. It has two v
 
 Shure is the first supported hardware ecosystem. Sennheiser is planned next.
 
-> **Status:** Early development. The Shure adapter (ULX-D, Axient Digital, SLX-D, SBC220/SBC240 chargers), readiness rules, and the Engineer and Pickup UIs run end-to-end against simulated hardware. Validation against real receivers is next.
+> **Status:** Early development. The Shure adapter (ULX-D, Axient Digital, SLX-D, SBC220/SBC240 chargers, and provisional PSM 1000 in-ear monitor support), readiness rules, and the Engineer and Pickup UIs run end-to-end against simulated hardware. Validation against real receivers is next.
 
 ## Docs
 

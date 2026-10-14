@@ -1,5 +1,5 @@
 import net from 'node:net';
-import type { ShureFamilyId } from './families.js';
+import { SHURE_FAMILY_IDS, type ShureFamilyId } from './families.js';
 import { ShureFramer, parseMessage } from './protocol.js';
 import { SHURE_PORT } from './connection.js';
 
@@ -28,14 +28,16 @@ const MODEL_KINDS: Array<[RegExp, ShureKind | string]> = [
   [/^QLXD/i, 'QLX-D is not supported yet'],
   [/^SBC[48]50/i, 'SBC450/SBC850 chargers are not supported yet'],
   [/^SBC/i, 'This charger model is not supported yet'],
-  [/^(P10T|PSM)/i, 'In-ear monitor transmitters are not supported yet'],
+  [/^P10T/i, 'psm1000'],
+  [/^ADT[DQ]/i, 'Axient Digital PSM transmitters are not supported yet'],
+  [/^PSM/i, 'This in-ear monitor transmitter is not supported yet'],
 ];
+
+const KINDS: readonly string[] = [...SHURE_FAMILY_IDS, 'charger'];
 
 export function kindForModel(model: string): { kind?: ShureKind; unsupported?: string } {
   for (const [re, k] of MODEL_KINDS) {
-    if (re.test(model)) {
-      return ['ulxd', 'axd', 'slxd', 'charger'].includes(k) ? { kind: k as ShureKind } : { unsupported: k };
-    }
+    if (re.test(model)) return KINDS.includes(k) ? { kind: k as ShureKind } : { unsupported: k };
   }
   return { unsupported: `Unrecognised model "${model}"` };
 }
@@ -44,8 +46,9 @@ export function kindForModel(model: string): { kind?: ShureKind; unsupported?: s
  * Ask a device on the Shure control port what it is. Read-only: only GETs are
  * sent, and the connection is closed straight away.
  *
- * Older ULX-D firmware documents no MODEL command, so if MODEL isn't
- * answered, a ULX-D-only query (HIGH_DENSITY) is used as a fallback.
+ * Older ULX-D firmware documents no MODEL command, and the PSM 1000 command
+ * set may lack it too, so if MODEL isn't answered, family-only queries are
+ * used as a fallback: HIGH_DENSITY (ULX-D) and AUDIO_TX_MODE (PSM 1000 P10T).
  */
 export async function identifyShure(host: string, port = SHURE_PORT, timeoutMs = 2_500): Promise<Identity> {
   return new Promise((resolve) => {
@@ -70,12 +73,12 @@ export async function identifyShure(host: string, port = SHURE_PORT, timeoutMs =
 
     socket.once('connect', () => {
       id.reachable = true;
-      socket.write('< GET MODEL >< GET DEVICE_ID >< GET 0 CHAN_NAME >< GET 0 BATT_DETECTED >');
-      // If MODEL hasn't arrived shortly, try the ULX-D fallback.
+      socket.write('< GET MODEL >< GET DEVICE_ID >< GET DEVICE_NAME >< GET 0 CHAN_NAME >< GET 0 BATT_DETECTED >');
+      // If MODEL hasn't arrived shortly, try the family fallbacks.
       setTimeout(() => {
         if (!id.model && !finished && !socket.destroyed) {
           fallbackSent = true;
-          socket.write('< GET HIGH_DENSITY >');
+          socket.write('< GET HIGH_DENSITY >< GET 1 AUDIO_TX_MODE >< GET 2 CHAN_NAME >');
         }
       }, 600);
     });
@@ -88,11 +91,15 @@ export async function identifyShure(host: string, port = SHURE_PORT, timeoutMs =
         if (m.channel === undefined) {
           const v = m.args.join(' ');
           if (m.key === 'MODEL' && v) Object.assign(id, { model: v }, kindForModel(v));
-          else if (m.key === 'DEVICE_ID') id.deviceId = v;
+          else if (m.key === 'DEVICE_ID' || (m.key === 'DEVICE_NAME' && !id.deviceId)) id.deviceId = v;
           else if (m.key === 'HIGH_DENSITY' && fallbackSent && !id.model) {
             id.kind = 'ulxd';
             id.model = 'ULX-D';
           }
+        } else if (m.key === 'AUDIO_TX_MODE' && fallbackSent && !id.model) {
+          id.kind = 'psm1000';
+          id.model = 'P10T';
+          channelsSeen.add(m.channel);
         } else if (m.key === 'CHAN_NAME' || m.key === 'BATT_DETECTED') {
           channelsSeen.add(m.channel);
         }

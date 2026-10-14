@@ -35,6 +35,19 @@ const ROWS: Array<[section: string, rows: Row[]]> = [
   ]],
 ];
 
+/** In-ear monitor transmitter channel; the receive-only pack reports nothing. */
+const IEM_ROWS: Array<[section: string, rows: Row[]]> = [
+  ['IEM transmitter', [
+    ['RF output', 'rfOutputMw', (v: number) => (v === 0 ? 'Off' : `${v} mW`)],
+    ['RF mute', 'rfMuted', (v: boolean) => (v ? 'Muted' : 'On air')],
+    ['Audio mode', 'audioMode'],
+  ]],
+  ['RF', [
+    ['Frequency', 'frequencyKhz', (v: number) => `${mhz(v)} MHz`],
+    ['Group / channel', 'groupChannel'],
+  ]],
+];
+
 const STATE_NOTE: Record<Reading<unknown>['state'], string> = {
   ok: '',
   absent: 'device reports unavailable',
@@ -103,7 +116,16 @@ export function ChannelDetail({ s, now, onClose }: { s: SlotView; now: number; o
           </section>
         )}
 
-        {ROWS.map(([section, rows]) => (
+        {s.role === 'iem' && (
+          <section className="drawer__section">
+            <p className="drawer__note">
+              The bodypack only receives, so its battery and signal aren't visible on the network.
+              {a?.charger ? ' Its readiness comes from the charger bay.' : ' Assign a charger bay to track it.'}
+            </p>
+          </section>
+        )}
+
+        {(s.role === 'iem' ? IEM_ROWS : ROWS).map(([section, rows]) => (
           <section key={section} className="drawer__section">
             <h3>{section}</h3>
             <dl className="kv">

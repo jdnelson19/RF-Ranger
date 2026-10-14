@@ -1,6 +1,6 @@
 /** Wire format shared with the web UI. */
 import type { Alert } from '../core/alerts.js';
-import type { BayTelemetry, ChannelTelemetry, ChargerInfo, ConnectionStatus, ReceiverInfo } from '../core/model.js';
+import type { BayTelemetry, ChannelRole, ChannelTelemetry, ChargerInfo, ConnectionStatus, ReceiverInfo } from '../core/model.js';
 import type { Readiness } from '../core/readiness.js';
 import type { AssignmentConfig, SlotConfig } from '../core/assignment.js';
 
@@ -12,6 +12,8 @@ export interface SlotView {
   receiverId: string;
   channel: number;
   family: string;
+  /** `iem`: the rack unit is an in-ear monitor transmitter and the pack reports nothing. */
+  role: ChannelRole;
   telemetry: ChannelTelemetry;
   assignment?: AssignmentConfig & { photoUrl?: string };
   bay?: BayTelemetry;

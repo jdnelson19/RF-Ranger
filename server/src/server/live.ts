@@ -1,5 +1,5 @@
 import { ShureDiscovery } from '../adapters/shure/discovery.js';
-import type { ShureFamilyId } from '../adapters/shure/families.js';
+import { SHURE_FAMILY_IDS as FAMILIES, type ShureFamilyId } from '../adapters/shure/families.js';
 import { identifyShure, type Identity } from '../adapters/shure/identify.js';
 import type { Runtime } from './runtime.js';
 import type { DiscoveredView } from './snapshot.js';
@@ -12,11 +12,9 @@ export interface LiveTarget {
   charger?: boolean;
 }
 
-const FAMILIES: ShureFamilyId[] = ['ulxd', 'axd', 'slxd'];
-
 /**
  * Parse a command-line device: `[family@]host[:port][/channels]`, e.g.
- * `10.0.1.20`, `axd@10.0.1.20`, `ulxd@10.0.1.21/2`, `127.0.0.1:22020`.
+ * `10.0.1.20`, `axd@10.0.1.20`, `ulxd@10.0.1.21/2`, `psm1000@10.0.1.30`, `127.0.0.1:22020`.
  */
 export function parseTarget(spec: string, charger = false): LiveTarget {
   const m = /^(?:(\w+)@)?([^:/@\s]+)(?::(\d+))?(?:\/(\d+))?$/.exec(spec.trim());

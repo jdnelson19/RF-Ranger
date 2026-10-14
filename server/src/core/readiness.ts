@@ -1,4 +1,4 @@
-import type { BayTelemetry, ChannelTelemetry, ConnectionStatus } from './model.js';
+import type { BayTelemetry, ChannelRole, ChannelTelemetry, ConnectionStatus } from './model.js';
 import { freshValue } from './reading.js';
 
 export type ReadinessLabel = 'READY' | 'CHECK_WITH_AUDIO' | 'NOT_READY' | 'UNASSIGNED';
@@ -7,7 +7,10 @@ export interface Readiness {
   label: ReadinessLabel;
   /** Engineer-facing explanation; never shown on the pickup display. */
   reason?: string;
-  /** Which evidence decided the label: the live receiver channel or the charger bay. */
+  /**
+   * Which evidence decided the label: the live rack unit's channel (a mic
+   * receiver or an IEM transmitter) or the charger bay.
+   */
   source?: 'receiver' | 'charger';
   /** Charge level to show on the pickup card while the transmitter sits on its charger. */
   chargePercent?: number;
@@ -33,6 +36,12 @@ export interface ReadinessThresholds {
   warningPercent: number;
   /** A docked transmitter counts as ready for pickup at or above this charge. */
   chargerReadyPercent: number;
+  /**
+   * IEM bodypacks report nothing, so without a charger bay only the rack
+   * transmitter can be checked. When false (the default) such a slot stops at
+   * CHECK WITH AUDIO; when true, a healthy transmitter alone is READY.
+   */
+  iemReadyWithoutCharger: boolean;
 }
 
 export const DEFAULT_THRESHOLDS: ReadinessThresholds = {
@@ -44,10 +53,13 @@ export const DEFAULT_THRESHOLDS: ReadinessThresholds = {
   criticalPercent: 20,
   warningPercent: 50,
   chargerReadyPercent: 90,
+  iemReadyWithoutCharger: false,
 };
 
 export interface ReadinessInput {
   assigned: boolean;
+  /** Defaults to `mic`. */
+  role?: ChannelRole;
   connection: ConnectionStatus;
   telemetry: ChannelTelemetry;
   /** Transmitter identity the assignment expects, if any. */
@@ -67,10 +79,11 @@ export function readiness(input: ReadinessInput, th: ReadinessThresholds = DEFAU
 
   if (!input.assigned) return { label: 'UNASSIGNED' };
 
-  const lastHeard = connection.lastMessageAt;
-  if (connection.state !== 'connected' || lastHeard === undefined || now - lastHeard > th.receiverSilenceMs) {
-    return { label: 'NOT_READY', reason: 'Receiver offline' };
+  if (!online(connection, now, th)) {
+    return { label: 'NOT_READY', reason: input.role === 'iem' ? 'IEM transmitter offline' : 'Receiver offline' };
   }
+
+  if (input.role === 'iem') return iemReadiness(input, th);
 
   const present = txPresent(t);
 
@@ -93,7 +106,7 @@ export function readiness(input: ReadinessInput, th: ReadinessThresholds = DEFAU
   }
 
   if (!present) {
-    if (input.storage) return fromCharger(input.storage, now, th);
+    if (input.storage) return fromCharger(input.storage, now, th, MIC_CHARGER_TEXT);
     return { label: 'CHECK_WITH_AUDIO', reason: 'Transmitter off or out of range', source: 'receiver' };
   }
 
@@ -107,26 +120,68 @@ export function readiness(input: ReadinessInput, th: ReadinessThresholds = DEFAU
   return { label: 'READY', source: 'receiver' };
 }
 
+function online(c: ConnectionStatus, now: number, th: ReadinessThresholds): boolean {
+  return c.state === 'connected' && c.lastMessageAt !== undefined && now - c.lastMessageAt <= th.receiverSilenceMs;
+}
+
 /**
- * Readiness of a switched-off transmitter from its assigned charger bay. The
- * charger can't identify what is docked, so this proves "a battery is in the
- * expected bay at this charge", not which transmitter it is.
+ * In-ear monitor channel. The rack transmitter must be positively sending
+ * (RF on, not muted). The bodypack is receive-only and invisible on the
+ * network, so it can only be vouched for by its charger bay.
  */
-function fromCharger(s: StorageInput, now: number, th: ReadinessThresholds): Readiness {
-  const lastHeard = s.connection.lastMessageAt;
-  if (s.connection.state !== 'connected' || lastHeard === undefined || now - lastHeard > th.receiverSilenceMs) {
-    return { label: 'CHECK_WITH_AUDIO', reason: 'Transmitter off; charger offline', source: 'charger' };
+function iemReadiness(input: ReadinessInput, th: ReadinessThresholds): Readiness {
+  const { telemetry: t, now } = input;
+  const muted = freshValue(t.rfMuted, now, th.faultMaxAgeMs);
+  const mw = freshValue(t.rfOutputMw, now, th.faultMaxAgeMs);
+  if (muted === true) return { label: 'NOT_READY', reason: 'IEM RF muted', source: 'receiver' };
+  if (mw === 0) return { label: 'NOT_READY', reason: 'IEM RF off', source: 'receiver' };
+  if (muted === undefined || mw === undefined) {
+    return { label: 'CHECK_WITH_AUDIO', reason: 'IEM transmitter state unknown', source: 'receiver' };
+  }
+
+  if (input.storage) return fromCharger(input.storage, now, th, IEM_CHARGER_TEXT);
+  return th.iemReadyWithoutCharger
+    ? { label: 'READY', reason: 'IEM on air; pack not monitored', source: 'receiver' }
+    : { label: 'CHECK_WITH_AUDIO', reason: 'IEM on air; pack battery not monitored', source: 'receiver' };
+}
+
+interface ChargerText {
+  offline: string;
+  silent: string;
+  empty: string;
+}
+
+const MIC_CHARGER_TEXT: ChargerText = {
+  offline: 'Transmitter off; charger offline',
+  silent: 'Transmitter off; charger bay not reporting',
+  empty: 'Transmitter off and not on its charger',
+};
+
+const IEM_CHARGER_TEXT: ChargerText = {
+  offline: 'IEM pack charger offline',
+  silent: 'IEM pack charger bay not reporting',
+  empty: 'IEM pack not on its charger',
+};
+
+/**
+ * Readiness of a switched-off transmitter (or an IEM pack) from its assigned
+ * charger bay. The charger can't identify what is docked, so this proves "a
+ * battery is in the expected bay at this charge", not which device it is.
+ */
+function fromCharger(s: StorageInput, now: number, th: ReadinessThresholds, text: ChargerText): Readiness {
+  if (!online(s.connection, now, th)) {
+    return { label: 'CHECK_WITH_AUDIO', reason: text.offline, source: 'charger' };
   }
   // Charger values are reported on change only, so a live connection keeps them current.
   const bay = s.bay;
   if (!bay || bay.batteryPresent.state !== 'ok') {
-    return { label: 'CHECK_WITH_AUDIO', reason: 'Transmitter off; charger bay not reporting', source: 'charger' };
+    return { label: 'CHECK_WITH_AUDIO', reason: text.silent, source: 'charger' };
   }
   if (bay.error.state === 'ok' && bay.error.value !== null) {
     return { label: 'NOT_READY', reason: `Charger: ${bay.error.value}`, source: 'charger' };
   }
   if (!bay.batteryPresent.value) {
-    return { label: 'CHECK_WITH_AUDIO', reason: 'Transmitter off and not on its charger', source: 'charger' };
+    return { label: 'CHECK_WITH_AUDIO', reason: text.empty, source: 'charger' };
   }
   const pct = bay.chargePercent.state === 'ok' ? bay.chargePercent.value : undefined;
   if (pct === undefined) {
