@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key>
+  <string>RF Ranger</string>
+  <key>CFBundleDisplayName</key>
+  <string>RF Ranger</string>
+  <key>CFBundleIdentifier</key>
+  <string>@BUNDLE_ID@</string>
+  <key>CFBundleExecutable</key>
+  <string>rf-ranger</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>@VERSION@</string>
+  <key>CFBundleVersion</key>
+  <string>@BUILD@</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>11.0</string>
+  <key>LSApplicationCategoryType</key>
+  <string>public.app-category.utilities</string>
+  <!-- The launcher opens the browser and exits; the server runs in the background. -->
+  <key>LSUIElement</key>
+  <true/>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>RF Ranger finds your Shure wireless receivers and chargers on the local network and reads their battery, RF and audio status.</string>
+  <key>NSHumanReadableCopyright</key>
+  <string>Copyright © RF Ranger contributors. MIT License.</string>
+</dict>
+</plist>

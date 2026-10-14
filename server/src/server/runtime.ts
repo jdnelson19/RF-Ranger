@@ -19,6 +19,8 @@ export class Runtime extends EventEmitter<Events> {
   readonly chargers = new Map<string, ShureCharger>();
   /** Set by live mode to report what discovery has found. */
   discovered: () => DiscoveredView[] = () => [];
+  /** Running as the desktop app (offers Quit in the UI). */
+  app = false;
   private running = false;
 
   constructor(readonly config: Config, readonly mode: RunMode = 'config') {
@@ -130,6 +132,7 @@ export class Runtime extends EventEmitter<Events> {
     return {
       demo: this.mode === 'demo',
       mode: this.mode,
+      app: this.app,
       serverTime: now,
       groups: [...listed, ...extra],
       slots,

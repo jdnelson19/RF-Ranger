@@ -15,6 +15,8 @@ import type { Runtime } from './runtime.js';
  */
 
 export const VERSION: string = (() => {
+  // Set at build time when bundled into the desktop app, where package.json isn't shipped.
+  if (process.env.RF_RANGER_VERSION) return process.env.RF_RANGER_VERSION;
   try {
     return (JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as { version: string }).version;
   } catch {

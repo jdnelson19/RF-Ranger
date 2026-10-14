@@ -43,6 +43,8 @@ export interface Snapshot {
   demo: boolean;
   /** config: from a config file; live: auto-discovered devices; demo: simulators. */
   mode: RunMode;
+  /** Running as the desktop app, which can be quit from the UI on this computer. */
+  app: boolean;
   serverTime: number;
   groups: string[];
   slots: SlotView[];

@@ -1,7 +1,31 @@
+import { useState } from 'react';
 import { href } from '../route';
 import type { Live } from '../useSnapshot';
 import { Brand, Chip, ServerLink } from '../components/ui';
 import { navigate } from '../route';
+
+function isThisComputer(): boolean {
+  return ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+}
+
+/** Desktop app only: the server runs in the background, so this is how it stops. */
+function QuitButton() {
+  const [state, setState] = useState<'idle' | 'quitting' | 'failed'>('idle');
+  if (state === 'quitting') return <span className="dim">RF Ranger has quit. Metering is off on every receiver.</span>;
+  return (
+    <button
+      type="button"
+      className="btn btn--ghost btn--sm"
+      onClick={() => {
+        if (!window.confirm('Quit RF Ranger? Monitoring stops on every screen.')) return;
+        fetch('/api/app/quit', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+          .then((r) => setState(r.ok ? 'quitting' : 'failed'), () => setState('failed'));
+      }}
+    >
+      {state === 'failed' ? 'Quit failed. Try again' : 'Quit RF Ranger'}
+    </button>
+  );
+}
 
 /** The first screen every time: pick Artist Pickup or Engineer. */
 export function Launch({ live }: { live: Live }) {
@@ -61,6 +85,7 @@ export function Launch({ live }: { live: Live }) {
         <ServerLink online={live.online} />
         {s?.demo && <span className="tag tag--demo">Demo data</span>}
         <span className="dim">Tip: bookmark a view to open it directly, e.g. a TV straight into Pickup.</span>
+        {s?.app && isThisComputer() && <QuitButton />}
       </footer>
     </main>
   );

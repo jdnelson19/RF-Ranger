@@ -6,17 +6,12 @@
  *   npm run live -- --receiver 10.0.1.20            ...plus/or devices by address
  *   npm run demo                                    simulated hardware
  */
-import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { loadConfig, normalizeConfig, type Config } from './server/config.js';
-import { startDemo } from './server/demo.js';
-import { startHttp } from './server/http.js';
-import { Inspector } from './server/inspector.js';
-import { LiveManager, parseTarget } from './server/live.js';
-import { Runtime } from './server/runtime.js';
+import { parseTarget } from './server/live.js';
 import type { RunMode } from './server/snapshot.js';
+import { startRfRanger, type Running } from './server/start.js';
 
 const { values } = parseArgs({
   options: {
@@ -31,66 +26,39 @@ const { values } = parseArgs({
   },
 });
 
-const port = values.port ? Number(values.port) : 8058;
 const targets = [
   ...(values.receiver ?? []).map((s) => parseTarget(s)),
   ...(values.charger ?? []).map((s) => parseTarget(s, true)),
 ];
 const live = values.live || targets.length > 0;
 const mode: RunMode = values.demo ? 'demo' : live ? 'live' : 'config';
+const configPath = resolve(values.config ?? 'rf-ranger.config.json');
 
-let config: Config;
-let stopDemo: (() => Promise<void>) | undefined;
-if (mode === 'demo') {
-  const demo = await startDemo(port);
-  config = demo.config;
-  stopDemo = demo.stop;
-} else if (mode === 'live') {
-  config = normalizeConfig({ port });
-} else {
-  const path = resolve(values.config ?? 'rf-ranger.config.json');
-  if (!existsSync(path)) {
-    console.error(`No config at ${path}.`);
+let running: Running;
+try {
+  running = await startRfRanger({
+    mode,
+    port: values.port ? Number(values.port) : undefined,
+    configPath,
+    targets,
+    discover: !values['no-discover'],
+    webDir: values.web ?? fileURLToPath(new URL('../../web/dist', import.meta.url)),
+  });
+} catch (err) {
+  console.error((err as Error).message);
+  if (mode === 'config') {
     console.error('  npm run live      find Shure devices on the network (no config needed)');
     console.error('  npm run demo      try it with simulated hardware');
-    process.exit(1);
   }
-  config = loadConfig(path);
-  if (values.port) config.port = port;
+  process.exit(1);
 }
-
-const webDir = values.web ?? fileURLToPath(new URL('../../web/dist', import.meta.url));
-const runtime = new Runtime(config, mode);
-runtime.start();
-
-let liveManager: LiveManager | undefined;
-if (mode === 'live') {
-  liveManager = new LiveManager(runtime, {
-    discover: !values['no-discover'],
-    targets,
-    log: (m) => console.log(`  ${m}`),
-  });
-  await liveManager.start();
-}
-
-const inspector = new Inspector(runtime);
-const server = await startHttp(runtime, { port: config.port, webDir, photosDir: config.photosDir, inspector });
-
-const label = { demo: '(DEMO: simulated hardware) ', live: '(live: auto-discovery) ', config: '' }[mode];
-console.log(`RF Ranger ${label}on http://localhost:${config.port}`);
-if (mode !== 'live') console.log(`  ${config.receivers.length} receivers, ${config.chargers.length} chargers, ${config.slots.length} slots`);
-if (!existsSync(webDir)) console.log(`  Web UI not built at ${webDir} (cd web && npm run build), or use the Vite dev server.`);
 
 let stopping = false;
 async function shutdown() {
   if (stopping) process.exit(1);
   stopping = true;
   console.log('\nStopping: switching receiver metering off…');
-  liveManager?.stop();
-  await inspector.closeAll();
-  server.close();
-  await runtime.stop();
-  await stopDemo?.();
+  await running.stop();
   process.exit(0);
 }
 process.on('SIGINT', shutdown);

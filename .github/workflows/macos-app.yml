@@ -1,0 +1,80 @@
+name: macOS app
+
+# Tags like v0.2.0 build, sign, notarize and publish a GitHub release.
+# Pushes that touch packaging, and manual runs, build a downloadable artifact
+# (signed and notarized too, if the secrets are set; see docs/macos-app.md).
+on:
+  push:
+    tags: ['v*']
+    branches: ['**']
+    paths:
+      - 'packaging/macos/**'
+      - '.github/workflows/macos-app.yml'
+      - 'server/src/app/**'
+      - 'server/scripts/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
+      BUNDLE_ID: ${{ vars.MACOS_BUNDLE_ID || 'io.github.jdnelson19.rfranger' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Node shipped inside the app. Node 22 runs on macOS 11 and later.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=$(node -p "require('./server/package.json').version")" >> "$GITHUB_ENV"
+          fi
+
+      - name: Import Developer ID certificate
+        if: env.HAS_CERT == 'true'
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -P "$MACOS_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/cert.p12"
+          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" | grep -o '"Developer ID Application[^"]*"' | head -1 | tr -d '"')"
+          if [ -z "$IDENTITY" ]; then echo "::error::No 'Developer ID Application' identity in MACOS_CERT_P12"; exit 1; fi
+          echo "SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+
+      - name: Build
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: bash packaging/macos/build.sh "$VERSION" "$GITHUB_RUN_NUMBER"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RF-Ranger-${{ env.VERSION }}-macOS
+          path: dist-mac/*.dmg
+          if-no-files-found: error
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist-mac/*.dmg --title "RF Ranger $VERSION" --generate-notes

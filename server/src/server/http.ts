@@ -2,7 +2,7 @@ import { createReadStream, existsSync, statSync } from 'node:fs';
 import http from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { handleInspector, type Inspector } from './inspector.js';
+import { handleInspector, isLocalRequest, type Inspector } from './inspector.js';
 import type { Runtime } from './runtime.js';
 
 const MIME: Record<string, string> = {
@@ -28,6 +28,8 @@ export interface HttpOptions {
   pushHz?: number;
   /** Local-only device inspector (see inspector.ts). */
   inspector?: Inspector;
+  /** Desktop app: POST /api/app/quit from this computer stops RF Ranger. */
+  onQuit?: () => void;
 }
 
 /**
@@ -42,6 +44,19 @@ export function startHttp(runtime: Runtime, opts: HttpOptions): Promise<http.Ser
     if (url.pathname === '/api/snapshot') {
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
       res.end(JSON.stringify(runtime.snapshot()));
+      return;
+    }
+
+    if (url.pathname === '/api/app/quit' && opts.onQuit) {
+      // Same guard as the inspector; requiring a JSON body forces a CORS
+      // preflight, so no other website can make this request.
+      const json = (req.headers['content-type'] ?? '').startsWith('application/json');
+      if (req.method !== 'POST' || !json || !isLocalRequest(req)) {
+        res.writeHead(403).end();
+        return;
+      }
+      res.writeHead(202, { 'content-type': 'application/json' }).end('{"quitting":true}');
+      setImmediate(opts.onQuit);
       return;
     }
 
@@ -64,6 +79,9 @@ export function startHttp(runtime: Runtime, opts: HttpOptions): Promise<http.Ser
   });
 
   const wss = new WebSocketServer({ server, path: '/ws' });
+  // ws re-emits the HTTP server's errors (e.g. EADDRINUSE); they're handled
+  // by the listen promise below, so don't let them crash the process here.
+  wss.on('error', () => {});
   const clients = new Set<WebSocket>();
   wss.on('connection', (ws) => {
     clients.add(ws);
@@ -88,7 +106,14 @@ export function startHttp(runtime: Runtime, opts: HttpOptions): Promise<http.Ser
   }, pushEvery);
   server.on('close', () => clearInterval(timer));
 
-  return new Promise((resolveListen) => server.listen(opts.port, opts.host ?? '0.0.0.0', () => resolveListen(server)));
+  return new Promise((resolveListen, rejectListen) => {
+    // e.g. EADDRINUSE: reject rather than crash, so callers can react.
+    server.once('error', (err) => {
+      server.close();
+      rejectListen(err);
+    });
+    server.listen(opts.port, opts.host ?? '0.0.0.0', () => resolveListen(server));
+  });
 }
 
 function serveFile(res: http.ServerResponse, root: string, rel: string, spaFallback: boolean): void {

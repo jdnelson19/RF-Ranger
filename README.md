@@ -18,10 +18,13 @@ Shure is the first supported hardware ecosystem. Sennheiser is planned next.
 - [Shure protocol notes](docs/shure-protocol.md): per-family fields, units, sentinels
 - [Hardware validation](docs/hardware-validation.md): how to test against real receivers
 - [Device reports](docs/device-reports.md): help add support for hardware you have
+- [macOS app](docs/macos-app.md): using the app, and how it's built, signed and notarized
 
 ## Try it
 
-Requires Node.js 20 or newer, on macOS or Windows.
+**On a Mac:** download `RF-Ranger-<version>.dmg` from [Releases](https://github.com/jdnelson19/RF-Ranger/releases), drag RF Ranger to Applications, and open it. It starts in live mode and opens in your browser.
+
+**From source:** requires Node.js 20 or newer, on macOS or Windows.
 
 ```
 cd web && npm install && npm run build
