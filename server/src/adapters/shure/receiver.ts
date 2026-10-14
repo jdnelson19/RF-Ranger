@@ -37,7 +37,8 @@ interface Events {
 }
 
 /**
- * A Shure wireless receiver: keeps one connection alive, meters every channel,
+ * A networked Shure rack unit: a mic receiver, or for `iem` families an in-ear
+ * monitor transmitter. Keeps one connection alive, meters every channel,
  * and turns metering off before closing so receivers aren't left streaming.
  */
 export class ShureReceiver extends EventEmitter<Events> {
@@ -55,10 +56,16 @@ export class ShureReceiver extends EventEmitter<Events> {
     this.pollIntervalMs = opts.pollIntervalMs ?? 30_000;
     const meterRateMs = Math.max(100, opts.meterRateMs ?? 250);
     const channelCount = opts.channels ?? this.family.defaultChannels;
-    this.info = { id: opts.id, manufacturer: 'shure', family: this.family.id, host: opts.host, channelCount };
+    this.info = { id: opts.id, manufacturer: 'shure', family: this.family.id, role: this.family.role, host: opts.host, channelCount };
     for (let ch = 1; ch <= channelCount; ch++) {
       this.channels.set(ch, { telemetry: initialTelemetry(this.family), raw: {} });
     }
+
+    const family = this.family;
+    const channelReads = () =>
+      family.getAll
+        ? [getCommand(0, 'ALL')]
+        : [...this.channels.keys()].flatMap((ch) => Object.keys(family.reports).map((key) => getCommand(ch, key)));
 
     this.conn = new ShureConnection({
       host: opts.host,
@@ -66,12 +73,12 @@ export class ShureReceiver extends EventEmitter<Events> {
       silenceTimeoutMs: opts.silenceTimeoutMs,
       connectTimeoutMs: opts.connectTimeoutMs,
       now: opts.now,
-      heartbeat: getCommand(undefined, 'DEVICE_ID'),
+      heartbeat: getCommand(undefined, family.deviceIdKey),
       onConnect: () => [
         getCommand(undefined, 'MODEL'),
-        getCommand(undefined, 'DEVICE_ID'),
+        getCommand(undefined, family.deviceIdKey),
         getCommand(undefined, 'FW_VER'),
-        getCommand(0, 'ALL'),
+        ...channelReads(),
         ...[...this.channels.keys()].map((ch) => meterRateCommand(ch, meterRateMs)),
       ],
       onClose: () => [...this.channels.keys()].map((ch) => meterRateCommand(ch, 0)),
@@ -122,7 +129,7 @@ export class ShureReceiver extends EventEmitter<Events> {
       if (this.deviceRaw[msg.key] === value) return;
       this.deviceRaw[msg.key] = value;
       if (msg.key === 'MODEL') this.info.model = value;
-      else if (msg.key === 'DEVICE_ID') this.info.deviceId = value;
+      else if (msg.key === this.family.deviceIdKey) this.info.deviceId = value;
       else if (msg.key === 'FW_VER') this.info.firmware = value;
       else if (msg.key === 'RF_BAND') this.info.rfBand = value;
       else return;

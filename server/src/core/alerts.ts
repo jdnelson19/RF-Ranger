@@ -1,4 +1,4 @@
-import type { ChannelTelemetry, ConnectionStatus } from './model.js';
+import type { ChannelRole, ChannelTelemetry, ConnectionStatus } from './model.js';
 import { freshValue } from './reading.js';
 import { txPresent, type Readiness, type ReadinessThresholds } from './readiness.js';
 
@@ -18,6 +18,8 @@ export interface AlertThresholds extends ReadinessThresholds {
 
 export interface AlertInput {
   assigned: boolean;
+  /** Defaults to `mic`. */
+  role?: ChannelRole;
   connection: ConnectionStatus;
   telemetry: ChannelTelemetry;
   readiness: Readiness;
@@ -35,8 +37,14 @@ export function channelAlerts(input: AlertInput, th: AlertThresholds): Alert[] {
 
   const lastHeard = connection.lastMessageAt;
   if (connection.state !== 'connected' || lastHeard === undefined || now - lastHeard > th.receiverSilenceMs) {
-    add('rx-offline', 'critical', connection.lastError ? `Receiver offline: ${connection.lastError}` : 'Receiver offline');
+    const what = input.role === 'iem' ? 'IEM transmitter offline' : 'Receiver offline';
+    add('rx-offline', 'critical', connection.lastError ? `${what}: ${connection.lastError}` : what);
     return out; // nothing else about this channel can be trusted
+  }
+
+  if (input.role === 'iem') {
+    iemAlerts(input, th, add);
+    return out.sort((a, b) => RANK[a.severity] - RANK[b.severity]);
   }
 
   const fault = (r: ChannelTelemetry['interference']) => freshValue(r, now, th.faultMaxAgeMs) === true;
@@ -80,4 +88,28 @@ export function channelAlerts(input: AlertInput, th: AlertThresholds): Alert[] {
   if (freshValue(t.rxMuted, now, th.faultMaxAgeMs) === true) add('rx-muted', 'warning', 'Receiver output muted');
 
   return out.sort((a, b) => RANK[a.severity] - RANK[b.severity]);
+}
+
+/** In-ear monitor transmitter channel. The pack is receive-only and reports nothing. */
+function iemAlerts(input: AlertInput, th: AlertThresholds, add: (code: string, severity: Severity, message: string) => void): void {
+  const { telemetry: t, now } = input;
+  // An unassigned IEM channel going quiet is normal; an assigned one is an outage for that artist.
+  const severity: Severity = input.assigned ? 'critical' : 'info';
+  const muted = freshValue(t.rfMuted, now, th.faultMaxAgeMs);
+  const mw = freshValue(t.rfOutputMw, now, th.faultMaxAgeMs);
+  if (muted === true) add('iem-rf-muted', severity, 'IEM RF muted');
+  if (mw === 0) add('iem-rf-off', severity, 'IEM RF off');
+  if (!input.assigned) return;
+  if (muted === undefined || mw === undefined) {
+    add('iem-state-unknown', 'warning', 'IEM transmitter state unknown');
+    return;
+  }
+
+  const r = input.readiness;
+  if (r.source === 'charger') {
+    if (r.label === 'READY') add('on-charger', 'info', r.reason ?? 'Pack on charger');
+    else add('charger', r.label === 'NOT_READY' ? 'critical' : 'warning', r.reason ?? 'Check charger');
+  } else if (r.label !== 'NOT_READY') {
+    add('iem-pack-unmonitored', 'info', 'IEM pack battery not monitored');
+  }
 }

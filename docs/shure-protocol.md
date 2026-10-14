@@ -113,6 +113,33 @@ Values are reported **on change only**. There is no metering, so RF Ranger polls
 
 The older SBC450/SBC850 (SB900 batteries) use a different string set, documented in the ULX-D bulletin. It only identifies ULXD6/ULXD8 transmitters and is not implemented yet.
 
+## In-ear monitors: PSM 1000 (P10T) — provisional
+
+Sources: Shure *PSM1000 Command Strings* (https://pubs.shure.com/command-strings/PSM1000/en-US) and bitfocus `companion-module-shure-psm1000` (MIT, © 2020 Bitfocus AS). **None of this has been checked against a real P10T yet.**
+
+IEM is the reverse of a mic system. The networked rack unit is the **transmitter** (P10T, 2 channels). The **P10R/P10R+ bodypack only receives**, so pack battery, pack RF, and whether the pack is even switched on are invisible on the network. RF Ranger therefore reports on what the rack is sending, and judges the pack only through an assigned charger bay.
+
+| Concept | Key | Values (per Companion; parsers also accept the word forms) |
+|---|---|---|
+| Device name | `DEVICE_NAME` | used instead of `DEVICE_ID` |
+| Channel name | `CHAN_NAME` | |
+| Frequency | `FREQUENCY` | 6 digits, kHz (`518125` = 518.125 MHz) |
+| Group/channel | `GROUP_CHAN` | `gg,cc` |
+| RF output | `RF_TX_LVL` | 10 / 50 / 100 (mW) |
+| RF mute | `RF_MUTE` | 1 muted, 0 on air |
+| Audio mode | `AUDIO_TX_MODE` | 1 mono, 2 point to point, 3 stereo |
+| Line level | `AUDIO_IN_LINE_LVL` | 0 aux (−10), 1 line (+4) (not used yet) |
+| Input gain | `AUDIO_IN_LVL` | dB (not used yet) |
+| Metering | `METER_RATE` / `SAMPLE` | `SAMPLE` layout unknown; ignored until captured |
+
+Differences from the receivers, handled by `ShureFamily.deviceIdKey` and `getAll: false`:
+- RF Ranger doesn't rely on `GET 0 ALL`. It reads each key per channel on connect, as Companion does.
+- `MODEL` may not be answered, so identification falls back to `GET 1 AUDIO_TX_MODE`, which only a P10T answers.
+
+**To verify on hardware:** whether `MODEL` and `GET 0 ALL` work, the exact `RF_TX_LVL` / `RF_MUTE` / `AUDIO_TX_MODE` encodings, and the `SAMPLE` layout (which could add input-level metering). Run `npm run probe -- psm1000 <ip>` and attach the log to a device report.
+
+Not supported yet: **PSM 900 / PSM 300** (no network control), **Axient Digital PSM** (ADTD/ADTQ; identified and declined with a message).
+
 ## Freshness of reported values
 
 `REP` values (battery, TX model, faults) arrive **only on change**. A battery that sits at 92 % sends nothing new. RF Ranger therefore re-reads each family's key reported values every 30 s (`ShureFamily.poll`). This keeps steady values fresh and corrects any missed report. Readings older than 2 minutes are treated as unknown, so a link that silently stops answering polls can never leave a stale "good" value on screen.

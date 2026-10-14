@@ -33,8 +33,9 @@ export class Runtime extends EventEmitter<Events> {
     this.config.receivers.push(rc);
     const rx = this.createReceiver(rc);
     let next = Math.max(0, ...this.config.slots.map((s) => s.slot)) + 1;
+    const kind = rx.family.role === 'iem' ? 'iem' : undefined;
     for (const ch of rx.channels.keys()) {
-      this.config.slots.push({ slot: next++, receiver: rc.id, channel: ch, group, autoName: true });
+      this.config.slots.push({ slot: next++, receiver: rc.id, channel: ch, kind, group, autoName: true });
     }
     if (this.running) rx.start();
     this.emit('dirty');
@@ -93,9 +94,11 @@ export class Runtime extends EventEmitter<Events> {
         const charger = a?.charger ? this.chargers.get(a.charger.id) : undefined;
         const bay = charger && a?.charger ? charger.bays.get(a.charger.bay) : undefined;
 
+        const role = rx.family.role;
         const ready = readiness(
           {
             assigned: a !== undefined,
+            role,
             connection: rx.status,
             telemetry,
             expectedTxDeviceId: a?.expectedTxId,
@@ -113,12 +116,13 @@ export class Runtime extends EventEmitter<Events> {
           receiverId: s.receiver,
           channel: s.channel,
           family: rx.family.id,
+          role,
           telemetry,
           assignment: a && { ...a, photoUrl: photoUrl(a.photo) },
           bay,
           readiness: ready,
           alerts: channelAlerts(
-            { assigned: a !== undefined, connection: rx.status, telemetry, readiness: ready, expectedTxDeviceId: a?.expectedTxId, now },
+            { assigned: a !== undefined, role, connection: rx.status, telemetry, readiness: ready, expectedTxDeviceId: a?.expectedTxId, now },
             th,
           ),
         };

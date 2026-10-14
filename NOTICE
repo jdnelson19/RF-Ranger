@@ -27,3 +27,9 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ------------------------------------------------------------------------------
+
+Protocol knowledge for the Shure PSM 1000 (P10T) in-ear monitor transmitter is
+derived from bitfocus companion-module-shure-psm1000
+(https://github.com/bitfocus/companion-module-shure-psm1000), used under the
+MIT License, Copyright (c) 2020 Bitfocus AS - Open Source. The license text is
+identical to the one above.

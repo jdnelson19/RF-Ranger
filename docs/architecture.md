@@ -70,6 +70,19 @@ All thresholds are configurable. Rules are evaluated in order, and **the first m
 | 8 | Battery is in the warning band (2–3 bars, or ≤ 50 %) | CHECK WITH AUDIO | "Battery low" |
 | 9 | Everything above passed | READY | n/a |
 
+**In-ear monitors (role `iem`).** On an IEM channel the networked unit is the transmitter, and the bodypack only receives. The pack reports nothing, so rules 3–8 don't apply. They are replaced by:
+
+| # | Condition | Label | Reason shown to engineer |
+|---|---|---|---|
+| 1–2 | As above | | "IEM transmitter offline" |
+| I1 | RF muted, or RF output 0 | NOT READY | "IEM RF muted" / "IEM RF off" |
+| I2 | RF mute or RF level is not a fresh `ok` | CHECK WITH AUDIO | "IEM transmitter state unknown" |
+| I3 | A charger bay is assigned | rules 6a–6c, for the pack | "On charger, 100%" / "IEM pack not on its charger" / … |
+| I4 | No charger bay, `iemReadyWithoutCharger` false (default) | CHECK WITH AUDIO | "IEM on air; pack battery not monitored" |
+| I4′ | No charger bay, `iemReadyWithoutCharger` true | READY | "IEM on air; pack not monitored" |
+
+I4 is conservative on purpose. Nothing proves the pack is charged. Shows that don't track IEM packs on chargers can opt into I4′ in `thresholds`.
+
 The Pickup View shows only the label. The Engineer View shows the label **and** the reason.
 
 **Chargers.** Between uses, transmitters sit docked in networked chargers (SBC220 for AD1/AD2/ULXD1/ULXD2, SBC240 for ADX). While docked, the receiver sees them as off. Each assignment can name a **charger bay**, and while the transmitter is off its readiness comes from that bay (rules 6a–6c). The charger reports what's in a bay, but not *which* transmitter it is. So "READY (on charger)" means "a charged battery is in this artist's bay". Once the artist powers it on, the live receiver rules take over, and on Axient the transmitter-ID check confirms it's the right one. Bay values are trusted only while the charger connection is live, which is kept verified by polling.

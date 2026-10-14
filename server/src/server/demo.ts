@@ -34,6 +34,14 @@ export async function startDemo(port: number): Promise<{ config: Config; stop: (
       { name: 'SPARE', txOn: false },
     ],
   });
+  const psm = new ShureSim({
+    family: 'psm1000',
+    deviceId: 'IEM RACK',
+    channels: [
+      { name: 'IEM1 Maya', frequencyKhz: 518_125, rfOutputMw: 50 },
+      { name: 'IEM2 Eli', frequencyKhz: 519_375, rfOutputMw: 50, rfMuted: true },
+    ],
+  });
   const charger = new ChargerSim([
     { present: true, chargePercent: 100 },
     { present: true, chargePercent: 64 },
@@ -41,10 +49,11 @@ export async function startDemo(port: number): Promise<{ config: Config; stop: (
     { present: true, chargePercent: 100 },
   ]);
 
-  const [axdPort, ulxdPort, slxdPort, chargerPort, deadPort] = await Promise.all([
+  const [axdPort, ulxdPort, slxdPort, psmPort, chargerPort, deadPort] = await Promise.all([
     axd.listen(),
     ulxd.listen(),
     slxd.listen(),
+    psm.listen(),
     charger.listen(),
     unusedPort(),
   ]);
@@ -56,6 +65,7 @@ export async function startDemo(port: number): Promise<{ config: Config; stop: (
       { id: 'AD4Q-1', family: 'axd', host: '127.0.0.1', port: axdPort },
       { id: 'ULXD4Q-1', family: 'ulxd', host: '127.0.0.1', port: ulxdPort },
       { id: 'SLXD4D-1', family: 'slxd', host: '127.0.0.1', port: slxdPort },
+      { id: 'P10T-1', family: 'psm1000', host: '127.0.0.1', port: psmPort },
       // Deliberately unreachable, to show how an outage looks.
       { id: 'ULXD4D-2', family: 'ulxd', host: '127.0.0.1', port: deadPort, channels: 2 },
     ],
@@ -83,6 +93,10 @@ export async function startDemo(port: number): Promise<{ config: Config; stop: (
       { slot: 11, receiver: 'ULXD4D-2', channel: 1, label: 'BP5', kind: 'bodypack', group: 'Band',
         assignment: { artist: 'Marcus Hill', role: 'Drums' } },
       { slot: 12, receiver: 'ULXD4D-2', channel: 2, label: 'BP6', kind: 'bodypack', group: 'Band' },
+      { slot: 13, receiver: 'P10T-1', channel: 1, label: 'IEM1', kind: 'iem', group: 'Vocals',
+        assignment: { artist: 'Maya Torres', role: 'Worship Leader' } },
+      { slot: 14, receiver: 'P10T-1', channel: 2, label: 'IEM2', kind: 'iem', group: 'Band',
+        assignment: { artist: 'Eli Brooks', role: 'Acoustic Guitar' } },
     ],
   });
 
@@ -96,7 +110,7 @@ export async function startDemo(port: number): Promise<{ config: Config; stop: (
     config,
     stop: async () => {
       clearInterval(toggle);
-      await Promise.all([axd.close(), ulxd.close(), slxd.close(), charger.close()]);
+      await Promise.all([axd.close(), ulxd.close(), slxd.close(), psm.close(), charger.close()]);
     },
   };
 }

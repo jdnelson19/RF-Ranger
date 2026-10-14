@@ -2,7 +2,14 @@ import { UNKNOWN, type Reading } from './reading.js';
 
 export type Manufacturer = 'shure' | 'sennheiser';
 
-export type ConnectionState = 'disconnected' | 'connecting' | 'connected';
+/**
+ * Which way audio goes on a channel. `mic`: a handheld or bodypack transmitter
+ * sends to a networked receiver, which reports on it. `iem`: a networked
+ * transmitter sends to a receive-only bodypack, which reports nothing back.
+ */
+export type ChannelRole = 'mic' | 'iem';
+
+export type ConnectionState ='disconnected' | 'connecting' | 'connected';
 
 export interface ConnectionStatus {
   state: ConnectionState;
@@ -43,6 +50,15 @@ export interface ChannelTelemetry {
   interference: Reading<boolean>;
   encryptionFault: Reading<boolean>;
   unregisteredTx: Reading<boolean>;
+
+  // In-ear monitor transmitters (role `iem`). The bodypack is receive-only, so
+  // these describe what the rack unit is sending, never the pack itself.
+  /** RF output power; 0 when RF is switched off. */
+  rfOutputMw: Reading<number>;
+  /** RF carrier muted at the transmitter: the pack hears nothing. */
+  rfMuted: Reading<boolean>;
+  /** Audio transmission mode as the device names it, e.g. "Stereo". */
+  audioMode: Reading<string>;
 }
 
 export type Metric = keyof ChannelTelemetry;
@@ -69,6 +85,9 @@ export function emptyTelemetry(): ChannelTelemetry {
     interference: UNKNOWN,
     encryptionFault: UNKNOWN,
     unregisteredTx: UNKNOWN,
+    rfOutputMw: UNKNOWN,
+    rfMuted: UNKNOWN,
+    audioMode: UNKNOWN,
   };
 }
 
@@ -115,6 +134,8 @@ export interface ReceiverInfo {
   id: string;
   manufacturer: Manufacturer;
   family: string;
+  /** `iem` for in-ear monitor transmitters, which reuse the receiver plumbing. */
+  role: ChannelRole;
   host: string;
   model?: string;
   deviceId?: string;

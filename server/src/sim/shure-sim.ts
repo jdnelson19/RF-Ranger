@@ -21,6 +21,11 @@ export interface SimChannel {
   rfDbm: number;
   audioDbfs: number;
   rxMuted: boolean;
+  /** IEM transmitters only. */
+  rfOutputMw: number;
+  rfMuted: boolean;
+  /** PSM 1000 AUDIO_TX_MODE code: 1 mono, 2 point to point, 3 stereo. */
+  audioMode: number;
 }
 
 export interface ShureSimOptions {
@@ -34,8 +39,8 @@ export interface ShureSimOptions {
   deviceId?: string;
 }
 
-const DEFAULT_MODEL: Record<ShureFamilyId, string> = { ulxd: 'ULXD4Q', axd: 'AD4Q-A', slxd: 'SLXD4D' };
-const DEFAULT_TX: Record<ShureFamilyId, string> = { ulxd: 'ULXD2', axd: 'AD2', slxd: 'SLXD2' };
+const DEFAULT_MODEL: Record<ShureFamilyId, string> = { ulxd: 'ULXD4Q', axd: 'AD4Q-A', slxd: 'SLXD4D', psm1000: 'P10T' };
+const DEFAULT_TX: Record<ShureFamilyId, string> = { ulxd: 'ULXD2', axd: 'AD2', slxd: 'SLXD2', psm1000: '' };
 
 const pad = (n: number, width: number) => String(Math.max(0, Math.round(n))).padStart(width, '0');
 
@@ -59,7 +64,7 @@ export class ShureSim {
     this.fragment = opts.fragment ?? false;
     this.answersModel = opts.answersModel ?? true;
     this.deviceId = opts.deviceId ?? 'SIM';
-    const count = opts.channels?.length ?? (opts.family === 'slxd' ? 2 : 4);
+    const count = opts.channels?.length ?? (opts.family === 'slxd' || opts.family === 'psm1000' ? 2 : 4);
     this.channels = Array.from({ length: count }, (_, i) => ({
       name: `CH ${i + 1}`,
       frequencyKhz: 470_125 + i * 1_000,
@@ -71,6 +76,9 @@ export class ShureSim {
       rfDbm: -60,
       audioDbfs: -30,
       rxMuted: false,
+      rfOutputMw: 50,
+      rfMuted: false,
+      audioMode: 3,
       ...definedOnly(opts.channels?.[i] ?? {}),
     }));
   }
@@ -119,7 +127,7 @@ export class ShureSim {
     const deviceReply: Record<string, string> = {
       ...(this.answersModel ? { MODEL: this.braced(this.model) } : {}),
       ...(this.family === 'ulxd' ? { HIGH_DENSITY: 'OFF' } : {}),
-      DEVICE_ID: this.braced(this.deviceId),
+      [this.family === 'psm1000' ? 'DEVICE_NAME' : 'DEVICE_ID']: this.braced(this.deviceId),
       FW_VER: '{0.0.0.0-sim}',
     };
 
@@ -197,6 +205,15 @@ export class ShureSim {
           rep('TX_BATT_MINS', mins),
           rep('TX_MODEL', on ? ch.txModel : 'UNKNOWN'),
         ];
+      case 'psm1000':
+        return [
+          rep('CHAN_NAME', this.braced(ch.name)),
+          rep('FREQUENCY', pad(ch.frequencyKhz, 6)),
+          rep('GROUP_CHAN', '01,01'),
+          rep('RF_TX_LVL', String(ch.rfOutputMw)),
+          rep('RF_MUTE', ch.rfMuted ? '1' : '0'),
+          rep('AUDIO_TX_MODE', String(ch.audioMode)),
+        ];
     }
   }
 
@@ -217,6 +234,8 @@ export class ShureSim {
       }
       case 'slxd':
         return `< SAMPLE ${n} ALL ${pad(audio + 126, 3)} ${pad(audio + 120, 3)} ${pad(rf + 120, 3)} >`;
+      case 'psm1000':
+        return ''; // layout not yet captured from hardware
     }
   }
 

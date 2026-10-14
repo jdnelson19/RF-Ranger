@@ -19,7 +19,7 @@ export interface SlotConfig {
   channel: number;
   /** Short equipment label, e.g. "H1" or "BP7". */
   label?: string;
-  kind?: 'handheld' | 'bodypack' | 'other';
+  kind?: 'handheld' | 'bodypack' | 'iem' | 'other';
   group?: string;
   assignment?: AssignmentConfig;
   /**

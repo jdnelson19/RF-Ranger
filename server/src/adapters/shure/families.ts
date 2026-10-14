@@ -6,17 +6,26 @@
  * (MIT, (c) 2019 Karl Swanson) and bitfocus companion-module-shure-wireless
  * (MIT, (c) 2019 Joseph Adams). See NOTICE and docs/shure-protocol.md.
  */
-import { emptyTelemetry, type ChannelTelemetry, type Metric } from '../../core/model.js';
+import { emptyTelemetry, type ChannelRole, type ChannelTelemetry, type Metric } from '../../core/model.js';
 import { absent, ok, UNSUPPORTED, type Reading } from '../../core/reading.js';
 
-export type ShureFamilyId = 'ulxd' | 'axd' | 'slxd';
+export type ShureFamilyId = 'ulxd' | 'axd' | 'slxd' | 'psm1000';
 
 type Apply = (t: ChannelTelemetry, args: string[], now: number) => void;
 
 export interface ShureFamily {
   id: ShureFamilyId;
   label: string;
+  /** `iem` families are in-ear monitor transmitters; see ChannelRole. */
+  role: ChannelRole;
   defaultChannels: number;
+  /** Device-level name key: Wireless Workbench's device name. */
+  deviceIdKey: 'DEVICE_ID' | 'DEVICE_NAME';
+  /**
+   * Whether `GET 0 ALL` returns every channel value. Without it, each report
+   * key is read individually per channel on connect.
+   */
+  getAll: boolean;
   /** Metrics this family can report. Everything else starts as `unsupported`. */
   supports: ReadonlySet<Metric>;
   reports: Readonly<Record<string, Apply>>;
@@ -82,7 +91,10 @@ const ULXD_ID_CAPABLE = new Set(['ULXD6', 'ULXD8']);
 const ulxd: ShureFamily = {
   id: 'ulxd',
   label: 'Shure ULX-D',
+  role: 'mic',
   defaultChannels: 4,
+  deviceIdKey: 'DEVICE_ID',
+  getAll: true,
   supports: new Set<Metric>([
     'name', 'frequencyKhz', 'groupChannel', 'txModel', 'txDeviceId', 'txOffsetDb', 'txMuted',
     'batteryBars', 'batteryPercent', 'batteryRuntimeMin', 'batteryType',
@@ -127,7 +139,10 @@ const ulxd: ShureFamily = {
 const axd: ShureFamily = {
   id: 'axd',
   label: 'Shure Axient Digital',
+  role: 'mic',
   defaultChannels: 4,
+  deviceIdKey: 'DEVICE_ID',
+  getAll: true,
   supports: new Set<Metric>([
     'name', 'frequencyKhz', 'groupChannel', 'txModel', 'txDeviceId', 'txOffsetDb', 'txMuted',
     'batteryBars', 'batteryPercent', 'batteryRuntimeMin', 'batteryType',
@@ -184,7 +199,10 @@ const axd: ShureFamily = {
 const slxd: ShureFamily = {
   id: 'slxd',
   label: 'Shure SLX-D',
+  role: 'mic',
   defaultChannels: 2,
+  deviceIdKey: 'DEVICE_ID',
+  getAll: true,
   supports: new Set<Metric>([
     'name', 'frequencyKhz', 'groupChannel', 'txModel',
     'batteryBars', 'batteryPercent', 'batteryRuntimeMin', 'batteryType',
@@ -212,7 +230,47 @@ const slxd: ShureFamily = {
   },
 };
 
-export const SHURE_FAMILIES: Readonly<Record<ShureFamilyId, ShureFamily>> = { ulxd, axd, slxd };
+// ---- PSM 1000 (P10T) ------------------------------------------------------
+// An in-ear monitor transmitter: two channels, each sending to receive-only
+// P10R/P10R+ bodypacks, so nothing about the packs is visible. Key names come
+// from Shure's PSM1000 command strings and bitfocus companion-module-shure-psm1000
+// (MIT, (c) 2020 Bitfocus AS); value encodings are provisional until checked
+// against hardware, so parsers accept both the numeric and word forms.
+
+const AUDIO_MODES: Record<string, string> = { '1': 'Mono', '2': 'Point to point', '3': 'Stereo' };
+
+const psm1000: ShureFamily = {
+  id: 'psm1000',
+  label: 'Shure PSM 1000',
+  role: 'iem',
+  defaultChannels: 2,
+  deviceIdKey: 'DEVICE_NAME',
+  getAll: false,
+  supports: new Set<Metric>(['name', 'frequencyKhz', 'groupChannel', 'rfOutputMw', 'rfMuted', 'audioMode']),
+  reports: {
+    CHAN_NAME: name,
+    FREQUENCY: frequency,
+    GROUP_CHAN: groupChannel,
+    // 10, 50 or 100 mW, possibly zero-padded; anything else (e.g. OFF) means no RF.
+    RF_TX_LVL: (t, a, now) => {
+      const raw = a[0];
+      t.rfOutputMw = raw === undefined ? absent(now) : /^\d+$/.test(raw) ? ok(Number(raw), now) : raw === 'OFF' ? ok(0, now) : absent(now);
+    },
+    RF_MUTE: (t, a, now) => { t.rfMuted = flag(a[0], now, ['1', 'ON'], ['0', 'OFF']); },
+    AUDIO_TX_MODE: (t, a, now) => {
+      const raw = a.join(' ').trim();
+      t.audioMode = raw ? ok(AUDIO_MODES[raw] ?? raw, now) : absent(now);
+    },
+  },
+  poll: ['RF_TX_LVL', 'RF_MUTE', 'AUDIO_TX_MODE', 'FREQUENCY'],
+  // The PSM1000 SAMPLE layout is undocumented in our sources; samples only
+  // keep the link alive until it is captured from hardware.
+  applySample: () => {},
+};
+
+export const SHURE_FAMILIES: Readonly<Record<ShureFamilyId, ShureFamily>> = { ulxd, axd, slxd, psm1000 };
+
+export const SHURE_FAMILY_IDS = Object.keys(SHURE_FAMILIES) as ShureFamilyId[];
 
 /** Fresh telemetry for a channel of `family`, with unsupported metrics marked as such. */
 export function initialTelemetry(family: ShureFamily): ChannelTelemetry {
