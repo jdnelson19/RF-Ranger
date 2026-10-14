@@ -5,7 +5,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { SHURE_FAMILIES, initialTelemetry, type ShureFamilyId } from '../src/adapters/shure/families.js';
+import { AUDIO_TRIM_DB, SHURE_FAMILIES, initialTelemetry, type ShureFamilyId } from '../src/adapters/shure/families.js';
 import { parseMessage } from '../src/adapters/shure/protocol.js';
 import { channelAlerts } from '../src/core/alerts.js';
 import type { ChannelTelemetry, ConnectionStatus } from '../src/core/model.js';
@@ -46,8 +46,8 @@ describe('AD4Q-A with an AD2 switched on mid-capture', () => {
   const firstOnSample = report.frames.find((f) => /^< SAMPLE 1 ALL (?!255)/.test(f.frame))!;
   const powerOn = firstOnSample.t;
   const modelAt = report.frames.find((f) => f.frame === '< REP 1 TX_MODEL AD2 >')!.t;
-  /** While on air the AD RMS meter bottoms out at -87 dBFS (raw 033); peak keeps falling below it in silence. */
-  const RMS_FLOOR_DBFS = -87;
+  /** While on air the AD RMS meter bottoms out at raw 033 (-87 dBFS before the trim); peak keeps falling below it in silence. */
+  const RMS_FLOOR_DBFS = 33 - 120 + AUDIO_TRIM_DB;
 
   it('sees the transmitter come on from the first sample, before its reports arrive', () => {
     const presence: Array<{ t: number; frame: string; on: boolean }> = [];

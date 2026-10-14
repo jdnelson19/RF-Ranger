@@ -1,5 +1,5 @@
 import net from 'node:net';
-import type { ShureFamilyId } from '../adapters/shure/families.js';
+import { AUDIO_TRIM_DB, type ShureFamilyId } from '../adapters/shure/families.js';
 import { ShureFramer, parseMessage, tokenize } from '../adapters/shure/protocol.js';
 
 /**
@@ -227,7 +227,8 @@ export class ShureSim {
     const jitter = () => Math.round((Math.random() - 0.5) * 6);
     const on = ch.txOn;
     const rf = on ? ch.rfDbm + jitter() : -120;
-    const audio = on ? ch.audioDbfs + jitter() : -120;
+    // Encode as real hardware would, so RF Ranger (which adds the audio trim) displays audioDbfs.
+    const audio = on ? ch.audioDbfs + jitter() - AUDIO_TRIM_DB : -120;
 
     switch (this.family) {
       case 'ulxd':

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SHURE_FAMILIES, initialTelemetry, numeric } from '../src/adapters/shure/families.js';
+import { AUDIO_TRIM_DB, SHURE_FAMILIES, initialTelemetry, numeric } from '../src/adapters/shure/families.js';
 import { parseMessage } from '../src/adapters/shure/protocol.js';
 import type { ChannelTelemetry } from '../src/core/model.js';
 
@@ -50,7 +50,7 @@ describe('ULX-D', () => {
     const t = feed('ulxd', ['< SAMPLE 1 ALL AX 068 035 >']);
     expect(t.antennas).toEqual({ state: 'ok', value: 'AX', at: NOW });
     expect(t.rfDbm).toEqual({ state: 'ok', value: [-60], at: NOW });
-    expect(t.audioRmsDbfs).toEqual({ state: 'ok', value: -15, at: NOW });
+    expect(t.audioRmsDbfs).toEqual({ state: 'ok', value: -15 + AUDIO_TRIM_DB, at: NOW });
   });
 
   it('takes identity and mute from any transmitter that reports them, whatever the model', () => {
@@ -77,9 +77,18 @@ describe('Axient Digital', () => {
   it('parses a standard sample with both antennas', () => {
     const t = feed('axd', ['< SAMPLE 1 ALL 005 031 102 090 BB 31 086 31 065 >']);
     expect(t.linkQuality).toEqual({ state: 'ok', value: 5, at: NOW });
-    expect(t.audioPeakDbfs).toEqual({ state: 'ok', value: -18, at: NOW });
-    expect(t.audioRmsDbfs).toEqual({ state: 'ok', value: -30, at: NOW });
+    expect(t.audioPeakDbfs).toEqual({ state: 'ok', value: -18 + AUDIO_TRIM_DB, at: NOW });
+    expect(t.audioRmsDbfs).toEqual({ state: 'ok', value: -30 + AUDIO_TRIM_DB, at: NOW });
     expect(t.rfDbm).toEqual({ state: 'ok', value: [-34, -55], at: NOW });
+  });
+
+  it('applies the audio trim to meters only, never above full scale', () => {
+    expect(AUDIO_TRIM_DB).toBe(8);
+    const t = feed('axd', ['< SAMPLE 1 ALL 005 031 119 116 BB 31 086 31 065 >']);
+    expect(t.audioPeakDbfs).toMatchObject({ state: 'ok', value: 0 }); // -1 + 8 caps at 0 dBFS
+    expect(t.audioRmsDbfs).toMatchObject({ state: 'ok', value: 0 });
+    expect(t.rfDbm).toMatchObject({ state: 'ok', value: [-34, -55] }); // RF unchanged
+    expect(feed('axd', ['< SAMPLE 1 ALL 255 000 255 255 XX 00 021 00 019 >']).audioRmsDbfs.state).toBe('absent');
   });
 
   it('parses a Quadversity sample with four antennas', () => {
@@ -110,7 +119,7 @@ describe('Axient Digital', () => {
 describe('SLX-D', () => {
   it('parses the three-field sample', () => {
     const t = feed('slxd', ['< SAMPLE 1 ALL 102 102 086 >']);
-    expect(t.audioPeakDbfs).toEqual({ state: 'ok', value: -18, at: NOW });
+    expect(t.audioPeakDbfs).toEqual({ state: 'ok', value: -18 + AUDIO_TRIM_DB, at: NOW });
     expect(t.rfDbm).toEqual({ state: 'ok', value: [-34], at: NOW });
   });
 

@@ -48,6 +48,8 @@ The ULX-D charger adds `65534` = calculating and `65529` = full on `BATT_TIME_TO
 
 Micboard maps RF to a percentage with `raw / 115` for both ULX-D and AD. Because ULX-D's offset is 128 and AD's is 120, the same percentage means different dBm values on each family. **RF Ranger stores dBm.**
 
+**Audio calibration (provisional).** On real receivers, audio read low compared with Wireless Workbench. So every family's audio meters (peak and RMS) get **+8 dB** (`AUDIO_TRIM_DB` in `families.ts`) on top of the conversions above, capped at 0 dBFS. RF and every other value are unchanged. This applies across families until a side-by-side capture against Workbench (silence, normal speech, loud speech) pins the exact offset for each family. Raw values in this document are as the receiver sends them, before the trim.
+
 ## Channel fields we use
 
 ✅ = documented. ❌ = not available. ? = unknown, check against hardware.
@@ -117,7 +119,7 @@ Device Inspector captures from the RF Ranger 0.1.0 macOS app, taken 2026-10-14. 
   - `TX_MUTE_MODE_STATUS ON` = mute switch open
   - RSSI = raw − 120 (−75 to −53 dBm on air, about −100 dBm with no transmitter)
   - link quality 0–5, and `255` with no transmitter
-- **Audio meter floor.** While on air, RMS never goes below raw `033` (−87 dBFS). In silence, peak keeps dropping below that (down to −94 dBFS), so a peak below RMS is normal when it's quiet. Whenever there's sound, peak is at or above RMS. With no transmitter, the meters read peak `005` / RMS `020`. These are floor values and shouldn't be displayed as levels.
+- **Audio meter floor.** While on air, RMS never goes below raw `033` (−87 dBFS by the documented conversion, −79 with the +8 dB trim). In silence, peak keeps dropping below that (down to raw `026`), so a peak below RMS is normal when it's quiet. Whenever there's sound, peak is at or above RMS. With no transmitter, the meters read peak `005` / RMS `020`. These are floor values and shouldn't be displayed as levels.
 - **Talk switch (ADX2).** `TX_TALK_SWITCH ON` arrives on press and `OFF` on release, every time. While talk was held, the channel's RMS stayed at −74 dBFS or lower, against up to −38 dBFS otherwise, which fits audio being routed to talkback. AD1 and AD2 (no talk switch) report `OFF`. RF Ranger shows **TALK** on the tile while it's held, and polls the key so a missed release can't leave TALK stuck on.
 - **AD1.** Same keys as the AD2, plus `TX_INPUT_PAD` (`012`) and `TX_POLARITY`. `TX_BATT_MINS 00323` is a real runtime in minutes once calculated.
 - **ShowLink (ADX).** `SLOT_SHOWLINK_STATUS 1 003…005` (slot, quality) and `SLOT_BATT_MINS 1 00565`. Not used yet.
@@ -128,7 +130,7 @@ Device Inspector captures from the RF Ranger 0.1.0 macOS app, taken 2026-10-14. 
 - **Transmitter on.** Unlike Axient, values trickle in over about 10 s rather than in one burst. `TX_TYPE` came first, `BATT_CHARGE` 1.5 s later, and `BATT_BARS` only after 9 s. So "battery level unknown" can show briefly after power-on.
 - **The ULXD1 reports mute status** (`TX_MUTE_STATUS OFF`) and sends `TX_DEVICE_ID`, despite the 2018 bulletin saying only ULXD6/ULXD8 do. RF Ranger now takes whatever a transmitter reports instead of ruling fields out by model. (The anonymizer hides whether the ID was blank. A blank ID counts as "not reported", never as a mismatch.)
 - **Battery temperature is °C + 40** as documented, but may come as two digits with a leading space (`BATT_TEMP_C  61` = 21 °C; `BATT_TEMP_F 109` = 69 °F agrees). Health and cycles are plain numbers, the same as on Axient.
-- **Audio meter: unconfirmed.** It read raw `000` for the whole capture, while RF was −66 to −43 dBm (raw − 128 confirmed). Whether that was silence or a scaling problem is being checked against Wireless Workbench.
+- **Audio meter: unconfirmed.** It read raw `000` for the whole capture, while RF was −66 to −43 dBm (raw − 128 confirmed). Whether that was silence or a scaling problem is being checked against Wireless Workbench. ULX-D gets the same +8 dB trim for now, but its scale (raw 0–50) is the least certain of all.
 
 ### Not seen yet
 

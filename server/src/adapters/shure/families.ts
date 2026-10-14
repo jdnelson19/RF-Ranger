@@ -68,6 +68,19 @@ function offset(raw: string | undefined, now: number, by: number): Reading<numbe
   return numeric(raw, now, (n) => n - by);
 }
 
+/**
+ * Audio meter calibration in dB, added on top of each family's documented
+ * conversion. Raised 8 dB because meters read low against Wireless Workbench
+ * on real receivers (2026-10-14). Provisional until a side-by-side capture
+ * pins the exact offset per family; see docs/shure-protocol.md.
+ */
+export const AUDIO_TRIM_DB = 8;
+
+/** An audio meter field in dBFS: documented offset, plus the trim, never above full scale. */
+function audioLevel(raw: string | undefined, now: number, by: number): Reading<number> {
+  return numeric(raw, now, (n) => Math.min(0, n - by + AUDIO_TRIM_DB));
+}
+
 // ---- shared report handlers ---------------------------------------------
 
 const name: Apply = (t, a, now) => { t.name = text(a.join(' '), now); };
@@ -136,7 +149,7 @@ const ulxd: ShureFamily = {
     t.antennas = ant ? ok(ant, now) : absent(now);
     const rssi = offset(rf, now, 128);
     t.rfDbm = rssi.state === 'ok' ? ok([rssi.value], now) : absent(now);
-    t.audioRmsDbfs = offset(audio, now, 50);
+    t.audioRmsDbfs = audioLevel(audio, now, 50);
   },
 };
 
@@ -185,8 +198,8 @@ const axd: ShureFamily = {
   applySample: (t, a, now) => {
     const [qual, , peak, rms, ant] = a;
     t.linkQuality = numeric(qual, now);
-    t.audioPeakDbfs = offset(peak, now, 120);
-    t.audioRmsDbfs = offset(rms, now, 120);
+    t.audioPeakDbfs = audioLevel(peak, now, 120);
+    t.audioRmsDbfs = audioLevel(rms, now, 120);
     if (!ant) {
       t.antennas = absent(now);
       t.rfDbm = absent(now);
@@ -236,8 +249,8 @@ const slxd: ShureFamily = {
   // < SAMPLE x ALL audPeak audRms rssi >, all encoded as value - 120
   applySample: (t, a, now) => {
     const [peak, rms, rf] = a;
-    t.audioPeakDbfs = offset(peak, now, 120);
-    t.audioRmsDbfs = offset(rms, now, 120);
+    t.audioPeakDbfs = audioLevel(peak, now, 120);
+    t.audioRmsDbfs = audioLevel(rms, now, 120);
     const rssi = offset(rf, now, 120);
     t.rfDbm = rssi.state === 'ok' ? ok([rssi.value], now) : absent(now);
   },
