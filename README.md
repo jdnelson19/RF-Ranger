@@ -9,7 +9,26 @@ RF Ranger monitors wireless microphone systems for live production. It has two v
 
 Shure is the first supported hardware ecosystem. Sennheiser is planned next.
 
-> **Status:** Early planning. Nothing is runnable yet. See [docs/micboard-audit.md](docs/micboard-audit.md) for the technical baseline.
+> **Status:** Early development. The Shure protocol adapter (ULX-D, Axient Digital, SLX-D) and readiness rules exist and are tested against a simulator; real-hardware validation is next. There is no UI yet.
+
+## Docs
+
+- [Micboard audit](docs/micboard-audit.md): license, architecture, defects, what to keep
+- [Architecture](docs/architecture.md): data model, readings, readiness rules
+- [Shure protocol notes](docs/shure-protocol.md): per-family fields, units, sentinels
+- [Hardware validation](docs/hardware-validation.md): how to test against real receivers
+
+## Try it
+
+Requires Node.js 20+.
+
+```
+cd server
+npm install
+npm test
+npm run sim -- ulxd                      # simulated receiver on :2202
+npm run probe -- ulxd 127.0.0.1          # live table + raw log (use a real receiver IP for hardware)
+```
 
 ## Relationship to Micboard
 
