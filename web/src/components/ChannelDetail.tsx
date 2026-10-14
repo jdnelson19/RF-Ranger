@@ -10,6 +10,7 @@ const ROWS: Array<[section: string, rows: Row[]]> = [
     ['Model', 'txModel'],
     ['Device ID', 'txDeviceId'],
     ['Mute switch', 'txMuted', (v: boolean) => (v ? 'Muted' : 'Open')],
+    ['Talk switch', 'txTalkSwitch', (v: boolean) => (v ? 'Held: audio to talkback' : 'Released')],
     ['Offset', 'txOffsetDb', (v: number) => `${v > 0 ? '+' : ''}${v} dB`],
   ]],
   ['Battery', [

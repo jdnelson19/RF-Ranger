@@ -75,6 +75,7 @@ button { font: inherit; color: inherit; }
 }
 .tag--warn { background: var(--warn-bg); color: var(--warn); }
 .tag--bad { background: var(--bad-bg); color: var(--bad); }
+.tag--talk { background: var(--info); color: #fff; }
 .tag--demo { background: var(--warn); color: #111; }
 
 .pill {

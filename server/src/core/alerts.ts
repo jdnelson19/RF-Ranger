@@ -75,6 +75,8 @@ export function channelAlerts(input: AlertInput, th: AlertThresholds): Alert[] {
     if (rf && rf.length > 0 && Math.max(...rf) < th.rfWeakDbm) add('rf-weak', 'warning', `Weak RF (${Math.max(...rf)} dBm)`);
 
     if (freshValue(t.txMuted, now, th.faultMaxAgeMs) === true) add('tx-muted', 'info', 'Transmitter mute switch on');
+    // Audio is going to talkback, not the main output, while this is held.
+    if (freshValue(t.txTalkSwitch, now, th.faultMaxAgeMs) === true) add('tx-talk', 'info', 'Talk switch held: audio to talkback');
   } else if (input.assigned) {
     if (input.readiness.source === 'charger' && input.readiness.label === 'READY') {
       add('on-charger', 'info', input.readiness.reason ?? 'On charger');

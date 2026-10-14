@@ -64,9 +64,10 @@ Micboard maps RF to a percentage with `raw / 115` for both ULX-D and AD. Because
 | Battery health % | `BATT_HEALTH` | `TX_BATT_HEALTH_PERCENT` | ? |
 | Battery cycles / temp | `BATT_CYCLE`, `BATT_TEMP_C` (+40 offset) | `TX_BATT_CYCLE_COUNT`, `TX_BATT_TEMP_C` | ? |
 | TX model | `TX_TYPE` ULXD1/ULXD2/ULXD6/ULXD8/UNKN | `TX_MODEL` AD1/AD2/ADX1/ADX1M/ADX2/ADX2FD/UNKNOWN (newer firmware likely adds AD3/ADX3) | `TX_MODEL` SLXD1/SLXD2/… |
-| **TX identity** | `TX_DEVICE_ID`, **ULXD6/ULXD8 only** | `TX_DEVICE_ID` (31, user-settable on ADX) | ❌ (not in our copy) |
+| **TX identity** | `TX_DEVICE_ID`; bulletin says ULXD6/ULXD8 only, but a ULXD1 sends it too (see below) | `TX_DEVICE_ID` (31, user-settable on ADX) | ❌ (not in our copy) |
 | RX output mute | `AUDIO_MUTE` | `AUDIO_MUTE` | ? |
-| TX mute | `TX_MUTE_STATUS`, ULXD6/8 only | `TX_MUTE_MODE_STATUS` ON/MUTE/UNKNOWN | ? |
+| TX mute | `TX_MUTE_STATUS`; bulletin says ULXD6/8 only, but a ULXD1 reports it ✅ | `TX_MUTE_MODE_STATUS` ON/MUTE/UNKNOWN | ? |
+| Talk switch | ? | `TX_TALK_SWITCH` ON/OFF ✅ | ? |
 | TX offset | `TX_OFFSET` (255 = TX off) | `TX_OFFSET` | ? |
 | TX RF power | `TX_RF_PWR` | `TX_POWER_LEVEL` | ? |
 | TX locks | `TX_PWR_LOCK`, `TX_MENU_LOCK` | `TX_LOCK` | ? |
@@ -94,9 +95,18 @@ AD channels have 8 registration slots (`SLOT_STATUS`, `SLOT_TX_MODEL`, `SLOT_TX_
 3. **Battery %** exists only with Shure rechargeables. With AA batteries we have bars only, and runtime is unavailable. This is not a fault.
 4. **RF in dBm, audio in dBFS, with per-family offsets.** The adapter normalises to these units. Raw values are kept for diagnostics.
 
-## Confirmed on hardware: AD4Q-A with an AD2
+## Confirmed on hardware
 
-Source: a Device Inspector capture from the RF Ranger 0.1.0 macOS app, 2026-10-14. Channel 1's AD2 (Shure rechargeable) was switched on partway through. The capture is replayed in `server/test/hardware-replay.test.ts` (fixture `server/test/fixtures/ad4q-ad2-power-on.json`).
+Device Inspector captures from the RF Ranger 0.1.0 macOS app, taken 2026-10-14. Each one is replayed in `server/test/hardware-replay.test.ts` from an anonymized fixture in `server/test/fixtures/`.
+
+| Fixture | Hardware | What happens |
+|---|---|---|
+| `ad4q-ad2-power-on.json` | AD4Q-A + AD2 | AD2 switched on partway through |
+| `ad4q-ad1.json` | AD4Q-A + AD1 | AD1 on throughout, part-used battery |
+| `ad4q-adx2-talk.json` | AD4Q-A + ADX2 (and AD2) | ADX2 talk switch pressed three times |
+| `ulxd4-ulxd1-off-on.json` | ULXD4 + ULXD1 | ULXD1 switched off, then on again |
+
+### Axient Digital
 
 - **Power-on order.** The first `SAMPLE` after power-on already shows the transmitter: quality `000` instead of `255`, antennas `BB` instead of `XX`, and real RSSI. Quality climbs to 5 over about 2.5 s. The `REP` burst (model, battery, offset, ID) arrives **about 1.5 s later**. RF Ranger therefore treats link quality as a sign the transmitter is present.
 - **Transient sentinels.** Within that burst, `TX_BATT_BARS 255` and `TX_BATT_TYPE UNKN` arrive a few milliseconds before the real `005` / `LION`.
@@ -108,7 +118,21 @@ Source: a Device Inspector capture from the RF Ranger 0.1.0 macOS app, 2026-10-1
   - RSSI = raw − 120 (−75 to −53 dBm on air, about −100 dBm with no transmitter)
   - link quality 0–5, and `255` with no transmitter
 - **Audio meter floor.** While on air, RMS never goes below raw `033` (−87 dBFS). In silence, peak keeps dropping below that (down to −94 dBFS), so a peak below RMS is normal when it's quiet. Whenever there's sound, peak is at or above RMS. With no transmitter, the meters read peak `005` / RMS `020`. These are floor values and shouldn't be displayed as levels.
-- **Not seen yet:** AA batteries, a transmitter switching off, interference, encryption errors, and audio from deliberate speech (levels in this capture peaked at −31 dBFS).
+- **Talk switch (ADX2).** `TX_TALK_SWITCH ON` arrives on press and `OFF` on release, every time. While talk was held, the channel's RMS stayed at −74 dBFS or lower, against up to −38 dBFS otherwise, which fits audio being routed to talkback. AD1 and AD2 (no talk switch) report `OFF`. RF Ranger shows **TALK** on the tile while it's held, and polls the key so a missed release can't leave TALK stuck on.
+- **AD1.** Same keys as the AD2, plus `TX_INPUT_PAD` (`012`) and `TX_POLARITY`. `TX_BATT_MINS 00323` is a real runtime in minutes once calculated.
+- **ShowLink (ADX).** `SLOT_SHOWLINK_STATUS 1 003…005` (slot, quality) and `SLOT_BATT_MINS 1 00565`. Not used yet.
+
+### ULX-D
+
+- **Transmitter off.** One burst, all within about 60 ms: `TX_OFFSET 255`, `BATT_BARS 255`, `BATT_RUN_TIME 65535`, `TX_TYPE UNKN`, and `UNKN` for the rest. RF Ranger shows transmitter-off once `TX_TYPE UNKN` arrives.
+- **Transmitter on.** Unlike Axient, values trickle in over about 10 s rather than in one burst. `TX_TYPE` came first, `BATT_CHARGE` 1.5 s later, and `BATT_BARS` only after 9 s. So "battery level unknown" can show briefly after power-on.
+- **The ULXD1 reports mute status** (`TX_MUTE_STATUS OFF`) and sends `TX_DEVICE_ID`, despite the 2018 bulletin saying only ULXD6/ULXD8 do. RF Ranger now takes whatever a transmitter reports instead of ruling fields out by model. (The anonymizer hides whether the ID was blank. A blank ID counts as "not reported", never as a mismatch.)
+- **Battery temperature is °C + 40** as documented, but may come as two digits with a leading space (`BATT_TEMP_C  61` = 21 °C; `BATT_TEMP_F 109` = 69 °F agrees). Health and cycles are plain numbers, the same as on Axient.
+- **Audio meter: unconfirmed.** It read raw `000` for the whole capture, while RF was −66 to −43 dBm (raw − 128 confirmed). Whether that was silence or a scaling problem is being checked against Wireless Workbench.
+
+### Not seen yet
+
+AA batteries, an Axient transmitter switching off, interference, encryption errors, and audio levels checked against Wireless Workbench.
 
 ## Networked chargers (SBC220 / SBC240)
 

@@ -9,6 +9,7 @@ import { SHURE_FAMILIES, initialTelemetry, type ShureFamilyId } from '../src/ada
 import { parseMessage } from '../src/adapters/shure/protocol.js';
 import { channelAlerts } from '../src/core/alerts.js';
 import type { ChannelTelemetry, ConnectionStatus } from '../src/core/model.js';
+import { absent } from '../src/core/reading.js';
 import { readiness, txPresent } from '../src/core/readiness.js';
 import { DEFAULT_ALERT_THRESHOLDS } from '../src/server/config.js';
 
@@ -107,5 +108,105 @@ describe('AD4Q-A with an AD2 switched on mid-capture', () => {
       expect(txPresent(channels.get(n)!)).toBe(false);
       expect(judge(n).ready).toMatchObject({ label: 'CHECK_WITH_AUDIO', reason: 'Transmitter off or out of range' });
     }
+  });
+});
+
+/** Readiness and non-info alerts for a channel, as the server would compute them at `now`. */
+function assess(telemetry: ChannelTelemetry, now: number) {
+  const connection: ConnectionStatus = { state: 'connected', since: now - 60_000, lastMessageAt: now };
+  const ready = readiness({ assigned: true, connection, telemetry, now });
+  const alerts = channelAlerts({ assigned: true, connection, telemetry, readiness: ready, now }, DEFAULT_ALERT_THRESHOLDS);
+  return { ready, alerts: alerts.map((a) => a.code) };
+}
+
+describe('AD4Q-A with an AD1 bodypack', () => {
+  const { channels, last } = replay(load('ad4q-ad1.json'), 'axd');
+
+  it('reads the AD1 and a part-used battery, with a real runtime', () => {
+    const t = channels.get(2)!;
+    expect(t.txModel).toMatchObject({ state: 'ok', value: 'AD1' });
+    expect(t.batteryBars).toMatchObject({ state: 'ok', value: 5 });
+    expect(t.batteryPercent).toMatchObject({ state: 'ok', value: 81 });
+    expect(t.batteryRuntimeMin).toMatchObject({ state: 'ok', value: 323 });
+    expect(t.batteryHealthPercent).toMatchObject({ state: 'ok', value: 85 });
+    expect(t.batteryCycles).toMatchObject({ state: 'ok', value: 181 });
+    expect(t.batteryTempC).toMatchObject({ state: 'ok', value: 26 });
+    expect(t.txTalkSwitch).toMatchObject({ state: 'ok', value: false });
+  });
+
+  it('is READY, and the other channels are transmitter-off', () => {
+    expect(assess(channels.get(2)!, last)).toEqual({ ready: { label: 'READY', source: 'receiver' }, alerts: [] });
+    for (const n of [1, 3, 4]) expect(txPresent(channels.get(n)!)).toBe(false);
+  });
+});
+
+describe('AD4Q-A with an ADX2 talk switch', () => {
+  const report = load('ad4q-adx2-talk.json');
+
+  it('follows every press and release, and flags TALK only while held', () => {
+    const seen: Array<{ held: boolean; talkAlert: boolean; ready: unknown; readyWithoutTalk: unknown }> = [];
+    replay(report, 'axd', (t, frame, ch) => {
+      if (!/^< REP 2 TX_TALK_SWITCH (ON|OFF) >$/.test(frame)) return;
+      const c = ch.get(2)!;
+      const { ready, alerts } = assess(c, t);
+      seen.push({
+        held: c.txTalkSwitch.state === 'ok' && c.txTalkSwitch.value,
+        talkAlert: alerts.includes('tx-talk'),
+        ready,
+        readyWithoutTalk: assess({ ...c, txTalkSwitch: absent(t) }, t).ready,
+      });
+    });
+    expect(seen.map((s) => s.held)).toEqual([true, false, true, false, true, false]);
+    expect(seen.every((s) => s.talkAlert === s.held)).toBe(true);
+    // Talk is an intentional action, not a fault: it never changes readiness.
+    // (The capture joined an open connection, so the battery is only learned at
+    // the 30 s poll; the first press happens before that.)
+    for (const s of seen) expect(s.ready).toEqual(s.readyWithoutTalk);
+  });
+
+  it('reads the ADX2 and the AD2 beside it', () => {
+    const { channels, last } = replay(report, 'axd');
+    expect(channels.get(2)!.txModel).toMatchObject({ state: 'ok', value: 'ADX2' });
+    expect(channels.get(1)!.txModel).toMatchObject({ state: 'ok', value: 'AD2' });
+    expect(channels.get(2)!.batteryRuntimeMin).toMatchObject({ state: 'ok', value: 565 });
+    for (const n of [1, 2]) expect(assess(channels.get(n)!, last).ready.label).toBe('READY');
+  });
+});
+
+describe('ULXD4 with a ULXD1 switched off and on again', () => {
+  const report = load('ulxd4-ulxd1-off-on.json');
+  const frameAt = (frame: string, after = 0) => report.frames.find((f) => f.frame === frame && f.t > after)!.t;
+  const offDone = frameAt('< REP 1 TX_TYPE UNKN >');
+  const backOn = frameAt('< REP 1 TX_TYPE ULXD1 >', offDone);
+
+  it('goes transmitter-off with the off burst and back on with TX_TYPE', () => {
+    const states: Array<{ t: number; on: boolean; reason?: string }> = [];
+    replay(report, 'ulxd', (t, _f, ch) => {
+      const c = ch.get(1);
+      if (c && c.txModel.state !== 'unknown') states.push({ t, on: txPresent(c), reason: assess(c, t).ready.reason });
+    });
+    const before = states.filter((s) => s.t < offDone - 100);
+    const off = states.filter((s) => s.t >= offDone && s.t < backOn);
+    const after = states.filter((s) => s.t >= backOn);
+    expect(before.length).toBeGreaterThan(0);
+    expect(before.every((s) => s.on)).toBe(true);
+    expect(off.length).toBeGreaterThan(0);
+    expect(off.every((s) => !s.on && s.reason === 'Transmitter off or out of range')).toBe(true);
+    expect(after.every((s) => s.on)).toBe(true);
+  });
+
+  it('keeps the ULXD1 mute status and reads its battery after power-on', () => {
+    const { channels, last } = replay(report, 'ulxd');
+    const t = channels.get(1)!;
+    expect(t.txModel).toMatchObject({ state: 'ok', value: 'ULXD1' });
+    expect(t.txMuted).toMatchObject({ state: 'ok', value: false });
+    expect(t.batteryBars).toMatchObject({ state: 'ok', value: 5 });
+    expect(t.batteryPercent).toMatchObject({ state: 'ok', value: 97 });
+    expect(t.batteryRuntimeMin).toMatchObject({ state: 'ok', value: 373 });
+    expect(t.batteryHealthPercent).toMatchObject({ state: 'ok', value: 81 });
+    expect(t.batteryCycles).toMatchObject({ state: 'ok', value: 650 });
+    expect(t.batteryTempC).toMatchObject({ state: 'ok', value: 21 }); // raw " 61": two digits, padded with a space
+    expect(t.batteryType).toMatchObject({ state: 'ok', value: 'LION' });
+    expect(assess(t, last).ready).toEqual({ label: 'READY', source: 'receiver' });
   });
 });

@@ -94,8 +94,6 @@ const txDeviceId: Apply = (t, a, now) => { t.txDeviceId = text(a.join(' '), now)
 
 // ---- ULX-D ---------------------------------------------------------------
 
-const ULXD_ID_CAPABLE = new Set(['ULXD6', 'ULXD8']);
-
 const ulxd: ShureFamily = {
   id: 'ulxd',
   label: 'Shure ULX-D',
@@ -121,14 +119,10 @@ const ulxd: ShureFamily = {
     BATT_HEALTH: health,
     BATT_CYCLE: cycles,
     BATT_TEMP_C: tempC,
-    TX_TYPE: (t, a, now) => {
-      t.txModel = text(a[0], now);
-      // Only bodypack ULXD6 / boundary ULXD8 report an identity and mute state.
-      if (t.txModel.state === 'ok' && !ULXD_ID_CAPABLE.has(t.txModel.value)) {
-        t.txDeviceId = UNSUPPORTED;
-        t.txMuted = UNSUPPORTED;
-      }
-    },
+    // The 2018 bulletin says only ULXD6/ULXD8 report identity and mute, but a
+    // ULXD1 on current firmware reports TX_MUTE_STATUS (and a TX_DEVICE_ID), so
+    // take whatever the transmitter sends rather than ruling fields out by model.
+    TX_TYPE: txModel,
     TX_DEVICE_ID: txDeviceId,
     TX_OFFSET: (t, a, now) => { t.txOffsetDb = numeric(a[0], now); },
     TX_MUTE_STATUS: (t, a, now) => { t.txMuted = flag(a[0], now, ['ON'], ['OFF']); },
@@ -160,7 +154,7 @@ const axd: ShureFamily = {
     'batteryBars', 'batteryPercent', 'batteryRuntimeMin', 'batteryType',
     'batteryHealthPercent', 'batteryCycles', 'batteryTempC',
     'rfDbm', 'antennas', 'audioRmsDbfs', 'audioPeakDbfs', 'linkQuality',
-    'rxMuted', 'interference', 'encryptionFault', 'unregisteredTx',
+    'rxMuted', 'interference', 'encryptionFault', 'unregisteredTx', 'txTalkSwitch',
   ]),
   reports: {
     CHAN_NAME: name,
@@ -181,8 +175,11 @@ const axd: ShureFamily = {
     INTERFERENCE_STATUS: (t, a, now) => { t.interference = flag(a[0], now, ['DETECTED'], ['NONE']); },
     ENCRYPTION_STATUS: (t, a, now) => { t.encryptionFault = flag(a[0], now, ['ERROR'], ['OK']); },
     UNREGISTERED_TX_STATUS: (t, a, now) => { t.unregisteredTx = flag(a[0], now, ['ERROR'], ['OK']); },
+    // Reported on press and release (ADX2); AD1/AD2 without a talk switch report OFF.
+    TX_TALK_SWITCH: (t, a, now) => { t.txTalkSwitch = flag(a[0], now, ['ON'], ['OFF']); },
   },
-  poll: ['TX_BATT_BARS', 'TX_BATT_CHARGE_PERCENT', 'TX_BATT_MINS', 'TX_MODEL', 'TX_DEVICE_ID', 'TX_OFFSET', 'AUDIO_MUTE', 'INTERFERENCE_STATUS', 'ENCRYPTION_STATUS', 'UNREGISTERED_TX_STATUS'],
+  // TX_TALK_SWITCH is polled so a missed release can't leave TALK showing.
+  poll: ['TX_BATT_BARS', 'TX_BATT_CHARGE_PERCENT', 'TX_BATT_MINS', 'TX_MODEL', 'TX_DEVICE_ID', 'TX_OFFSET', 'AUDIO_MUTE', 'INTERFERENCE_STATUS', 'ENCRYPTION_STATUS', 'UNREGISTERED_TX_STATUS', 'TX_TALK_SWITCH'],
   // < SAMPLE x ALL qual audBitmap audPeak audRms ant (bitmap rssi)×N [ant2 (bitmap rssi)×N] >
   // N = ant.length (2, or 4 with Quadversity). The second block exists only in FD-C mode.
   applySample: (t, a, now) => {

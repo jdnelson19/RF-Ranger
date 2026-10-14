@@ -31,6 +31,11 @@ export interface ChannelTelemetry {
   txDeviceId: Reading<string>;
   txOffsetDb: Reading<number>;
   txMuted: Reading<boolean>;
+  /**
+   * Talk switch held (e.g. ADX2 with a talk switch). While held, audio goes to
+   * the receiver's talkback output instead of the channel's main output.
+   */
+  txTalkSwitch: Reading<boolean>;
 
   batteryBars: Reading<number>;
   batteryPercent: Reading<number>;
@@ -76,6 +81,7 @@ export function emptyTelemetry(): ChannelTelemetry {
     txDeviceId: UNKNOWN,
     txOffsetDb: UNKNOWN,
     txMuted: UNKNOWN,
+    txTalkSwitch: UNKNOWN,
     batteryBars: UNKNOWN,
     batteryPercent: UNKNOWN,
     batteryRuntimeMin: UNKNOWN,

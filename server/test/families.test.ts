@@ -53,10 +53,13 @@ describe('ULX-D', () => {
     expect(t.audioRmsDbfs).toEqual({ state: 'ok', value: -15, at: NOW });
   });
 
-  it('marks identity unsupported for handheld/bodypack models without one', () => {
-    expect(feed('ulxd', ['< REP 1 TX_TYPE ULXD2 >']).txDeviceId.state).toBe('unsupported');
-    expect(feed('ulxd', ['< REP 1 TX_TYPE ULXD6 >', '< REP 1 TX_DEVICE_ID {PACK07  } >']).txDeviceId)
-      .toEqual({ state: 'ok', value: 'PACK07', at: NOW });
+  it('takes identity and mute from any transmitter that reports them, whatever the model', () => {
+    // A ULXD1 on current firmware reports mute status, despite the 2018 bulletin.
+    const t = feed('ulxd', ['< REP 1 TX_MUTE_STATUS OFF >', '< REP 1 TX_TYPE ULXD1 >', '< REP 1 TX_DEVICE_ID {PACK07  } >']);
+    expect(t.txMuted).toEqual({ state: 'ok', value: false, at: NOW });
+    expect(t.txDeviceId).toEqual({ state: 'ok', value: 'PACK07', at: NOW });
+    // A blank identity is "nothing reported", never a mismatch.
+    expect(feed('ulxd', ['< REP 1 TX_TYPE ULXD2 >', '< REP 1 TX_DEVICE_ID {        } >']).txDeviceId.state).toBe('absent');
   });
 
   it('flags RF interference and encryption mismatch', () => {

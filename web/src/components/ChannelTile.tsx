@@ -74,6 +74,7 @@ export function ChannelTile({ s, frozen, onOpen }: { s: SlotView; frozen: boolea
       <div className="tile__foot">
         <span className="tile__num">{t.frequencyKhz.state === 'ok' ? `${mhz(t.frequencyKhz.value)} MHz` : '— MHz'}</span>
         {t.linkQuality.state !== 'unsupported' && <span className="tile__num tile__num--dim">Q {show(t.linkQuality)}/5</span>}
+        {txOn && value(t.txTalkSwitch) && <span className="tag tag--talk" title="Talk switch held: audio is going to talkback">TALK</span>}
         {value(t.rxMuted) && <span className="tag tag--warn">MUTED</span>}
       </div>
 

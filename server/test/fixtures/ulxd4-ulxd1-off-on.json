@@ -1,0 +1,1229 @@
+{
+ "kind": "rf-ranger-device-report",
+ "reportVersion": 1,
+ "rfRangerVersion": "0.1.0",
+ "createdAt": "2026-10-14T16:43:06.783Z",
+ "platform": "darwin arm64, Node v22.23.2",
+ "anonymized": true,
+ "device": {
+  "host": "redacted",
+  "port": 2202,
+  "monitoredByRfRanger": true,
+  "identified": {
+   "host": "redacted",
+   "reachable": true,
+   "model": "ULXD4",
+   "deviceId": "redacted"
+  },
+  "userTags": {}
+ },
+ "keysSeen": [
+  {
+   "key": "SAMPLE ALL",
+   "channel": 1,
+   "value": "XB 080 000",
+   "count": 121,
+   "lastSeen": 1791996186667
+  },
+  {
+   "key": "BATT_BARS",
+   "channel": 1,
+   "value": "005",
+   "count": 3,
+   "lastSeen": 1791996181775
+  },
+  {
+   "key": "BATT_CHARGE",
+   "channel": 1,
+   "value": "097",
+   "count": 3,
+   "lastSeen": 1791996174085
+  },
+  {
+   "key": "BATT_RUN_TIME",
+   "channel": 1,
+   "value": "00373",
+   "count": 3,
+   "lastSeen": 1791996183268
+  },
+  {
+   "key": "TX_TYPE",
+   "channel": 1,
+   "value": "ULXD1",
+   "count": 3,
+   "lastSeen": 1791996172542
+  },
+  {
+   "key": "TX_OFFSET",
+   "channel": 1,
+   "value": "000",
+   "count": 3,
+   "lastSeen": 1791996175729
+  },
+  {
+   "key": "AUDIO_MUTE",
+   "channel": 1,
+   "value": "OFF",
+   "count": 1,
+   "lastSeen": 1791996158112
+  },
+  {
+   "key": "RF_INT_DET",
+   "channel": 1,
+   "value": "NONE",
+   "count": 1,
+   "lastSeen": 1791996158215
+  },
+  {
+   "key": "ENCRYPTION_WARNING",
+   "channel": 1,
+   "value": "OFF",
+   "count": 1,
+   "lastSeen": 1791996158351
+  },
+  {
+   "key": "TX_MUTE_STATUS",
+   "channel": 1,
+   "value": "OFF",
+   "count": 2,
+   "lastSeen": 1791996175732
+  },
+  {
+   "key": "BATT_CYCLE",
+   "channel": 1,
+   "value": "00650",
+   "count": 2,
+   "lastSeen": 1791996174088
+  },
+  {
+   "key": "BATT_HEALTH",
+   "channel": 1,
+   "value": "081",
+   "count": 2,
+   "lastSeen": 1791996183271
+  },
+  {
+   "key": "BATT_TEMP_C",
+   "channel": 1,
+   "value": "61",
+   "count": 2,
+   "lastSeen": 1791996174091
+  },
+  {
+   "key": "BATT_TEMP_F",
+   "channel": 1,
+   "value": "109",
+   "count": 2,
+   "lastSeen": 1791996174094
+  },
+  {
+   "key": "BATT_TYPE",
+   "channel": 1,
+   "value": "LION",
+   "count": 2,
+   "lastSeen": 1791996181772
+  },
+  {
+   "key": "TX_DEVICE_ID",
+   "channel": 1,
+   "value": "redacted",
+   "count": 2,
+   "lastSeen": 1791996179693
+  },
+  {
+   "key": "TX_MENU_LOCK",
+   "channel": 1,
+   "value": "OFF",
+   "count": 2,
+   "lastSeen": 1791996177218
+  },
+  {
+   "key": "TX_PWR_LOCK",
+   "channel": 1,
+   "value": "OFF",
+   "count": 2,
+   "lastSeen": 1791996177222
+  },
+  {
+   "key": "TX_MUTE_BUTTON_STATUS",
+   "channel": 1,
+   "value": "RELEASED",
+   "count": 2,
+   "lastSeen": 1791996181768
+  },
+  {
+   "key": "TX_POWER_SOURCE",
+   "channel": 1,
+   "value": "BATTERY",
+   "count": 2,
+   "lastSeen": 1791996181765
+  },
+  {
+   "key": "TX_RF_PWR",
+   "channel": 1,
+   "value": "NORMAL",
+   "count": 2,
+   "lastSeen": 1791996174097
+  },
+  {
+   "key": "TX_FW_VER",
+   "channel": 1,
+   "value": "x.x.x.x",
+   "count": 3,
+   "lastSeen": 1791996179690
+  }
+ ],
+ "frames": [
+  {
+   "seq": 1,
+   "t": 1791996152656,
+   "dir": "note",
+   "frame": "Watching {redacted}'s existing connection (already monitored by RF Ranger)."
+  },
+  {
+   "seq": 2,
+   "t": 1791996152876,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 072 000 >"
+  },
+  {
+   "seq": 3,
+   "t": 1791996153157,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 072 000 >"
+  },
+  {
+   "seq": 4,
+   "t": 1791996153436,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 072 000 >"
+  },
+  {
+   "seq": 5,
+   "t": 1791996153716,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 072 000 >"
+  },
+  {
+   "seq": 6,
+   "t": 1791996153996,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 072 000 >"
+  },
+  {
+   "seq": 7,
+   "t": 1791996154276,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 072 000 >"
+  },
+  {
+   "seq": 8,
+   "t": 1791996154567,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 072 000 >"
+  },
+  {
+   "seq": 9,
+   "t": 1791996154850,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 072 000 >"
+  },
+  {
+   "seq": 10,
+   "t": 1791996155131,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 073 000 >"
+  },
+  {
+   "seq": 11,
+   "t": 1791996155413,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 074 000 >"
+  },
+  {
+   "seq": 12,
+   "t": 1791996155692,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 074 000 >"
+  },
+  {
+   "seq": 13,
+   "t": 1791996155971,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 074 000 >"
+  },
+  {
+   "seq": 14,
+   "t": 1791996156251,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 074 000 >"
+  },
+  {
+   "seq": 15,
+   "t": 1791996156531,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 075 000 >"
+  },
+  {
+   "seq": 16,
+   "t": 1791996156812,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 074 000 >"
+  },
+  {
+   "seq": 17,
+   "t": 1791996157092,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 076 000 >"
+  },
+  {
+   "seq": 18,
+   "t": 1791996157371,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 074 000 >"
+  },
+  {
+   "seq": 19,
+   "t": 1791996157511,
+   "dir": "out",
+   "frame": "< GET 1 BATT_BARS >"
+  },
+  {
+   "seq": 20,
+   "t": 1791996157511,
+   "dir": "out",
+   "frame": "< GET 1 BATT_CHARGE >"
+  },
+  {
+   "seq": 21,
+   "t": 1791996157511,
+   "dir": "out",
+   "frame": "< GET 1 BATT_RUN_TIME >"
+  },
+  {
+   "seq": 22,
+   "t": 1791996157511,
+   "dir": "out",
+   "frame": "< GET 1 TX_TYPE >"
+  },
+  {
+   "seq": 23,
+   "t": 1791996157512,
+   "dir": "out",
+   "frame": "< GET 1 TX_OFFSET >"
+  },
+  {
+   "seq": 24,
+   "t": 1791996157512,
+   "dir": "out",
+   "frame": "< GET 1 AUDIO_MUTE >"
+  },
+  {
+   "seq": 25,
+   "t": 1791996157512,
+   "dir": "out",
+   "frame": "< GET 1 RF_INT_DET >"
+  },
+  {
+   "seq": 26,
+   "t": 1791996157512,
+   "dir": "out",
+   "frame": "< GET 1 ENCRYPTION_WARNING >"
+  },
+  {
+   "seq": 27,
+   "t": 1791996157606,
+   "dir": "in",
+   "frame": "< REP 1 BATT_BARS 005 >"
+  },
+  {
+   "seq": 28,
+   "t": 1791996157651,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 075 000 >"
+  },
+  {
+   "seq": 29,
+   "t": 1791996157711,
+   "dir": "in",
+   "frame": "< REP 1 BATT_CHARGE 097 >"
+  },
+  {
+   "seq": 30,
+   "t": 1791996157826,
+   "dir": "in",
+   "frame": "< REP 1 BATT_RUN_TIME 00374 >"
+  },
+  {
+   "seq": 31,
+   "t": 1791996157916,
+   "dir": "in",
+   "frame": "< REP 1 TX_TYPE ULXD1 >"
+  },
+  {
+   "seq": 32,
+   "t": 1791996157931,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 078 000 >"
+  },
+  {
+   "seq": 33,
+   "t": 1791996158011,
+   "dir": "in",
+   "frame": "< REP 1 TX_OFFSET 000 >"
+  },
+  {
+   "seq": 34,
+   "t": 1791996158112,
+   "dir": "in",
+   "frame": "< REP 1 AUDIO_MUTE OFF >"
+  },
+  {
+   "seq": 35,
+   "t": 1791996158211,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 078 000 >"
+  },
+  {
+   "seq": 36,
+   "t": 1791996158215,
+   "dir": "in",
+   "frame": "< REP 1 RF_INT_DET NONE >"
+  },
+  {
+   "seq": 37,
+   "t": 1791996158351,
+   "dir": "in",
+   "frame": "< REP 1 ENCRYPTION_WARNING OFF >"
+  },
+  {
+   "seq": 38,
+   "t": 1791996158491,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 080 000 >"
+  },
+  {
+   "seq": 39,
+   "t": 1791996158772,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 082 000 >"
+  },
+  {
+   "seq": 40,
+   "t": 1791996159051,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 079 000 >"
+  },
+  {
+   "seq": 41,
+   "t": 1791996159331,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 084 000 >"
+  },
+  {
+   "seq": 42,
+   "t": 1791996159611,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 084 000 >"
+  },
+  {
+   "seq": 43,
+   "t": 1791996159891,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 081 000 >"
+  },
+  {
+   "seq": 44,
+   "t": 1791996160171,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 084 000 >"
+  },
+  {
+   "seq": 45,
+   "t": 1791996160452,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 083 000 >"
+  },
+  {
+   "seq": 46,
+   "t": 1791996160732,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 085 000 >"
+  },
+  {
+   "seq": 47,
+   "t": 1791996161011,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 084 000 >"
+  },
+  {
+   "seq": 48,
+   "t": 1791996161291,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 084 000 >"
+  },
+  {
+   "seq": 49,
+   "t": 1791996161572,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 085 000 >"
+  },
+  {
+   "seq": 50,
+   "t": 1791996161851,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 085 000 >"
+  },
+  {
+   "seq": 51,
+   "t": 1791996162131,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 085 000 >"
+  },
+  {
+   "seq": 52,
+   "t": 1791996162411,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 079 000 >"
+  },
+  {
+   "seq": 53,
+   "t": 1791996162691,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 078 000 >"
+  },
+  {
+   "seq": 54,
+   "t": 1791996162971,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 069 000 >"
+  },
+  {
+   "seq": 55,
+   "t": 1791996163252,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 074 000 >"
+  },
+  {
+   "seq": 56,
+   "t": 1791996163531,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 077 000 >"
+  },
+  {
+   "seq": 57,
+   "t": 1791996163811,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 078 000 >"
+  },
+  {
+   "seq": 58,
+   "t": 1791996164153,
+   "dir": "in",
+   "frame": "< REP 1 TX_OFFSET 255 >"
+  },
+  {
+   "seq": 59,
+   "t": 1791996164157,
+   "dir": "in",
+   "frame": "< REP 1 TX_MUTE_STATUS UNKN >"
+  },
+  {
+   "seq": 60,
+   "t": 1791996164162,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 029 000 >"
+  },
+  {
+   "seq": 61,
+   "t": 1791996164164,
+   "dir": "in",
+   "frame": "< REP 1 BATT_BARS 255 >"
+  },
+  {
+   "seq": 62,
+   "t": 1791996164167,
+   "dir": "in",
+   "frame": "< REP 1 BATT_CHARGE 255 >"
+  },
+  {
+   "seq": 63,
+   "t": 1791996164170,
+   "dir": "in",
+   "frame": "< REP 1 BATT_CYCLE 65535 >"
+  },
+  {
+   "seq": 64,
+   "t": 1791996164174,
+   "dir": "in",
+   "frame": "< REP 1 BATT_HEALTH 255 >"
+  },
+  {
+   "seq": 65,
+   "t": 1791996164178,
+   "dir": "in",
+   "frame": "< REP 1 BATT_RUN_TIME 65535 >"
+  },
+  {
+   "seq": 66,
+   "t": 1791996164181,
+   "dir": "in",
+   "frame": "< REP 1 BATT_TEMP_C 255 >"
+  },
+  {
+   "seq": 67,
+   "t": 1791996164185,
+   "dir": "in",
+   "frame": "< REP 1 BATT_TEMP_F 255 >"
+  },
+  {
+   "seq": 68,
+   "t": 1791996164188,
+   "dir": "in",
+   "frame": "< REP 1 BATT_TYPE UNKN >"
+  },
+  {
+   "seq": 69,
+   "t": 1791996164192,
+   "dir": "in",
+   "frame": "< REP 1 TX_DEVICE_ID {redacted} >"
+  },
+  {
+   "seq": 70,
+   "t": 1791996164195,
+   "dir": "in",
+   "frame": "< REP 1 TX_MENU_LOCK UNKN >"
+  },
+  {
+   "seq": 71,
+   "t": 1791996164198,
+   "dir": "in",
+   "frame": "< REP 1 TX_PWR_LOCK UNKN >"
+  },
+  {
+   "seq": 72,
+   "t": 1791996164201,
+   "dir": "in",
+   "frame": "< REP 1 TX_MUTE_BUTTON_STATUS UNKN >"
+  },
+  {
+   "seq": 73,
+   "t": 1791996164204,
+   "dir": "in",
+   "frame": "< REP 1 TX_POWER_SOURCE UNKN >"
+  },
+  {
+   "seq": 74,
+   "t": 1791996164207,
+   "dir": "in",
+   "frame": "< REP 1 TX_RF_PWR UNKN >"
+  },
+  {
+   "seq": 75,
+   "t": 1791996164211,
+   "dir": "in",
+   "frame": "< REP 1 TX_TYPE UNKN >"
+  },
+  {
+   "seq": 76,
+   "t": 1791996164215,
+   "dir": "in",
+   "frame": "< REP 1 TX_FW_VER {                        } >"
+  },
+  {
+   "seq": 77,
+   "t": 1791996164441,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 023 000 >"
+  },
+  {
+   "seq": 78,
+   "t": 1791996164721,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 023 000 >"
+  },
+  {
+   "seq": 79,
+   "t": 1791996165001,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 027 000 >"
+  },
+  {
+   "seq": 80,
+   "t": 1791996165281,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 023 000 >"
+  },
+  {
+   "seq": 81,
+   "t": 1791996165561,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 023 000 >"
+  },
+  {
+   "seq": 82,
+   "t": 1791996165841,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 023 000 >"
+  },
+  {
+   "seq": 83,
+   "t": 1791996166121,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 023 000 >"
+  },
+  {
+   "seq": 84,
+   "t": 1791996166401,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 023 000 >"
+  },
+  {
+   "seq": 85,
+   "t": 1791996166681,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 023 000 >"
+  },
+  {
+   "seq": 86,
+   "t": 1791996166962,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 023 000 >"
+  },
+  {
+   "seq": 87,
+   "t": 1791996167242,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 023 000 >"
+  },
+  {
+   "seq": 88,
+   "t": 1791996167521,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 023 000 >"
+  },
+  {
+   "seq": 89,
+   "t": 1791996167801,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 023 000 >"
+  },
+  {
+   "seq": 90,
+   "t": 1791996168081,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 023 000 >"
+  },
+  {
+   "seq": 91,
+   "t": 1791996168361,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 023 000 >"
+  },
+  {
+   "seq": 92,
+   "t": 1791996168641,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 023 000 >"
+  },
+  {
+   "seq": 93,
+   "t": 1791996168922,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 023 000 >"
+  },
+  {
+   "seq": 94,
+   "t": 1791996169201,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 027 000 >"
+  },
+  {
+   "seq": 95,
+   "t": 1791996169484,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 023 000 >"
+  },
+  {
+   "seq": 96,
+   "t": 1791996169762,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 023 000 >"
+  },
+  {
+   "seq": 97,
+   "t": 1791996170041,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 023 000 >"
+  },
+  {
+   "seq": 98,
+   "t": 1791996170322,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 027 000 >"
+  },
+  {
+   "seq": 99,
+   "t": 1791996170616,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XX 057 000 >"
+  },
+  {
+   "seq": 100,
+   "t": 1791996170897,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 059 000 >"
+  },
+  {
+   "seq": 101,
+   "t": 1791996171177,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 081 000 >"
+  },
+  {
+   "seq": 102,
+   "t": 1791996171456,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 081 000 >"
+  },
+  {
+   "seq": 103,
+   "t": 1791996171737,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 081 000 >"
+  },
+  {
+   "seq": 104,
+   "t": 1791996172016,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 081 000 >"
+  },
+  {
+   "seq": 105,
+   "t": 1791996172296,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 081 000 >"
+  },
+  {
+   "seq": 106,
+   "t": 1791996172542,
+   "dir": "in",
+   "frame": "< REP 1 TX_TYPE ULXD1 >"
+  },
+  {
+   "seq": 107,
+   "t": 1791996172576,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 081 000 >"
+  },
+  {
+   "seq": 108,
+   "t": 1791996172857,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 081 000 >"
+  },
+  {
+   "seq": 109,
+   "t": 1791996173138,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 082 000 >"
+  },
+  {
+   "seq": 110,
+   "t": 1791996173416,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 082 000 >"
+  },
+  {
+   "seq": 111,
+   "t": 1791996173697,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 082 000 >"
+  },
+  {
+   "seq": 112,
+   "t": 1791996173976,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 082 000 >"
+  },
+  {
+   "seq": 113,
+   "t": 1791996174085,
+   "dir": "in",
+   "frame": "< REP 1 BATT_CHARGE 097 >"
+  },
+  {
+   "seq": 114,
+   "t": 1791996174088,
+   "dir": "in",
+   "frame": "< REP 1 BATT_CYCLE 00650 >"
+  },
+  {
+   "seq": 115,
+   "t": 1791996174091,
+   "dir": "in",
+   "frame": "< REP 1 BATT_TEMP_C  61 >"
+  },
+  {
+   "seq": 116,
+   "t": 1791996174094,
+   "dir": "in",
+   "frame": "< REP 1 BATT_TEMP_F 109 >"
+  },
+  {
+   "seq": 117,
+   "t": 1791996174097,
+   "dir": "in",
+   "frame": "< REP 1 TX_RF_PWR NORMAL >"
+  },
+  {
+   "seq": 118,
+   "t": 1791996174256,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 082 000 >"
+  },
+  {
+   "seq": 119,
+   "t": 1791996174537,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 083 000 >"
+  },
+  {
+   "seq": 120,
+   "t": 1791996174816,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 083 000 >"
+  },
+  {
+   "seq": 121,
+   "t": 1791996175096,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 085 000 >"
+  },
+  {
+   "seq": 122,
+   "t": 1791996175376,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 082 000 >"
+  },
+  {
+   "seq": 123,
+   "t": 1791996175726,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 079 000 >"
+  },
+  {
+   "seq": 124,
+   "t": 1791996175729,
+   "dir": "in",
+   "frame": "< REP 1 TX_OFFSET 000 >"
+  },
+  {
+   "seq": 125,
+   "t": 1791996175732,
+   "dir": "in",
+   "frame": "< REP 1 TX_MUTE_STATUS OFF >"
+  },
+  {
+   "seq": 126,
+   "t": 1791996176002,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 079 000 >"
+  },
+  {
+   "seq": 127,
+   "t": 1791996176281,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 077 000 >"
+  },
+  {
+   "seq": 128,
+   "t": 1791996176562,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 078 000 >"
+  },
+  {
+   "seq": 129,
+   "t": 1791996176842,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 078 000 >"
+  },
+  {
+   "seq": 130,
+   "t": 1791996177122,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 078 000 >"
+  },
+  {
+   "seq": 131,
+   "t": 1791996177218,
+   "dir": "in",
+   "frame": "< REP 1 TX_MENU_LOCK OFF >"
+  },
+  {
+   "seq": 132,
+   "t": 1791996177221,
+   "dir": "in",
+   "frame": "< REP 1 TX_PWR_LOCK OFF >"
+  },
+  {
+   "seq": 133,
+   "t": 1791996177402,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 075 000 >"
+  },
+  {
+   "seq": 134,
+   "t": 1791996177681,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 073 000 >"
+  },
+  {
+   "seq": 135,
+   "t": 1791996177962,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 072 000 >"
+  },
+  {
+   "seq": 136,
+   "t": 1791996178243,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 071 000 >"
+  },
+  {
+   "seq": 137,
+   "t": 1791996178522,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 070 000 >"
+  },
+  {
+   "seq": 138,
+   "t": 1791996178802,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 074 000 >"
+  },
+  {
+   "seq": 139,
+   "t": 1791996179082,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 076 000 >"
+  },
+  {
+   "seq": 140,
+   "t": 1791996179363,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 071 000 >"
+  },
+  {
+   "seq": 141,
+   "t": 1791996179642,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 075 000 >"
+  },
+  {
+   "seq": 142,
+   "t": 1791996179686,
+   "dir": "in",
+   "frame": "< REP 1 TX_FW_VER {x.x.x.x                } >"
+  },
+  {
+   "seq": 143,
+   "t": 1791996179690,
+   "dir": "in",
+   "frame": "< REP 1 TX_FW_VER {x.x.x.x                } >"
+  },
+  {
+   "seq": 144,
+   "t": 1791996179693,
+   "dir": "in",
+   "frame": "< REP 1 TX_DEVICE_ID {redacted} >"
+  },
+  {
+   "seq": 145,
+   "t": 1791996179922,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 075 000 >"
+  },
+  {
+   "seq": 146,
+   "t": 1791996180202,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 065 000 >"
+  },
+  {
+   "seq": 147,
+   "t": 1791996180481,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 068 000 >"
+  },
+  {
+   "seq": 148,
+   "t": 1791996180762,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 070 000 >"
+  },
+  {
+   "seq": 149,
+   "t": 1791996181042,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 067 000 >"
+  },
+  {
+   "seq": 150,
+   "t": 1791996181322,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL AX 062 000 >"
+  },
+  {
+   "seq": 151,
+   "t": 1791996181602,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 079 000 >"
+  },
+  {
+   "seq": 152,
+   "t": 1791996181765,
+   "dir": "in",
+   "frame": "< REP 1 TX_POWER_SOURCE BATTERY >"
+  },
+  {
+   "seq": 153,
+   "t": 1791996181768,
+   "dir": "in",
+   "frame": "< REP 1 TX_MUTE_BUTTON_STATUS RELEASED >"
+  },
+  {
+   "seq": 154,
+   "t": 1791996181772,
+   "dir": "in",
+   "frame": "< REP 1 BATT_TYPE LION >"
+  },
+  {
+   "seq": 155,
+   "t": 1791996181775,
+   "dir": "in",
+   "frame": "< REP 1 BATT_BARS 005 >"
+  },
+  {
+   "seq": 156,
+   "t": 1791996181882,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 078 000 >"
+  },
+  {
+   "seq": 157,
+   "t": 1791996182163,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 078 000 >"
+  },
+  {
+   "seq": 158,
+   "t": 1791996182442,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 079 000 >"
+  },
+  {
+   "seq": 159,
+   "t": 1791996182722,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 079 000 >"
+  },
+  {
+   "seq": 160,
+   "t": 1791996183002,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 080 000 >"
+  },
+  {
+   "seq": 161,
+   "t": 1791996183268,
+   "dir": "in",
+   "frame": "< REP 1 BATT_RUN_TIME 00373 >"
+  },
+  {
+   "seq": 162,
+   "t": 1791996183271,
+   "dir": "in",
+   "frame": "< REP 1 BATT_HEALTH 081 >"
+  },
+  {
+   "seq": 163,
+   "t": 1791996183287,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 079 000 >"
+  },
+  {
+   "seq": 164,
+   "t": 1791996183574,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 080 000 >"
+  },
+  {
+   "seq": 165,
+   "t": 1791996183853,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 080 000 >"
+  },
+  {
+   "seq": 166,
+   "t": 1791996184132,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 080 000 >"
+  },
+  {
+   "seq": 167,
+   "t": 1791996184412,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 080 000 >"
+  },
+  {
+   "seq": 168,
+   "t": 1791996184692,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 080 000 >"
+  },
+  {
+   "seq": 169,
+   "t": 1791996184972,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 080 000 >"
+  },
+  {
+   "seq": 170,
+   "t": 1791996185252,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 080 000 >"
+  },
+  {
+   "seq": 171,
+   "t": 1791996185533,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 080 000 >"
+  },
+  {
+   "seq": 172,
+   "t": 1791996185812,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 080 000 >"
+  },
+  {
+   "seq": 173,
+   "t": 1791996186097,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 080 000 >"
+  },
+  {
+   "seq": 174,
+   "t": 1791996186377,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 080 000 >"
+  },
+  {
+   "seq": 175,
+   "t": 1791996186667,
+   "dir": "in",
+   "frame": "< SAMPLE 1 ALL XB 080 000 >"
+  }
+ ],
+ "notes": "Real ULXD4 capture: ULXD1 bodypack on channel 1, switched off at ~11.5 s and on again at ~19.9 s. Anonymized; receiver name scrubbed."
+}
