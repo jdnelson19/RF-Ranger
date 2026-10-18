@@ -3,12 +3,24 @@ import type { PcoStatus, ServiceType, UpcomingSummary } from '../types';
 
 const TOKENS_URL = 'https://api.planningcenteronline.com/oauth/applications';
 
+// The server gives up on Planning Center after 15 s a request; this only catches a server that stops answering.
+const API_TIMEOUT_MS = 60_000;
+
 async function api<T>(path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`/api/pco${path}`, body === undefined ? undefined : {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`/api/pco${path}`, {
+      signal: AbortSignal.timeout(API_TIMEOUT_MS),
+      ...(body === undefined ? {} : {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+    });
+  } catch (e) {
+    if ((e as Error).name === 'TimeoutError') throw new Error("RF Ranger didn't answer. Check that it's still running, then try again.");
+    throw new Error(`Can't reach RF Ranger: ${(e as Error).message}`);
+  }
   const data = (await res.json().catch(() => ({}))) as T & { error?: string };
   if (!res.ok) throw Object.assign(new Error(data.error ?? `Request failed (${res.status})`), { status: res.status });
   return data;
@@ -22,7 +34,9 @@ export function PlanningCenter() {
   const [status, setStatus] = useState<PcoStatus | undefined>();
   const [forbidden, setForbidden] = useState(false);
   const [types, setTypes] = useState<ServiceType[]>([]);
+  const [typesError, setTypesError] = useState<string | undefined>();
   const [upcoming, setUpcoming] = useState<UpcomingSummary | undefined>();
+  const [upcomingError, setUpcomingError] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
 
@@ -31,7 +45,13 @@ export function PlanningCenter() {
     try {
       const s = await api<PcoStatus>(check ? '?check=1' : '');
       setStatus(s);
-      if (s.connected) setTypes((await api<{ serviceTypes: ServiceType[] }>('/service-types')).serviceTypes);
+      if (!s.connected) return;
+      setTypesError(undefined);
+      try {
+        setTypes((await api<{ serviceTypes: ServiceType[] }>('/service-types')).serviceTypes);
+      } catch (e) {
+        setTypesError((e as Error).message);
+      }
     } catch (e) {
       if ((e as { status?: number }).status === 403) setForbidden(true);
       else setError((e as Error).message);
@@ -42,11 +62,18 @@ export function PlanningCenter() {
 
   // Show what RF Ranger would prepare for, once a service type is chosen.
   const typeId = status?.connected ? status.serviceType?.id : undefined;
+  const [upcomingTry, setUpcomingTry] = useState(0);
   useEffect(() => {
     setUpcoming(undefined);
+    setUpcomingError(undefined);
     if (!typeId) return;
-    api<UpcomingSummary>('/upcoming').then(setUpcoming, (e: Error) => setError(e.message));
-  }, [typeId]);
+    let current = true;
+    api<UpcomingSummary>('/upcoming').then(
+      (u) => current && setUpcoming(u),
+      (e: Error) => current && setUpcomingError(e.message),
+    );
+    return () => { current = false; };
+  }, [typeId, upcomingTry]);
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -68,14 +95,35 @@ export function PlanningCenter() {
       </div>
     );
   }
-  if (!status) return <div className="empty">{error ?? 'Loading…'}</div>;
+  if (!status) {
+    return error ? (
+      <div className="empty">
+        <p className="empty__title">Couldn't check Planning Center</p>
+        <p>{error}</p>
+        <p><button type="button" className="btn btn--primary" onClick={() => { setError(undefined); void load(true); }}>Try again</button></p>
+      </div>
+    ) : (
+      <div className="empty">Checking Planning Center…</div>
+    );
+  }
 
   return (
     <div className="pco">
       {status.connected || (status.configured && status.error) ? (
-        <Connected status={status} types={types} upcoming={upcoming} busy={busy} run={run} load={load} setStatus={setStatus} />
+        <Connected
+          status={status}
+          types={types}
+          typesError={typesError}
+          upcoming={upcoming}
+          upcomingError={upcomingError}
+          retryUpcoming={() => setUpcomingTry((n) => n + 1)}
+          busy={busy}
+          run={run}
+          load={load}
+          setStatus={setStatus}
+        />
       ) : (
-        <Connect busy={busy} run={run} onConnected={(s, t) => { setStatus(s); setTypes(t); }} />
+        <Connect busy={busy} run={run} onConnected={(s, t) => { setStatus(s); setTypes(t); setTypesError(undefined); }} />
       )}
       {error && <p className="pco__error" role="alert">{error}</p>}
     </div>
@@ -133,10 +181,13 @@ function Connect({ busy, run, onConnected }: {
   );
 }
 
-function Connected({ status, types, upcoming, busy, run, load, setStatus }: {
+function Connected({ status, types, typesError, upcoming, upcomingError, retryUpcoming, busy, run, load, setStatus }: {
   status: PcoStatus;
   types: ServiceType[];
+  typesError: string | undefined;
   upcoming: UpcomingSummary | undefined;
+  upcomingError: string | undefined;
+  retryUpcoming: () => void;
   busy: boolean;
   run: (fn: () => Promise<void>) => Promise<void>;
   load: (check?: boolean) => Promise<void>;
@@ -196,13 +247,26 @@ function Connected({ status, types, upcoming, busy, run, load, setStatus }: {
                 if (id) void run(async () => setStatus(await api<PcoStatus>('/service-type', { id })));
               }}
             >
-              <option value="" disabled>{options.length ? 'Choose a service type…' : 'Loading service types…'}</option>
+              <option value="" disabled>{options.length ? 'Choose a service type…' : typesError ? "Service types didn't load" : 'Loading service types…'}</option>
               {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
             </select>
           </label>
+          {typesError && !options.length && (
+            <p className="pco__error" role="alert">
+              {typesError}{' '}
+              <button type="button" className="btn btn--ghost btn--sm" disabled={busy} onClick={() => void run(() => load())}>Try again</button>
+            </p>
+          )}
 
           {status.serviceType && (
-            upcoming ? <Upcoming u={upcoming} tz={tz} /> : <p className="dim">Looking up the next service…</p>
+            upcoming ? <Upcoming u={upcoming} tz={tz} />
+              : upcomingError ? (
+                <p className="pco__error" role="alert">
+                  {upcomingError}{' '}
+                  <button type="button" className="btn btn--ghost btn--sm" onClick={retryUpcoming}>Try again</button>
+                </p>
+              )
+              : <p className="dim">Looking up the next service…</p>
           )}
         </section>
       )}

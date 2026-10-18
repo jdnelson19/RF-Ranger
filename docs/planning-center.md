@@ -21,6 +21,8 @@ The screen only works on that computer, like the Device Inspector: a token is as
 - **Switching accounts.** The chosen service type is recorded with the organization it belongs to. Linking a different account clears it, because another account's IDs mean nothing.
 - **Disconnect** deletes the token and choices from this computer.
 - **A saved link is re-checked at startup**, in the background, so startup never waits on it.
+- **Each request to Planning Center gives up after 15 seconds.** A network that accepts the connection and then stalls, such as a filter or proxy, used to leave the screen on "Loading…" for minutes. Now the screen says Planning Center didn't answer and offers **Try again**.
+- **Failures go to the log** (on the Mac, `~/Library/Logs/RF Ranger/rf-ranger.log`) as lines starting `Planning Center`. A successful startup check logs `Planning Center: <church name>`. The token is never logged.
 
 The code is in `server/src/integrations/planning-center/link.ts` (connection), `server/src/server/pco-http.ts` (local-only API) and `web/src/views/PlanningCenter.tsx` (screen).
 

@@ -29,6 +29,8 @@ export interface PlanningCenterLinkOptions {
   env?: NodeJS.ProcessEnv;
   /** Injectable for tests. */
   fetch?: typeof fetch;
+  /** Where failures to reach Planning Center are reported (the app's log). */
+  log?: (message: string) => void;
 }
 
 export class PlanningCenterLink {
@@ -36,6 +38,7 @@ export class PlanningCenterLink {
   private readonly setPath: string;
   private readonly env: NodeJS.ProcessEnv;
   private readonly fetchImpl?: typeof fetch;
+  private readonly log: (message: string) => void;
   private state: Pick<PcoStatus, 'connected' | 'organization' | 'error' | 'checkedAt'> = { connected: false };
 
   constructor(opts: PlanningCenterLinkOptions = {}) {
@@ -43,6 +46,7 @@ export class PlanningCenterLink {
     this.setPath = opts.settingsPath ?? settingsPath();
     this.env = opts.env ?? process.env;
     this.fetchImpl = opts.fetch;
+    this.log = opts.log ?? (() => {});
   }
 
   private credentials(): (PcoCredentials & { source: string }) | undefined {
@@ -89,6 +93,7 @@ export class PlanningCenterLink {
       if (s.organizationId && s.organizationId !== org.id) saveSettings({ organizationId: org.id }, this.setPath);
     } catch (err) {
       this.state = { connected: false, error: describe(err), checkedAt: Date.now() };
+      this.log(`Planning Center check failed: ${this.state.error}`);
     }
     return this.status();
   }
@@ -110,10 +115,12 @@ export class PlanningCenterLink {
       org = await organization(client);
       types = await serviceTypes(client);
     } catch (err) {
+      this.log(`Planning Center connect failed: ${describe(err)}`);
       throw new LinkError(describe(err));
     }
 
     saveCredentials(creds, this.credPath);
+    this.log(`Planning Center connected: ${org.name}`);
     // A different account's service type IDs mean nothing here.
     const s = this.settings();
     saveSettings(s.organizationId === org.id ? s : { organizationId: org.id }, this.setPath);
@@ -133,7 +140,7 @@ export class PlanningCenterLink {
   }
 
   async serviceTypes(): Promise<ServiceType[]> {
-    return serviceTypes(this.requireClient());
+    return this.reported('loading service types', () => serviceTypes(this.requireClient()));
   }
 
   /** Follow a service type; the ID must exist in this account (names repeat). */
@@ -152,9 +159,9 @@ export class PlanningCenterLink {
     const s = this.settings();
     if (!s.serviceTypeId) throw new LinkError('Choose a service type first.');
     const type = { id: s.serviceTypeId, name: s.serviceTypeName ?? s.serviceTypeId };
-    const plan = await upcomingPlan(client, type.id, now);
+    const plan = await this.reported('looking up the next plan', () => upcomingPlan(client, type.id, now));
     if (!plan) return { serviceType: type, scheduled: 0, declined: 0, unconfirmed: 0 };
-    const people = await scheduledPeople(client, type.id, plan.id);
+    const people = await this.reported('looking up who is scheduled', () => scheduledPeople(client, type.id, plan.id));
     const ends = planEndsAt(plan);
     return {
       serviceType: type,
@@ -170,6 +177,17 @@ export class PlanningCenterLink {
       declined: people.filter((p) => p.status === 'declined').length,
       unconfirmed: people.filter((p) => p.status === 'unconfirmed').length,
     };
+  }
+
+  /** Log a Planning Center failure and hand it on with a message for the screen. */
+  private async reported<T>(what: string, fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (err) {
+      if (err instanceof LinkError) throw err;
+      this.log(`Planning Center failed ${what}: ${describe(err)}`);
+      throw new LinkError(describe(err));
+    }
   }
 
   private requireClient(): PcoClient {

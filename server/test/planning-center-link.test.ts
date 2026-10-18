@@ -57,6 +57,22 @@ describe('PlanningCenterLink', () => {
     expect(text).not.toContain('app-good');
   });
 
+  it('logs why Planning Center could not be reached, without the secret', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'rf-ranger-link-'));
+    const lines: string[] = [];
+    const down = (async () => { throw new Error('getaddrinfo ENOTFOUND'); }) as unknown as typeof fetch;
+    const link = new PlanningCenterLink({
+      credentialsPath: join(dir, 'planning-center.json'),
+      settingsPath: join(dir, 'planning-center.settings.json'),
+      env: {},
+      fetch: down,
+      log: (m) => lines.push(m),
+    });
+    await expect(link.connect('app-good-ab12', SECRET)).rejects.toThrow(/ENOTFOUND/);
+    expect(lines).toEqual([expect.stringMatching(/^Planning Center connect failed: .*ENOTFOUND/)]);
+    expect(lines.join('\n')).not.toContain(SECRET);
+  });
+
   it('follows a service type by ID, since names repeat', async () => {
     const { link } = newLink(fakePco());
     await link.connect('app-good-ab12', SECRET);

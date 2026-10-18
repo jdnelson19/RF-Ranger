@@ -156,6 +156,30 @@ describe('PcoClient', () => {
     expect(err.kind).toBe('network');
   });
 
+  it('gives up on a request that never answers', async () => {
+    // Like a network that accepts the connection, then stalls: only the abort signal ends it.
+    const fn = ((_url: URL, init?: RequestInit) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(init.signal!.reason));
+    })) as unknown as typeof fetch;
+    const err = await new PcoClient({ credentials, fetch: fn, timeoutMs: 20 }).get('/x').catch((e) => e);
+    expect(err).toBeInstanceOf(PcoError);
+    expect(err.kind).toBe('timeout');
+    expect(err.message).toMatch(/didn't answer/);
+  });
+
+  it('gives up on a response body that stalls', async () => {
+    const fn = (async (_url: URL, init?: RequestInit) => {
+      const body = new ReadableStream({
+        start(controller) {
+          init?.signal?.addEventListener('abort', () => controller.error(init.signal!.reason));
+        },
+      });
+      return new Response(body, { status: 200 });
+    }) as unknown as typeof fetch;
+    const err = await new PcoClient({ credentials, fetch: fn, timeoutMs: 20 }).get('/x').catch((e) => e);
+    expect(err.kind).toBe('timeout');
+  });
+
   it('follows pagination and merges included resources', async () => {
     const f = fakeFetch([
       { status: 200, body: { data: [{ type: 'T', id: '1', attributes: {} }], included: [{ type: 'Team', id: 'a', attributes: {} }], links: { next: 'https://api.planningcenteronline.com/x?offset=100' } } },

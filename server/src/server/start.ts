@@ -66,7 +66,7 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
 
   const runtime = new Runtime(config, opts.mode);
   const inspector = new Inspector(runtime);
-  const planningCenter = opts.planningCenter ?? new PlanningCenterLink();
+  const planningCenter = opts.planningCenter ?? new PlanningCenterLink({ log: (m) => log(`  ${m}`) });
   const presets = opts.presets ?? new PresetStore(opts.mode === 'demo' ? undefined : presetsPath());
   runtime.presets = () => presets.list();
   presets.on('change', () => runtime.emit('dirty'));
@@ -89,7 +89,8 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
   runtime.start();
   // Check a saved Planning Center link in the background; never delays startup.
   if (planningCenter.status().configured) {
-    void planningCenter.refresh().then((s) => log(s.connected ? `  Planning Center: ${s.organization?.name}` : `  Planning Center: ${s.error}`));
+    // A failure is logged by the link itself.
+    void planningCenter.refresh().then((s) => s.connected && log(`  Planning Center: ${s.organization?.name}`));
   }
 
   let liveManager: LiveManager | undefined;

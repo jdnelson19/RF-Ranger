@@ -1,6 +1,7 @@
 /**
  * Minimal Planning Center API client: HTTP Basic auth with a Personal Access
- * Token, JSON:API documents, pagination and rate-limit backoff. Read-only.
+ * Token, JSON:API documents, pagination, rate-limit backoff and a per-request
+ * timeout. Read-only.
  * See docs/planning-center.md.
  */
 
@@ -28,7 +29,7 @@ export interface PcoDocument<D = PcoResource | PcoResource[]> {
   meta?: { total_count?: number; next?: { offset: number } };
 }
 
-export type PcoErrorKind = 'auth' | 'forbidden' | 'not-found' | 'rate-limited' | 'network' | 'http';
+export type PcoErrorKind = 'auth' | 'forbidden' | 'not-found' | 'rate-limited' | 'network' | 'timeout' | 'http';
 
 export class PcoError extends Error {
   constructor(readonly kind: PcoErrorKind, message: string, readonly status?: number) {
@@ -44,6 +45,12 @@ export interface PcoClientOptions {
   fetch?: typeof fetch;
   /** Retries after HTTP 429 before giving up. */
   maxRetries?: number;
+  /**
+   * Give up on a request, including reading its body, after this long. A
+   * network that accepts the connection and then stalls would otherwise
+   * keep the caller waiting for minutes.
+   */
+  timeoutMs?: number;
   sleep?: (ms: number) => Promise<void>;
 }
 
@@ -52,6 +59,7 @@ export class PcoClient {
   private readonly baseUrl: string;
   private readonly fetch: typeof fetch;
   private readonly maxRetries: number;
+  private readonly timeoutMs: number;
   private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(opts: PcoClientOptions) {
@@ -59,6 +67,7 @@ export class PcoClient {
     this.baseUrl = opts.baseUrl ?? PCO_API;
     this.fetch = opts.fetch ?? globalThis.fetch;
     this.maxRetries = opts.maxRetries ?? 3;
+    this.timeoutMs = opts.timeoutMs ?? 15_000;
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
   }
 
@@ -68,14 +77,23 @@ export class PcoClient {
     for (const [k, v] of Object.entries(query)) url.searchParams.set(k, String(v));
 
     for (let attempt = 0; ; attempt++) {
+      const signal = AbortSignal.timeout(this.timeoutMs);
       let res: Response;
       try {
-        res = await this.fetch(url, { headers: { Authorization: this.auth, Accept: 'application/json' } });
+        res = await this.fetch(url, { headers: { Authorization: this.auth, Accept: 'application/json' }, signal });
       } catch (err) {
+        if (signal.aborted) throw this.timedOut();
         throw new PcoError('network', `Can't reach Planning Center: ${(err as Error).message}`);
       }
 
-      if (res.ok) return (await res.json()) as PcoDocument<D>;
+      if (res.ok) {
+        try {
+          return (await res.json()) as PcoDocument<D>;
+        } catch (err) {
+          if (signal.aborted) throw this.timedOut();
+          throw err;
+        }
+      }
 
       // Planning Center allows 100 requests per 20 s and says how long to wait.
       if (res.status === 429 && attempt < this.maxRetries) {
@@ -85,6 +103,14 @@ export class PcoClient {
       }
       throw errorFor(res.status, url.pathname);
     }
+  }
+
+  private timedOut(): PcoError {
+    return new PcoError(
+      'timeout',
+      `Planning Center didn't answer within ${Math.round(this.timeoutMs / 1_000)} seconds. ` +
+        "Check this computer's internet connection, or whether the network blocks api.planningcenteronline.com.",
+    );
   }
 
   /** Every page of a collection, following `links.next`. Included resources are merged. */
