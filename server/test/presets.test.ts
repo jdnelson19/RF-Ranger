@@ -50,6 +50,29 @@ describe('PresetStore', () => {
     expect(new PresetStore(path).list()).toEqual([]);
   });
 
+  it('keeps nicknames and waveform switches per channel, and drops them with the channel', () => {
+    const path = tmpFile();
+    const store = new PresetStore(path);
+    const p = store.create({
+      name: 'Sunday',
+      slots: ['AD4Q-A/1', 'AD4Q-A/4'],
+      channels: { 'AD4Q-A/4': { nickname: '  Josh  ', waveform: true }, 'AD4Q-A/1': { nickname: '' }, 'other/1': { nickname: 'Ghost' } },
+    });
+    expect(p.channels).toEqual({ 'AD4Q-A/4': { nickname: 'Josh', waveform: true } });
+    expect(new PresetStore(path).list()[0]!.channels).toEqual(p.channels);
+
+    // A rename leaves channel settings alone; removing the channel removes its settings.
+    expect(store.update(p.id, { name: 'Sunday AM' }).channels).toEqual(p.channels);
+    expect(store.update(p.id, { slots: ['AD4Q-A/1'] }).channels).toEqual({});
+    expect(() => store.update(p.id, { channels: { 'AD4Q-A/1': { nickname: 'x'.repeat(41) } } })).toThrow(/under 40/);
+  });
+
+  it('loads presets saved before channel settings existed', () => {
+    const path = tmpFile();
+    writeFileSync(path, JSON.stringify({ version: 1, presets: [{ id: 'x', name: 'Old', slots: ['a/1'], updatedAt: 1 }] }));
+    expect(new PresetStore(path).list()[0]).toMatchObject({ name: 'Old', channels: {} });
+  });
+
   it('writes a readable file', () => {
     const path = tmpFile();
     new PresetStore(path).create({ name: 'Message', slots: ['AD4Q-A/3'] });

@@ -103,10 +103,10 @@ describe('AD4Q-A with an AD2 switched on mid-capture', () => {
       const alerts = channelAlerts({ assigned: true, connection, telemetry, readiness: ready, now: last }, DEFAULT_ALERT_THRESHOLDS);
       return { ready, alerts: alerts.filter((a) => a.severity !== 'info').map((a) => a.code) };
     };
-    expect(judge(1)).toEqual({ ready: { label: 'READY', source: 'receiver' }, alerts: [] });
+    expect(judge(1)).toEqual({ ready: { label: 'READY', status: 'Ready', source: 'receiver' }, alerts: [] });
     for (const n of [2, 3, 4]) {
       expect(txPresent(channels.get(n)!)).toBe(false);
-      expect(judge(n).ready).toMatchObject({ label: 'CHECK_WITH_AUDIO', reason: 'Transmitter off or out of range' });
+      expect(judge(n).ready).toMatchObject({ label: 'STANDBY', status: 'Off', reason: 'Transmitter off or out of range' });
     }
   });
 });
@@ -135,7 +135,7 @@ describe('AD4Q-A with an AD1 bodypack', () => {
   });
 
   it('is READY, and the other channels are transmitter-off', () => {
-    expect(assess(channels.get(2)!, last)).toEqual({ ready: { label: 'READY', source: 'receiver' }, alerts: [] });
+    expect(assess(channels.get(2)!, last)).toEqual({ ready: { label: 'READY', status: 'Ready', source: 'receiver' }, alerts: [] });
     for (const n of [1, 3, 4]) expect(txPresent(channels.get(n)!)).toBe(false);
   });
 });
@@ -207,6 +207,6 @@ describe('ULXD4 with a ULXD1 switched off and on again', () => {
     expect(t.batteryCycles).toMatchObject({ state: 'ok', value: 650 });
     expect(t.batteryTempC).toMatchObject({ state: 'ok', value: 21 }); // raw " 61": two digits, padded with a space
     expect(t.batteryType).toMatchObject({ state: 'ok', value: 'LION' });
-    expect(assess(t, last).ready).toEqual({ label: 'READY', source: 'receiver' });
+    expect(assess(t, last).ready).toEqual({ label: 'READY', status: 'Ready', source: 'receiver' });
   });
 });

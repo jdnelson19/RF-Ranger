@@ -13,14 +13,15 @@ import { EventEmitter } from 'node:events';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import type { ShowPreset } from './snapshot.js';
+import type { PresetChannel, ShowPreset } from './snapshot.js';
 
-export type { ShowPreset } from './snapshot.js';
+export type { PresetChannel, ShowPreset } from './snapshot.js';
 // Keys for channels not currently present are kept, so a preset survives a receiver being offline.
 
 export const MAX_PRESETS = 50;
 const MAX_NAME = 60;
 const MAX_SLOTS = 512;
+const MAX_NICKNAME = 40;
 
 export function presetsPath(home = homedir()): string {
   return join(home, '.rf-ranger', 'show-presets.json');
@@ -51,22 +52,26 @@ export class PresetStore extends EventEmitter<Events> {
     return this.presets;
   }
 
-  create(input: { name: unknown; slots: unknown }): ShowPreset {
+  create(input: { name: unknown; slots: unknown; channels?: unknown }): ShowPreset {
     if (this.presets.length >= MAX_PRESETS) throw new PresetError(`There's a limit of ${MAX_PRESETS} presets. Delete one first.`);
-    const preset: ShowPreset = { id: randomUUID(), name: cleanName(input.name), slots: cleanSlots(input.slots), updatedAt: this.now() };
+    const slots = cleanSlots(input.slots);
+    const preset: ShowPreset = { id: randomUUID(), name: cleanName(input.name), slots, channels: cleanChannels(input.channels, slots), updatedAt: this.now() };
     this.ensureUniqueName(preset.name);
     this.presets = [...this.presets, preset];
     this.persist();
     return preset;
   }
 
-  update(id: string, input: { name?: unknown; slots?: unknown }): ShowPreset {
+  update(id: string, input: { name?: unknown; slots?: unknown; channels?: unknown }): ShowPreset {
     const current = this.presets.find((p) => p.id === id);
     if (!current) throw new PresetError('That preset no longer exists.');
+    const slots = input.slots === undefined ? current.slots : cleanSlots(input.slots);
     const next: ShowPreset = {
       ...current,
       name: input.name === undefined ? current.name : cleanName(input.name),
-      slots: input.slots === undefined ? current.slots : cleanSlots(input.slots),
+      slots,
+      // Settings for a channel taken out of the preset go with it.
+      channels: cleanChannels(input.channels === undefined ? current.channels : input.channels, slots),
       updatedAt: this.now(),
     };
     if (next.name.toLowerCase() !== current.name.toLowerCase()) this.ensureUniqueName(next.name);
@@ -105,7 +110,14 @@ function load(path: string): ShowPreset[] {
     return raw.presets.flatMap((p): ShowPreset[] => {
       try {
         const o = p as Record<string, unknown>;
-        return [{ id: String(o.id), name: cleanName(o.name), slots: cleanSlots(o.slots), updatedAt: Number(o.updatedAt) || 0 }];
+        const slots = cleanSlots(o.slots);
+        let channels: ShowPreset['channels'] = {};
+        try {
+          channels = cleanChannels(o.channels, slots);
+        } catch {
+          // keep the preset; only its per-channel settings are lost
+        }
+        return [{ id: String(o.id), name: cleanName(o.name), slots, channels, updatedAt: Number(o.updatedAt) || 0 }];
       } catch {
         return []; // skip a damaged entry rather than losing the rest
       }
@@ -128,4 +140,26 @@ function cleanSlots(v: unknown): string[] {
   if (keys.length === 0) throw new PresetError('Pick at least one channel for the preset.');
   if (keys.length > MAX_SLOTS) throw new PresetError('Too many channels in one preset.');
   return keys;
+}
+
+/** Nicknames and waveform switches, kept only for channels in the preset and only when set. */
+function cleanChannels(v: unknown, slots: string[]): Record<string, PresetChannel> {
+  if (v === undefined || v === null) return {};
+  if (typeof v !== 'object' || Array.isArray(v)) throw new PresetError('Channel settings are in the wrong format.');
+  const out: Record<string, PresetChannel> = {};
+  for (const key of slots) {
+    const raw = (v as Record<string, unknown>)[key];
+    if (!raw || typeof raw !== 'object') continue;
+    const o = raw as Record<string, unknown>;
+    const c: PresetChannel = {};
+    if (o.nickname !== undefined) {
+      if (typeof o.nickname !== 'string') throw new PresetError('A nickname must be text.');
+      const nickname = o.nickname.trim().replace(/\s+/g, ' ');
+      if (nickname.length > MAX_NICKNAME) throw new PresetError(`Keep nicknames under ${MAX_NICKNAME} characters.`);
+      if (nickname) c.nickname = nickname;
+    }
+    if (o.waveform === true) c.waveform = true;
+    if (c.nickname || c.waveform) out[key] = c;
+  }
+  return out;
 }

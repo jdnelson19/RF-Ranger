@@ -67,17 +67,17 @@ describe('readiness of a docked transmitter', () => {
     error: ok(null, NOW),
   });
 
-  it('is READY when docked and charged', () => {
-    expect(check(docked(95))).toEqual({ label: 'READY', reason: 'On charger, 95%', source: 'charger', chargePercent: 95 });
+  it('is STANDBY (orange) when docked and charged: the transmitter is not on yet', () => {
+    expect(check(docked(95))).toEqual({ label: 'STANDBY', status: 'On charger', reason: 'On charger, 95%', source: 'charger', chargePercent: 95 });
   });
 
-  it('asks to check with audio while still charging', () => {
-    expect(check(docked(60))).toMatchObject({ label: 'CHECK_WITH_AUDIO', reason: 'Charging, 60%, full in 20 min' });
+  it('is STANDBY while still charging', () => {
+    expect(check(docked(60))).toMatchObject({ label: 'STANDBY', status: 'Charging', reason: 'Charging, 60%, full in 20 min' });
   });
 
   it('flags a transmitter that is off and missing from its bay', () => {
     const b = { ...emptyBay(), batteryPresent: ok(false, NOW) };
-    expect(check(b)).toMatchObject({ label: 'CHECK_WITH_AUDIO', reason: 'Transmitter off and not on its charger' });
+    expect(check(b)).toMatchObject({ label: 'STANDBY', status: 'Off', reason: 'Transmitter off and not on its charger' });
   });
 
   it('is NOT_READY on a charger fault', () => {
@@ -88,8 +88,8 @@ describe('readiness of a docked transmitter', () => {
     expect(check(docked(100), { charger: { state: 'disconnected', since: 0 } }).reason).toBe('Transmitter off; charger offline');
   });
 
-  it('does not call storage-mode charge ready', () => {
-    expect(check(docked(100), { storageMode: true }).label).toBe('CHECK_WITH_AUDIO');
+  it('says when the charger is in storage mode', () => {
+    expect(check(docked(100), { storageMode: true })).toMatchObject({ label: 'STANDBY', status: 'Storage mode' });
   });
 
   it('prefers live receiver data once the transmitter is switched on', () => {
@@ -100,7 +100,7 @@ describe('readiness of a docked transmitter', () => {
       storage: { connection: connected, bay: docked(100) },
       now: NOW,
     });
-    expect(r).toMatchObject({ label: 'CHECK_WITH_AUDIO', reason: 'Battery low', source: 'receiver' });
+    expect(r).toMatchObject({ label: 'NOT_READY', status: 'Battery low', reason: 'Battery low', source: 'receiver' });
   });
 });
 

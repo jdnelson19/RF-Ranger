@@ -4,7 +4,7 @@ import { ChannelTile } from '../components/ChannelTile';
 import { ShowEditor } from '../components/ShowEditor';
 import { Brand, Chip, ServerLink } from '../components/ui';
 import { TILE_FIELDS, useDisplayOptions } from '../display';
-import { TONE_RANK, slotTone } from '../format';
+import { TONE_RANK, shownReadiness, slotTone } from '../format';
 import { href, navigate, type Route } from '../route';
 import type { ShowPreset } from '../types';
 import type { Live } from '../useSnapshot';
@@ -41,14 +41,16 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
     if (route.group) list = list.filter((x) => x.group === route.group);
     if (route.view === 'attention') list = list.filter(needsAttention);
     const q = query.trim().toLowerCase();
+    const nick = (x: (typeof list)[number]) => activePreset?.channels?.[x.key]?.nickname;
     if (q) {
       list = list.filter((x) =>
-        [x.label, x.assignment?.artist, x.assignment?.role, x.receiverId, x.telemetry.name.state === 'ok' ? x.telemetry.name.value : '']
+        [nick(x), x.label, x.assignment?.artist, x.assignment?.role, x.receiverId, x.telemetry.name.state === 'ok' ? x.telemetry.name.value : '']
           .some((f) => f?.toLowerCase().includes(q)),
       );
     }
     if (sort === 'status' || route.view === 'attention') {
-      list = [...list].sort((a, b) => TONE_RANK[slotTone(a)] - TONE_RANK[slotTone(b)] || a.slot - b.slot);
+      const rank = (x: (typeof list)[number]) => TONE_RANK[slotTone(x, shownReadiness(x, nick(x)))];
+      list = [...list].sort((a, b) => rank(a) - rank(b) || a.slot - b.slot);
     }
     return list;
   }, [s, route.view, route.group, query, sort, activePreset]);
@@ -167,7 +169,9 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
             <div className="empty">{route.view === 'attention' ? <><span className="ok-text">✓</span> Nothing needs attention{route.group ? ` in ${route.group}` : ''}.</> : 'No channels match.'}</div>
           ) : (
             <div className={`grid${frozen ? ' grid--frozen' : ''}`}>
-              {slots.map((x) => <ChannelTile key={x.key} s={x} frozen={frozen} fields={display.options} onOpen={() => setOpen(x.slot)} />)}
+              {slots.map((x) => (
+                <ChannelTile key={x.key} s={x} frozen={frozen} fields={display.options} preset={activePreset?.channels?.[x.key]} onOpen={() => setOpen(x.slot)} />
+              ))}
             </div>
           )}
         </>
@@ -186,7 +190,9 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
         />
       )}
 
-      {openSlot && s && <ChannelDetail s={openSlot} now={s.serverTime} onClose={() => setOpen(undefined)} />}
+      {openSlot && s && (
+        <ChannelDetail s={openSlot} now={s.serverTime} live={!frozen} nickname={activePreset?.channels?.[openSlot.key]?.nickname} onClose={() => setOpen(undefined)} />
+      )}
     </div>
   );
 }

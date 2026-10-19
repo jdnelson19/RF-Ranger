@@ -76,8 +76,8 @@ describe('PSM 1000 reports', () => {
 });
 
 describe('IEM readiness', () => {
-  it('stops at CHECK WITH AUDIO by default, since the pack is not monitored', () => {
-    expect(check()).toMatchObject({ label: 'CHECK_WITH_AUDIO', reason: 'IEM on air; pack battery not monitored' });
+  it('stops at STANDBY by default, since the pack is not monitored', () => {
+    expect(check()).toMatchObject({ label: 'STANDBY', reason: 'IEM on air; pack battery not monitored' });
   });
 
   it('is READY on a healthy transmitter when configured to trust it', () => {
@@ -90,8 +90,8 @@ describe('IEM readiness', () => {
   });
 
   it('never trusts a transmitter state it has not heard', () => {
-    expect(check({ rfMuted: initialTelemetry(SHURE_FAMILIES.psm1000).rfMuted })).toMatchObject({ label: 'CHECK_WITH_AUDIO', reason: 'IEM transmitter state unknown' });
-    expect(check({ rfMuted: ok(false, NOW - 10 * 60_000) })).toMatchObject({ label: 'CHECK_WITH_AUDIO' });
+    expect(check({ rfMuted: initialTelemetry(SHURE_FAMILIES.psm1000).rfMuted })).toMatchObject({ label: 'STANDBY', reason: 'IEM transmitter state unknown' });
+    expect(check({ rfMuted: ok(false, NOW - 10 * 60_000) })).toMatchObject({ label: 'STANDBY' });
   });
 
   it('says which device is offline', () => {
@@ -101,9 +101,9 @@ describe('IEM readiness', () => {
 
   it('takes pack readiness from its charger bay', () => {
     const bay = { ...emptyBay(), batteryPresent: ok(true, NOW), chargePercent: ok(100, NOW), error: ok(null, NOW) };
-    expect(check({}, { storage: { connection: connected, bay } })).toMatchObject({ label: 'READY', source: 'charger', chargePercent: 100 });
+    expect(check({}, { storage: { connection: connected, bay } })).toMatchObject({ label: 'STANDBY', status: 'On charger', source: 'charger', chargePercent: 100 });
     const empty = { ...bay, batteryPresent: ok(false, NOW) };
-    expect(check({}, { storage: { connection: connected, bay: empty } })).toMatchObject({ label: 'CHECK_WITH_AUDIO', reason: 'IEM pack not on its charger' });
+    expect(check({}, { storage: { connection: connected, bay: empty } })).toMatchObject({ label: 'STANDBY', reason: 'IEM pack not on its charger' });
   });
 
   it('puts a muted transmitter ahead of a charged pack', () => {

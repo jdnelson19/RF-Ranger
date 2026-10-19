@@ -27,8 +27,14 @@ describe('readiness', () => {
     expect(check()).toMatchObject({ label: 'READY' });
   });
 
-  it('is UNASSIGNED without an assignment', () => {
-    expect(check({}, { assigned: false }).label).toBe('UNASSIGNED');
+  it('is UNASSIGNED for a spare that is switched off', () => {
+    const off = { txModel: absent(NOW), batteryBars: absent(NOW), batteryPercent: absent(NOW) };
+    expect(check(off, { assigned: false })).toEqual({ label: 'UNASSIGNED', status: 'Spare' });
+  });
+
+  it('judges a switched-on spare like any other mic, so "RF-4" still shows its battery', () => {
+    expect(check({}, { assigned: false })).toMatchObject({ label: 'READY' });
+    expect(check({ batteryPercent: ok(30, NOW) }, { assigned: false })).toMatchObject({ label: 'NOT_READY', status: 'Battery low' });
   });
 
   it('is NOT_READY when the receiver is disconnected', () => {
@@ -58,20 +64,25 @@ describe('readiness', () => {
     expect(check({ batteryPercent: absent(NOW), batteryBars: ok(1, NOW) }).reason).toBe('Battery critical');
   });
 
-  it('asks to check with audio when the transmitter is off', () => {
+  it('is STANDBY (orange) when the transmitter is off', () => {
     const r = check({ txModel: absent(NOW), batteryBars: absent(NOW), batteryPercent: absent(NOW) });
-    expect(r).toMatchObject({ label: 'CHECK_WITH_AUDIO', reason: 'Transmitter off or out of range' });
+    expect(r).toMatchObject({ label: 'STANDBY', status: 'Off', reason: 'Transmitter off or out of range' });
   });
 
   it('never treats a stale battery reading as good', () => {
     const old = NOW - 10 * 60_000;
     const r = check({ batteryBars: ok(5, old), batteryPercent: ok(95, old) });
-    expect(r).toMatchObject({ label: 'CHECK_WITH_AUDIO', reason: 'Battery level unknown' });
+    expect(r).toMatchObject({ label: 'STANDBY', reason: 'Battery level unknown' });
   });
 
-  it('asks to check with audio when the battery is low', () => {
-    expect(check({ batteryPercent: ok(40, NOW) }).reason).toBe('Battery low');
+  it('is NOT_READY (red) when the battery is low', () => {
+    expect(check({ batteryPercent: ok(40, NOW) })).toMatchObject({ label: 'NOT_READY', status: 'Battery low' });
     expect(check({ batteryPercent: absent(NOW), batteryBars: ok(3, NOW) }).reason).toBe('Battery low');
+  });
+
+  it('goes by the percentage, not Shure\'s bars, when the transmitter reports one', () => {
+    expect(check({ batteryPercent: ok(70, NOW), batteryBars: ok(3, NOW) }).label).toBe('READY');
+    expect(check({ batteryPercent: ok(45, NOW), batteryBars: ok(5, NOW) }).reason).toBe('Battery low');
   });
 
   it('uses bars alone for AA batteries', () => {

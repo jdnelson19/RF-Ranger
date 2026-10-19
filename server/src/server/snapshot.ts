@@ -1,5 +1,6 @@
 /** Wire format shared with the web UI. */
 import type { Alert } from '../core/alerts.js';
+import type { LevelHistory } from '../core/history.js';
 import type { BayTelemetry, ChannelRole, ChannelTelemetry, ChargerInfo, ConnectionStatus, ReceiverInfo } from '../core/model.js';
 import type { Readiness } from '../core/readiness.js';
 import type { AssignmentConfig, SlotConfig } from '../core/assignment.js';
@@ -10,7 +11,16 @@ export interface ShowPreset {
   name: string;
   /** Slot keys in display order. */
   slots: string[];
+  /** Per-channel settings within this preset, by slot key. Channels with none are left out. */
+  channels: Record<string, PresetChannel>;
   updatedAt: number;
+}
+
+export interface PresetChannel {
+  /** Who is on this transmitter for this show ("Josh" on RF-4), shown in place of the channel name. */
+  nickname?: string;
+  /** Show the audio and RF history strip on this channel's tile. */
+  waveform?: boolean;
 }
 
 export interface SlotView {
@@ -31,6 +41,8 @@ export interface SlotView {
   /** A transmitter is on air (mic channels); the same test readiness uses. */
   txOn: boolean;
   telemetry: ChannelTelemetry;
+  /** The last few seconds of audio and RF level (mic channels). */
+  levels?: LevelHistory;
   assignment?: AssignmentConfig & { photoUrl?: string };
   bay?: BayTelemetry;
   readiness: Readiness;

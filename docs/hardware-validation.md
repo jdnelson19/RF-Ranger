@@ -52,8 +52,8 @@ Open the **Engineer → Devices** tab to see what was found and each connection'
 **Static readings** (compare each tile with the receiver front panel or WWB):
 - [ ] Channel names, and the label/artist split, look right
 - [ ] Frequencies match
-- [ ] Battery bars match the transmitter
-- [ ] With **Shure rechargeables**: battery % and runtime match
+- [ ] With **Shure rechargeables**: battery % and runtime match. RF Ranger draws its battery gauge from the %, one segment per 20 %, so it may not match the bars on the transmitter.
+- [ ] With **AA batteries**: the gauge follows the transmitter's own bars
 - [ ] With **AA batteries**: bars are shown, and % and runtime show "—" or "n/a"
 - [ ] TX model is correct. Axient: the TX device ID appears.
 
@@ -63,7 +63,8 @@ Open the **Engineer → Devices** tab to see what was found and each connection'
 - [ ] Muting the receiver output (front panel or WWB) shows MUTED
 
 **Transitions:**
-- [ ] Switch a transmitter **off**: within about a second, the tile says "Transmitter off" and Pickup says *Check with audio*
+- [ ] Switch a transmitter **off**: within about a second, the tile turns orange and says "Off"
+- [ ] Turn on a channel's waveform (preset editor), then tap the mic and switch it off. A tap shows an audio spike with a steady RF strip. Switching off shows both stopping together.
 - [ ] Switch it back **on**: values return
 - [ ] **Dock a transmitter in a networked charger:** the Devices tab shows the bay's charge %
 - [ ] Unplug a receiver's **network cable** for 30 s: the tile turns red ("Receiver offline") within about 5 s, then recovers by itself after replugging

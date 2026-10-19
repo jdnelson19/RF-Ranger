@@ -53,22 +53,26 @@ Each adapter declares a capability set **per family** and **per TX model**. For 
 
 ## Readiness (Pickup View): draft rules
 
-All thresholds are configurable. Rules are evaluated in order, and **the first match wins**:
+All thresholds are configurable. Rules are evaluated in order, and **the first match wins**. There are four labels, each with its own colour: READY (green), STANDBY (orange: switched off, on the charger, or not yet known to be fine), NOT READY (red: low battery or a fault), and UNASSIGNED (grey). Each result also has a short status, which is what the pill shows ("Ready", "Off", "On charger", "Battery low", …).
 
-| # | Condition | Label | Reason shown to engineer |
+The battery is judged by its percentage whenever the transmitter reports one, because Shure's bars don't line up with it. Bars are used only when there is no percentage, for example with AA cells.
+
+| # | Condition | Label · status | Reason shown to engineer |
 |---|---|---|---|
-| 1 | No assignment, or no channel assigned | SPARE / UNASSIGNED | n/a |
-| 2 | Receiver not connected, or no message for > 5 s | NOT READY | "Receiver offline" |
-| 3 | Assigned TX identity is supported **and** mismatches | NOT READY | "Wrong transmitter: expected X, seeing Y" |
-| 4 | Fault: encryption error, unregistered TX, or critical interference | NOT READY | the fault name |
-| 5 | Battery is critical (≤ 1 bar, or ≤ 20 %) | NOT READY | "Battery critical" |
-| 6 | TX not present (switched off or out of range), with no charger bay assigned | CHECK WITH AUDIO | "Transmitter off" |
-| 6a | TX not present, and the assigned charger bay holds a battery at ≥ 90 % with no fault | READY (on charger) | "On charger, 95%" |
-| 6b | TX not present, and the bay is charging below 90 %, empty, offline, or in storage mode | CHECK WITH AUDIO | "Charging, 60%, full in 20 min" / "not on its charger" / … |
-| 6c | TX not present, and the bay reports a charger fault | NOT READY | "Charger: Check battery" |
-| 7 | Battery reading is anything except a fresh `ok` | CHECK WITH AUDIO | "Battery unknown" |
-| 8 | Battery is in the warning band (2–3 bars, or ≤ 50 %) | CHECK WITH AUDIO | "Battery low" |
-| 9 | Everything above passed | READY | n/a |
+| 1 | No assignment, and no transmitter on | UNASSIGNED · Spare | n/a |
+| 2 | Receiver not connected, or no message for > 5 s | NOT READY · Offline | "Receiver offline" |
+| 3 | Assigned TX identity is supported **and** mismatches | NOT READY · Wrong transmitter | "Wrong transmitter: expected X, seeing Y" |
+| 4 | Fault: encryption error, unregistered TX, or critical interference | NOT READY · the fault | the fault name |
+| 5 | Battery is critical (≤ 20 %, or ≤ 1 bar without a %) | NOT READY · Battery critical | "Battery critical" |
+| 6 | TX not present (switched off or out of range), with no charger bay assigned | STANDBY · Off | "Transmitter off or out of range" |
+| 6a | TX not present, and the assigned charger bay holds a battery with no fault | STANDBY · On charger / Charging | "On charger, 95%" / "Charging, 60%, full in 20 min" |
+| 6b | TX not present, and the bay is empty, offline, or in storage mode | STANDBY · Off / Storage mode | "not on its charger" / … |
+| 6c | TX not present, and the bay reports a charger fault | NOT READY · Charger fault | "Charger: Check battery" |
+| 7 | Battery reading is anything except a fresh `ok` | STANDBY · Battery unknown | "Battery level unknown" |
+| 8 | Battery is in the warning band (≤ 50 %, or 2–3 bars without a %) | NOT READY · Battery low | "Battery low" |
+| 9 | Everything above passed | READY · Ready | n/a |
+
+A channel without an assignment still goes through rules 2–9 once its transmitter is on. That way a channel named only "RF-4" still shows its battery and faults. On an engineer screen, a channel that the active show preset gives a nickname counts as assigned there, so when it's off it shows "Off" rather than "Spare".
 
 **In-ear monitors (role `iem`).** On an IEM channel the networked unit is the transmitter, and the bodypack only receives. The pack reports nothing, so rules 3–8 don't apply. They are replaced by:
 
@@ -76,10 +80,10 @@ All thresholds are configurable. Rules are evaluated in order, and **the first m
 |---|---|---|---|
 | 1–2 | As above | | "IEM transmitter offline" |
 | I1 | RF muted, or RF output 0 | NOT READY | "IEM RF muted" / "IEM RF off" |
-| I2 | RF mute or RF level is not a fresh `ok` | CHECK WITH AUDIO | "IEM transmitter state unknown" |
+| I2 | RF mute or RF level is not a fresh `ok` | STANDBY · State unknown | "IEM transmitter state unknown" |
 | I3 | A charger bay is assigned | rules 6a–6c, for the pack | "On charger, 100%" / "IEM pack not on its charger" / … |
-| I4 | No charger bay, `iemReadyWithoutCharger` false (default) | CHECK WITH AUDIO | "IEM on air; pack battery not monitored" |
-| I4′ | No charger bay, `iemReadyWithoutCharger` true | READY | "IEM on air; pack not monitored" |
+| I4 | No charger bay, `iemReadyWithoutCharger` false (default) | STANDBY · On air | "IEM on air; pack battery not monitored" |
+| I4′ | No charger bay, `iemReadyWithoutCharger` true | READY · On air | "IEM on air; pack not monitored" |
 
 I4 is conservative on purpose. Nothing proves the pack is charged. Shows that don't track IEM packs on chargers can opt into I4′ in `thresholds`.
 

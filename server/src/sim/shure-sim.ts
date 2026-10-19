@@ -228,7 +228,10 @@ export class ShureSim {
     const on = ch.txOn;
     const rf = on ? ch.rfDbm + jitter() : -120;
     // Encode as real hardware would, so RF Ranger (which adds the audio trim) displays audioDbfs.
-    const audio = on ? ch.audioDbfs + jitter() - AUDIO_TRIM_DB : -120;
+    // A slow syllable-like swell around the set level, so a level history looks like speech.
+    const s = Date.now() / 1000 + n * 1.7;
+    const swell = Math.round(Math.sin(s * 5.1) * Math.sin(s * 0.9) * 12);
+    const audio = on ? Math.min(0, ch.audioDbfs + swell + jitter()) - AUDIO_TRIM_DB : -120;
 
     switch (this.family) {
       case 'ulxd':

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { READINESS_TEXT, READINESS_TONE, type Tone } from '../format';
-import type { ReadinessLabel } from '../types';
+import { READINESS_TONE, type Tone } from '../format';
+import type { Readiness, SlotView } from '../types';
 
 export function Logo({ size = 22 }: { size?: number }) {
   return (
@@ -31,12 +31,12 @@ export function DemoBanner() {
 
 const STATUS_ICON: Record<Tone, string> = { ok: '✓', warn: '!', bad: '✕', info: 'i', idle: '–' };
 
-export function StatusPill({ label, size = 'sm' }: { label: ReadinessLabel; size?: 'sm' | 'lg' }) {
-  const tone = READINESS_TONE[label];
+export function StatusPill({ readiness, size = 'sm' }: { readiness: Readiness; size?: 'sm' | 'lg' }) {
+  const tone = READINESS_TONE[readiness.label];
   return (
     <span className={`pill pill--${tone} pill--${size}`}>
       <span className="pill__icon" aria-hidden="true">{STATUS_ICON[tone]}</span>
-      {READINESS_TEXT[label]}
+      {readiness.status}
     </span>
   );
 }
@@ -67,9 +67,13 @@ export function Meter({ value, min, max, warnBelow, label, readout }: {
   );
 }
 
-/** Five-segment battery gauge, matching transmitter bars. */
+/**
+ * Five-segment battery gauge drawn from the percentage, one segment per 20 %
+ * (Shure's own bars don't line up with the percentage). Transmitters with no
+ * percentage, such as on AA cells, fall back to their bars.
+ */
 export function Battery({ bars, percent, tone }: { bars: number | undefined; percent: number | undefined; tone: Tone }) {
-  const level = bars ?? (percent !== undefined ? Math.ceil(percent / 20) : undefined);
+  const level = percent !== undefined ? Math.ceil(Math.max(0, Math.min(100, percent)) / 20) : bars;
   return (
     <span className={`battery battery--${level === undefined ? 'none' : tone}`} aria-label={level === undefined ? 'Battery unknown' : `Battery ${level} of 5`}>
       {[1, 2, 3, 4, 5].map((i) => (
@@ -102,5 +106,47 @@ export function ServerLink({ online, version }: { online: boolean; version?: str
       </span>
       {version && <span className="server-link__version" title={`RF Ranger ${version}`}>v{version}</span>}
     </span>
+  );
+}
+
+const WAVE_FLOOR_DB = -60;
+// Peaks this close to full scale are about to clip.
+const WAVE_HOT_DB = -2;
+const RF_FLOOR_DBM = -100;
+const RF_CEIL_DBM = -30;
+const RF_WEAK_DBM = -85;
+
+/**
+ * The last few seconds of a channel: audio as a waveform, RF as a strip
+ * underneath. A dropout shows both dipping together (an RF problem); a bump
+ * or pop shows an audio spike while RF stays steady.
+ */
+export function Waveform({ levels, live, tall = false }: { levels: SlotView['levels']; live: boolean; tall?: boolean }) {
+  const n = levels?.audio.length ?? 50;
+  const h = tall ? 56 : 30;
+  const mid = h / 2;
+  const seconds = levels ? Math.round((n * levels.stepMs) / 1000) : 5;
+  return (
+    <div className={`wave${tall ? ' wave--tall' : ''}`} aria-label={`Audio and RF level, last ${seconds} seconds`} role="img">
+      <span className="meter__label">AUD</span>
+      <svg className="wave__audio" viewBox={`0 0 ${n} ${h}`} preserveAspectRatio="none" style={{ height: h }}>
+        <line x1="0" x2={n} y1={mid} y2={mid} className="wave__base" />
+        {live && levels?.audio.map((db, i) => {
+          if (db === null) return null;
+          const amp = Math.max(0.6, Math.min(1, (db - WAVE_FLOOR_DB) / -WAVE_FLOOR_DB) * (mid - 1));
+          return <rect key={i} x={i + 0.15} width={0.7} y={mid - amp} height={amp * 2} className={db >= WAVE_HOT_DB ? 'wave__bar wave__bar--hot' : 'wave__bar'} />;
+        })}
+      </svg>
+      <span className="meter__readout">{seconds} s</span>
+      <span className="meter__label">RF</span>
+      <svg className="wave__rf" viewBox={`0 0 ${n} 1`} preserveAspectRatio="none">
+        {live && levels?.rf.map((dbm, i) => {
+          if (dbm === null) return null;
+          const strength = Math.max(0.15, Math.min(1, (dbm - RF_FLOOR_DBM) / (RF_CEIL_DBM - RF_FLOOR_DBM)));
+          return <rect key={i} x={i} width={1.02} y={0} height={1} opacity={strength} className={dbm < RF_WEAK_DBM ? 'wave__rf-bin wave__rf-bin--weak' : 'wave__rf-bin'} />;
+        })}
+      </svg>
+      <span className="meter__readout">now</span>
+    </div>
   );
 }

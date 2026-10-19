@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { SEVERITY_TONE, mhz, runtime, show } from '../format';
+import { SEVERITY_TONE, mhz, runtime, show, shownReadiness } from '../format';
 import type { ChannelTelemetry, Reading, SlotView } from '../types';
-import { StatusPill, ToneIcon } from './ui';
+import { StatusPill, ToneIcon, Waveform } from './ui';
 
 type Row = [label: string, key: keyof ChannelTelemetry, fmt?: (v: any) => string];
 
@@ -59,7 +59,7 @@ const STATE_NOTE: Record<Reading<unknown>['state'], string> = {
   unknown: 'not received yet',
 };
 
-export function ChannelDetail({ s, now, onClose }: { s: SlotView; now: number; onClose: () => void }) {
+export function ChannelDetail({ s, now, live, nickname, onClose }: { s: SlotView; now: number; live: boolean; nickname?: string; onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -67,24 +67,28 @@ export function ChannelDetail({ s, now, onClose }: { s: SlotView; now: number; o
   }, [onClose]);
 
   const a = s.assignment;
+  const readiness = shownReadiness(s, nickname);
   return (
     <div className="drawer-backdrop" onClick={onClose}>
       <aside className="drawer" onClick={(e) => e.stopPropagation()} aria-label={`Channel ${s.label} details`}>
         <header className="drawer__head">
           <div>
             <div className="drawer__label">{s.label}</div>
-            <div className="drawer__title">{a?.artist ?? 'Unassigned'}</div>
-            <div className="drawer__sub">{[a?.role, s.group, `${s.receiverId} ch${s.channel}`, s.family.toUpperCase()].filter(Boolean).join(' · ')}</div>
+            <div className="drawer__title">{nickname ?? a?.artist ?? 'Unassigned'}</div>
+            <div className="drawer__sub">
+              {[nickname && `nickname in this preset${a?.artist ? `; channel name ${a.artist}` : ''}`, a?.role, s.group, `${s.receiverId} ch${s.channel}`, s.family.toUpperCase()]
+                .filter(Boolean).join(' · ')}
+            </div>
           </div>
           <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">✕</button>
         </header>
 
         <section className="drawer__section">
           <div className="drawer__readiness">
-            <StatusPill label={s.readiness.label} size="lg" />
-            <span className="drawer__reason">{s.readiness.reason ?? (s.readiness.label === 'READY' ? 'All checks passed' : '')}</span>
+            <StatusPill readiness={readiness} size="lg" />
+            <span className="drawer__reason">{readiness.reason ?? (readiness.label === 'READY' ? 'All checks passed' : '')}</span>
           </div>
-          <p className="drawer__note">Pickup display shows: <b>{s.readiness.label.replace(/_/g, ' ')}</b>{s.readiness.source === 'charger' ? ' (from charger bay)' : ''}</p>
+          {a && <p className="drawer__note">Pickup display shows: <b>{s.readiness.status}</b>{s.readiness.source === 'charger' ? ' (from charger bay)' : ''}</p>}
           {s.alerts.length > 0 && (
             <ul className="alert-list">
               {s.alerts.map((al) => (
@@ -95,6 +99,14 @@ export function ChannelDetail({ s, now, onClose }: { s: SlotView; now: number; o
             </ul>
           )}
         </section>
+
+        {s.role === 'mic' && (
+          <section className="drawer__section">
+            <h3>Last 5 seconds</h3>
+            <Waveform levels={s.levels} live={live} tall />
+            <p className="drawer__note">Audio and RF dropping out together points to RF. An audio spike with steady RF is the mic being bumped or handled.</p>
+          </section>
+        )}
 
         {a && (
           <section className="drawer__section">

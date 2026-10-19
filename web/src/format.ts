@@ -1,4 +1,4 @@
-import type { ReadinessLabel, Reading, Severity, SlotView } from './types';
+import type { Readiness, ReadinessLabel, Reading, Severity, SlotView } from './types';
 
 /** Display a reading: the value, or a symbol saying why there isn't one. */
 export function show<T>(r: Reading<T>, fmt: (v: T) => string = String): string {
@@ -26,29 +26,33 @@ export function initials(name: string): string {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join('');
 }
 
-export const READINESS_TEXT: Record<ReadinessLabel, string> = {
-  READY: 'Ready',
-  CHECK_WITH_AUDIO: 'Check with audio',
-  NOT_READY: 'Not ready',
-  UNASSIGNED: 'Spare',
-};
-
 export type Tone = 'ok' | 'warn' | 'bad' | 'info' | 'idle';
 
+/** Green ready, orange off or on its charger, red low battery or a fault. */
 export const READINESS_TONE: Record<ReadinessLabel, Tone> = {
   READY: 'ok',
-  CHECK_WITH_AUDIO: 'warn',
+  STANDBY: 'warn',
   NOT_READY: 'bad',
   UNASSIGNED: 'idle',
 };
 
 export const SEVERITY_TONE: Record<Severity, Tone> = { critical: 'bad', warning: 'warn', info: 'info' };
 
+/**
+ * Readiness as this screen shows it. A channel the active preset gives a
+ * nickname is someone's mic for this show, so when it's switched off it reads
+ * "Off" (orange) rather than "Spare".
+ */
+export function shownReadiness(s: SlotView, nickname?: string): Readiness {
+  if (nickname && s.readiness.label === 'UNASSIGNED') return { label: 'STANDBY', status: 'Off', reason: 'Transmitter off or out of range' };
+  return s.readiness;
+}
+
 /** Worst thing about a slot, for tile borders and sorting. */
-export function slotTone(s: SlotView): Tone {
-  if (s.alerts.some((a) => a.severity === 'critical')) return 'bad';
-  if (s.alerts.some((a) => a.severity === 'warning')) return 'warn';
-  if (!s.assignment) return 'idle';
+export function slotTone(s: SlotView, r: Readiness = s.readiness): Tone {
+  if (s.alerts.some((a) => a.severity === 'critical') || r.label === 'NOT_READY') return 'bad';
+  if (r.label === 'STANDBY' || s.alerts.some((a) => a.severity === 'warning')) return 'warn';
+  if (r.label === 'UNASSIGNED') return 'idle';
   return 'ok';
 }
 

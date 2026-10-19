@@ -1,6 +1,6 @@
 import type { ChannelRole, ChannelTelemetry, ConnectionStatus } from './model.js';
 import { freshValue } from './reading.js';
-import { txPresent, type Readiness, type ReadinessThresholds } from './readiness.js';
+import { batteryLevel, txPresent, type Readiness, type ReadinessThresholds } from './readiness.js';
 
 export type Severity = 'critical' | 'warning' | 'info';
 
@@ -58,15 +58,10 @@ export function channelAlerts(input: AlertInput, th: AlertThresholds): Alert[] {
   }
 
   if (present) {
-    const pct = freshValue(t.batteryPercent, now, th.batteryMaxAgeMs);
-    const bars = freshValue(t.batteryBars, now, th.batteryMaxAgeMs);
-    if ((pct !== undefined && pct <= th.criticalPercent) || (bars !== undefined && bars <= th.criticalBars)) {
-      add('battery-critical', 'critical', 'Battery critical');
-    } else if ((pct !== undefined && pct <= th.warningPercent) || (bars !== undefined && bars <= th.warningBars)) {
-      add('battery-low', 'warning', 'Battery low');
-    } else if (pct === undefined && bars === undefined) {
-      add('battery-unknown', 'warning', 'Battery level unknown');
-    }
+    const battery = batteryLevel(t, now, th);
+    if (battery === 'critical') add('battery-critical', 'critical', 'Battery critical');
+    else if (battery === 'low') add('battery-low', 'critical', 'Battery low');
+    else if (battery === undefined) add('battery-unknown', 'warning', 'Battery level unknown');
 
     const runtime = freshValue(t.batteryRuntimeMin, now, th.batteryMaxAgeMs);
     if (runtime !== undefined && runtime < th.runtimeWarnMin) add('runtime-low', 'warning', `${runtime} min runtime left`);
@@ -78,10 +73,8 @@ export function channelAlerts(input: AlertInput, th: AlertThresholds): Alert[] {
     // Audio is going to talkback, not the main output, while this is held.
     if (freshValue(t.txTalkSwitch, now, th.faultMaxAgeMs) === true) add('tx-talk', 'info', 'Talk switch held: audio to talkback');
   } else if (input.assigned) {
-    if (input.readiness.source === 'charger' && input.readiness.label === 'READY') {
-      add('on-charger', 'info', input.readiness.reason ?? 'On charger');
-    } else if (input.readiness.source === 'charger') {
-      add('charger', input.readiness.label === 'NOT_READY' ? 'critical' : 'warning', input.readiness.reason ?? 'Check charger');
+    if (input.readiness.source === 'charger') {
+      chargerAlert(input.readiness, th, add);
     } else {
       add('tx-off', 'warning', 'Transmitter off or out of range');
     }
@@ -109,9 +102,16 @@ function iemAlerts(input: AlertInput, th: AlertThresholds, add: (code: string, s
 
   const r = input.readiness;
   if (r.source === 'charger') {
-    if (r.label === 'READY') add('on-charger', 'info', r.reason ?? 'Pack on charger');
-    else add('charger', r.label === 'NOT_READY' ? 'critical' : 'warning', r.reason ?? 'Check charger');
+    chargerAlert(r, th, add);
   } else if (r.label !== 'NOT_READY') {
     add('iem-pack-unmonitored', 'info', 'IEM pack battery not monitored');
   }
+}
+
+/** A docked, charged transmitter is normal (info); charging, empty or offline is a warning; a fault is critical. */
+function chargerAlert(r: Readiness, th: ReadinessThresholds, add: (code: string, severity: Severity, message: string) => void): void {
+  const charged = r.status === 'On charger' && r.chargePercent !== undefined && r.chargePercent >= th.chargerReadyPercent;
+  if (r.label === 'NOT_READY') add('charger', 'critical', r.reason ?? 'Check charger');
+  else if (charged) add('on-charger', 'info', r.reason ?? 'On charger');
+  else add('charger', 'warning', r.reason ?? 'Check charger');
 }

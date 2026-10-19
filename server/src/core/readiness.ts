@@ -1,10 +1,17 @@
 import type { BayTelemetry, ChannelRole, ChannelTelemetry, ConnectionStatus } from './model.js';
 import { freshValue } from './reading.js';
 
-export type ReadinessLabel = 'READY' | 'CHECK_WITH_AUDIO' | 'NOT_READY' | 'UNASSIGNED';
+/**
+ * READY (green), STANDBY (orange: switched off, on its charger, or not yet
+ * known to be fine), NOT_READY (red: low battery or a fault), UNASSIGNED (a
+ * spare that is switched off).
+ */
+export type ReadinessLabel = 'READY' | 'STANDBY' | 'NOT_READY' | 'UNASSIGNED';
 
 export interface Readiness {
   label: ReadinessLabel;
+  /** A word or two for the status pill: "Ready", "Off", "On charger", "Battery low". */
+  status: string;
   /** Engineer-facing explanation; never shown on the pickup display. */
   reason?: string;
   /**
@@ -30,16 +37,17 @@ export interface ReadinessThresholds {
   batteryMaxAgeMs: number;
   /** Fault flags (interference, encryption, ...) older than this are ignored. */
   faultMaxAgeMs: number;
+  /** Bar thresholds apply only to transmitters that report no percentage. */
   criticalBars: number;
   warningBars: number;
   criticalPercent: number;
   warningPercent: number;
-  /** A docked transmitter counts as ready for pickup at or above this charge. */
+  /** A docked transmitter counts as charged at or above this charge. */
   chargerReadyPercent: number;
   /**
    * IEM bodypacks report nothing, so without a charger bay only the rack
    * transmitter can be checked. When false (the default) such a slot stops at
-   * CHECK WITH AUDIO; when true, a healthy transmitter alone is READY.
+   * STANDBY; when true, a healthy transmitter alone is READY.
    */
   iemReadyWithoutCharger: boolean;
 }
@@ -76,48 +84,55 @@ export interface ReadinessInput {
  */
 export function readiness(input: ReadinessInput, th: ReadinessThresholds = DEFAULT_THRESHOLDS): Readiness {
   const { connection, telemetry: t, now } = input;
+  const present = input.role !== 'iem' && txPresent(t);
 
-  if (!input.assigned) return { label: 'UNASSIGNED' };
+  // A spare that someone has switched on is judged like any other mic, so a
+  // channel named only "RF-4" still shows its battery and faults.
+  if (!input.assigned && !present) return { label: 'UNASSIGNED', status: 'Spare' };
 
   if (!online(connection, now, th)) {
-    return { label: 'NOT_READY', reason: input.role === 'iem' ? 'IEM transmitter offline' : 'Receiver offline' };
+    return { label: 'NOT_READY', status: 'Offline', reason: input.role === 'iem' ? 'IEM transmitter offline' : 'Receiver offline' };
   }
 
   if (input.role === 'iem') return iemReadiness(input, th);
 
-  const present = txPresent(t);
-
   if (present && input.expectedTxDeviceId && t.txDeviceId.state === 'ok') {
     const seen = t.txDeviceId.value;
     if (seen !== input.expectedTxDeviceId) {
-      return { label: 'NOT_READY', reason: `Wrong transmitter: expected ${input.expectedTxDeviceId}, seeing ${seen}` };
+      return { label: 'NOT_READY', status: 'Wrong transmitter', reason: `Wrong transmitter: expected ${input.expectedTxDeviceId}, seeing ${seen}` };
     }
   }
 
   const fault = (r: ChannelTelemetry['interference']) => freshValue(r, now, th.faultMaxAgeMs) === true;
-  if (fault(t.encryptionFault)) return { label: 'NOT_READY', reason: 'Encryption mismatch' };
-  if (fault(t.unregisteredTx)) return { label: 'NOT_READY', reason: 'Unregistered transmitter' };
-  if (fault(t.interference)) return { label: 'NOT_READY', reason: 'RF interference' };
+  if (fault(t.encryptionFault)) return { label: 'NOT_READY', status: 'Encryption', reason: 'Encryption mismatch' };
+  if (fault(t.unregisteredTx)) return { label: 'NOT_READY', status: 'Unregistered', reason: 'Unregistered transmitter' };
+  if (fault(t.interference)) return { label: 'NOT_READY', status: 'Interference', reason: 'RF interference' };
 
-  const bars = freshValue(t.batteryBars, now, th.batteryMaxAgeMs);
-  const pct = freshValue(t.batteryPercent, now, th.batteryMaxAgeMs);
-  if ((pct !== undefined && pct <= th.criticalPercent) || (bars !== undefined && bars <= th.criticalBars)) {
-    return { label: 'NOT_READY', reason: 'Battery critical' };
-  }
+  const battery = batteryLevel(t, now, th);
+  if (battery === 'critical') return { label: 'NOT_READY', status: 'Battery critical', reason: 'Battery critical' };
 
   if (!present) {
     if (input.storage) return fromCharger(input.storage, now, th, MIC_CHARGER_TEXT);
-    return { label: 'CHECK_WITH_AUDIO', reason: 'Transmitter off or out of range', source: 'receiver' };
+    return { label: 'STANDBY', status: 'Off', reason: 'Transmitter off or out of range', source: 'receiver' };
   }
 
-  if (pct === undefined && bars === undefined) {
-    return { label: 'CHECK_WITH_AUDIO', reason: 'Battery level unknown', source: 'receiver' };
-  }
-  if ((pct !== undefined && pct <= th.warningPercent) || (bars !== undefined && bars <= th.warningBars)) {
-    return { label: 'CHECK_WITH_AUDIO', reason: 'Battery low', source: 'receiver' };
-  }
+  if (battery === undefined) return { label: 'STANDBY', status: 'Battery unknown', reason: 'Battery level unknown', source: 'receiver' };
+  if (battery === 'low') return { label: 'NOT_READY', status: 'Battery low', reason: 'Battery low', source: 'receiver' };
 
-  return { label: 'READY', source: 'receiver' };
+  return { label: 'READY', status: 'Ready', source: 'receiver' };
+}
+
+/**
+ * How worried to be about a transmitter's battery. The percentage decides
+ * when the transmitter reports one: Shure's bars don't line up with it. Bars
+ * are the fallback for transmitters without a percentage (e.g. AA cells).
+ */
+export function batteryLevel(t: ChannelTelemetry, now: number, th: ReadinessThresholds): 'critical' | 'low' | 'ok' | undefined {
+  const pct = freshValue(t.batteryPercent, now, th.batteryMaxAgeMs);
+  if (pct !== undefined) return pct <= th.criticalPercent ? 'critical' : pct <= th.warningPercent ? 'low' : 'ok';
+  const bars = freshValue(t.batteryBars, now, th.batteryMaxAgeMs);
+  if (bars !== undefined) return bars <= th.criticalBars ? 'critical' : bars <= th.warningBars ? 'low' : 'ok';
+  return undefined;
 }
 
 function online(c: ConnectionStatus, now: number, th: ReadinessThresholds): boolean {
@@ -133,16 +148,16 @@ function iemReadiness(input: ReadinessInput, th: ReadinessThresholds): Readiness
   const { telemetry: t, now } = input;
   const muted = freshValue(t.rfMuted, now, th.faultMaxAgeMs);
   const mw = freshValue(t.rfOutputMw, now, th.faultMaxAgeMs);
-  if (muted === true) return { label: 'NOT_READY', reason: 'IEM RF muted', source: 'receiver' };
-  if (mw === 0) return { label: 'NOT_READY', reason: 'IEM RF off', source: 'receiver' };
+  if (muted === true) return { label: 'NOT_READY', status: 'RF muted', reason: 'IEM RF muted', source: 'receiver' };
+  if (mw === 0) return { label: 'NOT_READY', status: 'RF off', reason: 'IEM RF off', source: 'receiver' };
   if (muted === undefined || mw === undefined) {
-    return { label: 'CHECK_WITH_AUDIO', reason: 'IEM transmitter state unknown', source: 'receiver' };
+    return { label: 'STANDBY', status: 'State unknown', reason: 'IEM transmitter state unknown', source: 'receiver' };
   }
 
   if (input.storage) return fromCharger(input.storage, now, th, IEM_CHARGER_TEXT);
   return th.iemReadyWithoutCharger
-    ? { label: 'READY', reason: 'IEM on air; pack not monitored', source: 'receiver' }
-    : { label: 'CHECK_WITH_AUDIO', reason: 'IEM on air; pack battery not monitored', source: 'receiver' };
+    ? { label: 'READY', status: 'On air', reason: 'IEM on air; pack not monitored', source: 'receiver' }
+    : { label: 'STANDBY', status: 'On air', reason: 'IEM on air; pack battery not monitored', source: 'receiver' };
 }
 
 interface ChargerText {
@@ -167,34 +182,35 @@ const IEM_CHARGER_TEXT: ChargerText = {
  * Readiness of a switched-off transmitter (or an IEM pack) from its assigned
  * charger bay. The charger can't identify what is docked, so this proves "a
  * battery is in the expected bay at this charge", not which device it is.
+ * Docked is STANDBY however full: the transmitter isn't on yet.
  */
 function fromCharger(s: StorageInput, now: number, th: ReadinessThresholds, text: ChargerText): Readiness {
   if (!online(s.connection, now, th)) {
-    return { label: 'CHECK_WITH_AUDIO', reason: text.offline, source: 'charger' };
+    return { label: 'STANDBY', status: 'Off', reason: text.offline, source: 'charger' };
   }
   // Charger values are reported on change only, so a live connection keeps them current.
   const bay = s.bay;
   if (!bay || bay.batteryPresent.state !== 'ok') {
-    return { label: 'CHECK_WITH_AUDIO', reason: text.silent, source: 'charger' };
+    return { label: 'STANDBY', status: 'Off', reason: text.silent, source: 'charger' };
   }
   if (bay.error.state === 'ok' && bay.error.value !== null) {
-    return { label: 'NOT_READY', reason: `Charger: ${bay.error.value}`, source: 'charger' };
+    return { label: 'NOT_READY', status: 'Charger fault', reason: `Charger: ${bay.error.value}`, source: 'charger' };
   }
   if (!bay.batteryPresent.value) {
-    return { label: 'CHECK_WITH_AUDIO', reason: text.empty, source: 'charger' };
+    return { label: 'STANDBY', status: 'Off', reason: text.empty, source: 'charger' };
   }
   const pct = bay.chargePercent.state === 'ok' ? bay.chargePercent.value : undefined;
   if (pct === undefined) {
-    return { label: 'CHECK_WITH_AUDIO', reason: 'On charger; charge level unknown', source: 'charger' };
+    return { label: 'STANDBY', status: 'On charger', reason: 'On charger; charge level unknown', source: 'charger' };
   }
   if (s.storageMode) {
-    return { label: 'CHECK_WITH_AUDIO', reason: 'Charger is in storage mode', source: 'charger', chargePercent: pct };
+    return { label: 'STANDBY', status: 'Storage mode', reason: 'Charger is in storage mode', source: 'charger', chargePercent: pct };
   }
   if (pct >= th.chargerReadyPercent) {
-    return { label: 'READY', reason: `On charger, ${pct}%`, source: 'charger', chargePercent: pct };
+    return { label: 'STANDBY', status: 'On charger', reason: `On charger, ${pct}%`, source: 'charger', chargePercent: pct };
   }
   const mins = bay.minutesToFull.state === 'ok' ? `, full in ${bay.minutesToFull.value} min` : '';
-  return { label: 'CHECK_WITH_AUDIO', reason: `Charging, ${pct}%${mins}`, source: 'charger', chargePercent: pct };
+  return { label: 'STANDBY', status: 'Charging', reason: `Charging, ${pct}%${mins}`, source: 'charger', chargePercent: pct };
 }
 
 /**

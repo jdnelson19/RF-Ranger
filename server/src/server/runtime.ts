@@ -94,7 +94,8 @@ export class Runtime extends EventEmitter<Events> {
       .sort((a, b) => a.slot - b.slot)
       .map((s): SlotView => {
         const rx = this.receivers.get(s.receiver)!;
-        const telemetry = rx.channels.get(s.channel)?.telemetry ?? emptyTelemetry();
+        const state = rx.channels.get(s.channel);
+        const telemetry = state?.telemetry ?? emptyTelemetry();
         const { label, assignment: a } = s.autoName ? fromChannelName(s, telemetry) : { label: s.label ?? String(s.slot), assignment: s.assignment };
         const charger = a?.charger ? this.chargers.get(a.charger.id) : undefined;
         const bay = charger && a?.charger ? charger.bays.get(a.charger.bay) : undefined;
@@ -125,7 +126,8 @@ export class Runtime extends EventEmitter<Events> {
           role,
           txOn: role === 'mic' && txPresent(telemetry),
           telemetry,
-          assignment: a && { ...a, photoUrl: photoUrl(a.photo) },
+          levels: role === 'mic' ? state?.levels.bins(now) : undefined,
+          assignment: a &&{ ...a, photoUrl: photoUrl(a.photo) },
           bay,
           readiness: ready,
           alerts: channelAlerts(

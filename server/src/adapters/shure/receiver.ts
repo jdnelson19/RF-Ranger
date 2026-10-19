@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
 import type { ChannelTelemetry, ConnectionStatus, ReceiverInfo } from '../../core/model.js';
+import { LevelRecorder } from '../../core/history.js';
 import { ShureConnection } from './connection.js';
 import { SHURE_FAMILIES, initialTelemetry, type ShureFamily, type ShureFamilyId } from './families.js';
 import { getCommand, meterRateCommand, type ShureMessage } from './protocol.js';
@@ -11,7 +12,7 @@ export interface ShureReceiverOptions {
   port?: number;
   /** Defaults to the family's maximum (e.g. 4 for ULX-D). */
   channels?: number;
-  /** SAMPLE interval. Shure's minimum is 100 ms. */
+  /** SAMPLE interval. Shure's minimum, 100 ms, is the default: the level history needs it to show a pop. */
   meterRateMs?: number;
   /** Drop and reconnect when nothing is heard for this long. */
   silenceTimeoutMs?: number;
@@ -26,6 +27,8 @@ export interface ChannelState {
   telemetry: ChannelTelemetry;
   /** Latest raw value per command key, for diagnostics. */
   raw: Record<string, string>;
+  /** Recent audio and RF levels, from meter samples. */
+  levels: LevelRecorder;
 }
 
 interface Events {
@@ -54,11 +57,11 @@ export class ShureReceiver extends EventEmitter<Events> {
     super();
     this.family = SHURE_FAMILIES[opts.family];
     this.pollIntervalMs = opts.pollIntervalMs ?? 30_000;
-    const meterRateMs = Math.max(100, opts.meterRateMs ?? 250);
+    const meterRateMs = Math.max(100, opts.meterRateMs ?? 100);
     const channelCount = opts.channels ?? this.family.defaultChannels;
     this.info = { id: opts.id, manufacturer: 'shure', family: this.family.id, role: this.family.role, host: opts.host, channelCount };
     for (let ch = 1; ch <= channelCount; ch++) {
-      this.channels.set(ch, { telemetry: initialTelemetry(this.family), raw: {} });
+      this.channels.set(ch, { telemetry: initialTelemetry(this.family), raw: {}, levels: new LevelRecorder() });
     }
 
     const family = this.family;
@@ -118,6 +121,10 @@ export class ShureReceiver extends EventEmitter<Events> {
       const ch = this.channels.get(msg.channel);
       if (!ch) return;
       this.family.applySample(ch.telemetry, msg.args, now);
+      const t = ch.telemetry;
+      const audio = t.audioPeakDbfs.state === 'ok' ? t.audioPeakDbfs.value : t.audioRmsDbfs.state === 'ok' ? t.audioRmsDbfs.value : undefined;
+      const rf = t.rfDbm.state === 'ok' && t.rfDbm.value.length ? Math.max(...t.rfDbm.value) : undefined;
+      ch.levels.add(now, audio, rf);
       this.emit('channel', msg.channel, ch);
       return;
     }

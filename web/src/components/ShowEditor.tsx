@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { ShowPreset, SlotView } from '../types';
+import type { PresetChannel, ShowPreset, SlotView } from '../types';
 
 /** Calls /api/presets; errors carry the server's explanation. */
 export async function presetApi<T>(path: string, body: unknown): Promise<T> {
@@ -10,9 +10,10 @@ export async function presetApi<T>(path: string, body: unknown): Promise<T> {
 }
 
 /**
- * Create or edit a show preset: a name plus an ordered list of channels.
- * Order by dragging rows or with the arrow buttons (which also work on touch
- * screens and from the keyboard).
+ * Create or edit a show preset: a name plus an ordered list of channels, each
+ * with an optional nickname for this show and a waveform switch. Order by
+ * dragging rows by their grip or with the arrow buttons (which also work on
+ * touch screens and from the keyboard).
  */
 export function ShowEditor({ slots, groups, preset, onClose, onSaved }: {
   slots: SlotView[];
@@ -24,8 +25,12 @@ export function ShowEditor({ slots, groups, preset, onClose, onSaved }: {
 }) {
   const [name, setName] = useState(preset?.name ?? '');
   const [keys, setKeys] = useState<string[]>(preset?.slots ?? []);
+  const [channels, setChannels] = useState<Record<string, PresetChannel>>(preset?.channels ?? {});
   const [filter, setFilter] = useState('');
   const [dragFrom, setDragFrom] = useState<number | undefined>();
+  // Rows only become draggable from the grip, so the nickname field still takes text selection.
+  const [armed, setArmed] = useState<number | undefined>();
+  const setChannel = (k: string, patch: PresetChannel) => setChannels((c) => ({ ...c, [k]: { ...c[k], ...patch } }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
@@ -58,7 +63,7 @@ export function ShowEditor({ slots, groups, preset, onClose, onSaved }: {
     setBusy(true);
     setError(undefined);
     try {
-      const body = { name, slots: keys };
+      const body = { name, slots: keys, channels };
       const saved = preset && !asNew
         ? await presetApi<ShowPreset>(`/${encodeURIComponent(preset.id)}`, body)
         : await presetApi<ShowPreset>('', body);
@@ -104,22 +109,38 @@ export function ShowEditor({ slots, groups, preset, onClose, onSaved }: {
               <ol className="show-editor__list">
                 {keys.map((k, i) => {
                   const s = byKey.get(k);
+                  const c = channels[k] ?? {};
+                  const label = s?.label ?? k;
                   return (
                     <li
                       key={k}
                       className={`show-editor__row${dragFrom === i ? ' show-editor__row--drag' : ''}`}
-                      draggable
+                      draggable={armed === i}
                       onDragStart={() => setDragFrom(i)}
-                      onDragEnd={() => setDragFrom(undefined)}
+                      onDragEnd={() => { setDragFrom(undefined); setArmed(undefined); }}
                       onDragOver={(e) => e.preventDefault()}
-                      onDrop={() => { if (dragFrom !== undefined) move(dragFrom, i); setDragFrom(undefined); }}
+                      onDrop={() => { if (dragFrom !== undefined) move(dragFrom, i); setDragFrom(undefined); setArmed(undefined); }}
                     >
-                      <span className="show-editor__grip" aria-hidden="true">⋮⋮</span>
+                      <span className="show-editor__grip" aria-hidden="true" onPointerDown={() => setArmed(i)} onPointerUp={() => setArmed(undefined)}>⋮⋮</span>
                       <SlotLabel s={s} k={k} />
                       <span className="show-editor__btns">
                         <button type="button" className="icon-btn" onClick={() => move(i, i - 1)} disabled={i === 0} aria-label="Move up">↑</button>
                         <button type="button" className="icon-btn" onClick={() => move(i, i + 1)} disabled={i === keys.length - 1} aria-label="Move down">↓</button>
                         <button type="button" className="icon-btn" onClick={() => setKeys(keys.filter((x) => x !== k))} aria-label="Remove">✕</button>
+                      </span>
+                      <span className="show-editor__extras">
+                        <input
+                          className="input input--sm show-editor__nick"
+                          value={c.nickname ?? ''}
+                          onChange={(e) => setChannel(k, { nickname: e.target.value })}
+                          placeholder="Nickname, e.g. Josh"
+                          maxLength={40}
+                          aria-label={`Nickname for ${label}`}
+                        />
+                        <label className="show-editor__wave" title="Show the last 5 seconds of audio and RF on this tile">
+                          <input type="checkbox" checked={!!c.waveform} onChange={(e) => setChannel(k, { waveform: e.target.checked })} />
+                          Waveform
+                        </label>
                       </span>
                     </li>
                   );

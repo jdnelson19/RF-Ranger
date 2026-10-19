@@ -78,13 +78,13 @@ function ArtistCard({ s, online }: { s: SlotView; online: boolean }) {
   const [photoFailed, setPhotoFailed] = useState(false);
 
   let note: string | undefined;
-  if (online && r.source === 'charger' && r.chargePercent !== undefined) note = `On charger · ${r.chargePercent}%`;
+  if (online && r.source === 'charger' && r.chargePercent !== undefined) note = `Charge ${r.chargePercent}%`;
   else if (online && r.source === 'receiver' && s.telemetry.batteryPercent.state === 'ok') note = `Battery ${s.telemetry.batteryPercent.value}%`;
 
   return (
     <article className={`card card--${tone}`}>
       <div className="card__status">
-        {online ? <StatusPill label={r.label} size="lg" /> : <span className="pill pill--idle pill--lg">Unknown</span>}
+        {online ? <StatusPill readiness={r} size="lg" /> : <span className="pill pill--idle pill--lg">Unknown</span>}
       </div>
       <div className="card__who">
         <div className="card__avatar">

@@ -1,7 +1,7 @@
-import { READINESS_TONE, SEVERITY_TONE, mhz, runtime, show, slotTone, value } from '../format';
+import { SEVERITY_TONE, mhz, runtime, show, shownReadiness, slotTone, value } from '../format';
 import type { DisplayOptions } from '../display';
-import type { SlotView } from '../types';
-import { Battery, Meter, StatusPill, ToneIcon } from './ui';
+import type { PresetChannel, SlotView } from '../types';
+import { Battery, Meter, StatusPill, ToneIcon, Waveform } from './ui';
 
 const RF_MIN = -100;
 const RF_MAX = -30;
@@ -11,12 +11,20 @@ const AUDIO_MIN = -60;
 /**
  * Dense per-channel tile for the engineer grid. `fields` hides details per
  * the screen's display options; status (the readiness pill, the tile's colour,
- * TALK and MUTED tags) always shows.
+ * TALK and MUTED tags) always shows. `preset` carries the active show preset's
+ * nickname and waveform switch for this channel.
  */
-export function ChannelTile({ s, frozen, onOpen, fields }: { s: SlotView; frozen: boolean; onOpen: () => void; fields?: DisplayOptions }) {
+export function ChannelTile({ s, frozen, onOpen, fields, preset }: {
+  s: SlotView;
+  frozen: boolean;
+  onOpen: () => void;
+  fields?: DisplayOptions;
+  preset?: PresetChannel;
+}) {
   const show_ = (f: keyof DisplayOptions) => fields?.[f] ?? true;
   const t = s.telemetry;
-  const tone = frozen ? 'idle' : slotTone(s);
+  const readiness = shownReadiness(s, preset?.nickname);
+  const tone = frozen ? 'idle' : slotTone(s, readiness);
   const rf = value(t.rfDbm);
   const antennas = ['A', 'B', 'C', 'D'];
   const pct = value(t.batteryPercent);
@@ -25,7 +33,8 @@ export function ChannelTile({ s, frozen, onOpen, fields }: { s: SlotView; frozen
   const offline = s.alerts.some((a) => a.code === 'rx-offline');
   // Servers before 0.1.1 don't send txOn; fall back to the older rule rather than blanking the meters.
   const txOn = s.txOn ?? (t.batteryBars.state === 'ok' || t.txModel.state === 'ok' || t.linkQuality.state === 'ok');
-  const name = s.assignment?.artist ?? (t.name.state === 'ok' ? t.name.value : 'Unassigned');
+  const channelName = s.assignment?.artist ?? (t.name.state === 'ok' ? t.name.value : 'Unassigned');
+  const name = preset?.nickname ?? channelName;
   const iem = s.role === 'iem';
   const rfMuted = value(t.rfMuted);
   const mw = value(t.rfOutputMw);
@@ -35,10 +44,10 @@ export function ChannelTile({ s, frozen, onOpen, fields }: { s: SlotView; frozen
       <div className="tile__head">
         <span className="tile__label">{s.label}</span>
         <span className="tile__where">{s.receiverId} · ch{s.channel}</span>
-        <StatusPill label={s.readiness.label} />
+        <StatusPill readiness={readiness} />
       </div>
 
-      <div className="tile__name" title={name}>{name}</div>
+      <div className="tile__name" title={preset?.nickname ? `${name} (channel name: ${channelName})` : name}>{name}</div>
       {show_('transmitter') && <div className="tile__sub">
         {iem
           ? [s.assignment?.role, 'In-ear', value(t.audioMode)].filter(Boolean).join(' · ')
@@ -75,6 +84,8 @@ export function ChannelTile({ s, frozen, onOpen, fields }: { s: SlotView; frozen
             {show_('audio') && <Meter label="AUD" value={txOn ? value(t.audioRmsDbfs) : undefined} min={AUDIO_MIN} max={0}
               readout={txOn && t.audioRmsDbfs.state === 'ok' ? `${t.audioRmsDbfs.value}` : '—'} />}
           </div>}
+
+          {preset?.waveform && <Waveform levels={s.levels} live={!frozen} />}
         </>
       )}
 
@@ -101,7 +112,6 @@ export function ChannelTile({ s, frozen, onOpen, fields }: { s: SlotView; frozen
 }
 
 function batteryTone(s: SlotView) {
-  if (s.alerts.some((a) => a.code === 'battery-critical')) return 'bad' as const;
-  if (s.alerts.some((a) => a.code === 'battery-low')) return 'warn' as const;
-  return READINESS_TONE.READY;
+  if (s.alerts.some((a) => a.code === 'battery-critical' || a.code === 'battery-low')) return 'bad' as const;
+  return 'ok' as const;
 }
