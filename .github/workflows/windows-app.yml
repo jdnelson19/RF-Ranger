@@ -1,0 +1,67 @@
+name: Windows app
+
+# Tags like v0.2.0 build the installer and portable .zip and attach them to the
+# GitHub release (created here or by the macOS job, whichever finishes first).
+# Pushes that touch packaging, and manual runs, build downloadable artifacts.
+on:
+  push:
+    tags: ['v*']
+    branches: ['**']
+    paths:
+      - 'packaging/windows/**'
+      - '.github/workflows/windows-app.yml'
+      - 'server/src/app/**'
+      - 'server/scripts/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+
+      # The Node shipped inside rf-ranger.exe.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=$(node -p "require('./server/package.json').version")" >> "$GITHUB_ENV"
+          fi
+
+      - name: Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup --no-progress -y }
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { throw "Inno Setup did not install" }
+
+      - name: Build
+        run: bash packaging/windows/build.sh "$VERSION"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RF-Ranger-${{ env.VERSION }}-Windows
+          path: |
+            dist-win/RF-Ranger-*-Windows-Setup.exe
+            dist-win/RF-Ranger-*-Windows-portable.zip
+          if-no-files-found: error
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          files=(dist-win/RF-Ranger-*-Windows-Setup.exe dist-win/RF-Ranger-*-Windows-portable.zip)
+          gh release create "$GITHUB_REF_NAME" "${files[@]}" --title "RF Ranger $VERSION" --generate-notes \
+            || gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber

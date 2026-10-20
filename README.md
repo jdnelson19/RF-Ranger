@@ -19,11 +19,14 @@ Shure is the first supported hardware ecosystem. Sennheiser is planned next.
 - [Hardware validation](docs/hardware-validation.md): how to test against real receivers
 - [Device reports](docs/device-reports.md): help add support for hardware you have
 - [macOS app](docs/macos-app.md): using the app, and how it's built, signed and notarized
+- [Windows app](docs/windows-app.md): installing and using RF Ranger on Windows, and how it's built
 - [Planning Center](docs/planning-center.md): link your church's account (Engineer → Planning Center); scheduled people and live timers
 
 ## Try it
 
 **On a Mac:** download `RF-Ranger-<version>.dmg` from [Releases](https://github.com/jdnelson19/RF-Ranger/releases), drag RF Ranger to Applications, and open it. It starts in live mode and opens in your browser.
+
+**On Windows:** download `RF-Ranger-<version>-Windows-Setup.exe` from [Releases](https://github.com/jdnelson19/RF-Ranger/releases) and run it. You don't need to be an administrator. Then open RF Ranger from the Start menu. There's also a portable `.zip` that needs no installing. See [docs/windows-app.md](docs/windows-app.md) for the first-run SmartScreen and firewall prompts.
 
 **From source:** requires Node.js 20 or newer, on macOS or Windows.
 

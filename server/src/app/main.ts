@@ -1,5 +1,5 @@
 /**
- * Desktop app entry point (the packaged macOS app, see packaging/macos).
+ * Desktop app entry point (the packaged macOS and Windows apps, see packaging/).
  *
  * Double-clicking the app runs the *launcher*: if RF Ranger is already
  * running it just opens the browser; otherwise it starts the server as a
@@ -10,6 +10,7 @@
  *
  *   rf-ranger            launcher
  *   rf-ranger --serve    the server itself (started by the launcher)
+ *   rf-ranger --quit     stop a running server (the Windows installer uses it before upgrading or uninstalling)
  *
  * Files:
  *   macOS    ~/Library/Application Support/RF Ranger/   rf-ranger.config.json (optional), photos, server.json
@@ -34,6 +35,7 @@ const PORT_TRIES = 10;
 const START_TIMEOUT_MS = 20_000;
 
 const isMac = process.platform === 'darwin';
+const isWindows = process.platform === 'win32';
 const supportDir = isMac
   ? join(homedir(), 'Library', 'Application Support', APP_NAME)
   : process.platform === 'win32'
@@ -83,7 +85,8 @@ async function launch(): Promise<void> {
   // Inside a single-executable app the binary *is* the program; under plain
   // Node (development) the script path has to be passed again.
   const args = isSingleExecutable() ? ['--serve'] : [process.argv[1]!, '--serve'];
-  const child = spawn(process.execPath, args, { detached: true, stdio: 'ignore', env: process.env });
+  // windowsHide: no console window for the server on Windows.
+  const child = spawn(process.execPath, args, { detached: true, stdio: 'ignore', env: process.env, windowsHide: true });
   child.unref();
 
   const deadline = Date.now() + START_TIMEOUT_MS;
@@ -163,17 +166,33 @@ function openBrowser(port: number): void {
   if (process.env.RF_RANGER_NO_BROWSER) return;
   const url = `http://localhost:${port}`;
   if (isMac) execFile('/usr/bin/open', [url]);
-  else if (process.platform === 'win32') execFile('cmd', ['/c', 'start', '', url]);
+  // The default browser, without the console window `cmd /c start` would flash.
+  else if (isWindows) execFile('rundll32.exe', ['url.dll,FileProtocolHandler', url], { windowsHide: true });
   else execFile('xdg-open', [url]);
 }
 
 function alert(title: string, message: string): Promise<void> {
   console.error(`${title}\n${message}`);
-  if (!isMac || process.env.RF_RANGER_NO_BROWSER) return Promise.resolve();
+  if (process.env.RF_RANGER_NO_BROWSER) return Promise.resolve();
+  if (isWindows) {
+    // Text goes in through the environment, so nothing in it needs escaping.
+    const script = 'Add-Type -AssemblyName PresentationFramework; [void][System.Windows.MessageBox]::Show($env:RFR_MESSAGE, $env:RFR_TITLE, "OK", "Error")';
+    return new Promise((done) => {
+      execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script],
+        { windowsHide: true, env: { ...process.env, RFR_TITLE: title, RFR_MESSAGE: message } }, () => done());
+    });
+  }
+  if (!isMac) return Promise.resolve();
   const q = (s: string) => JSON.stringify(s); // AppleScript string literals use the same escaping
   return new Promise((done) => {
     execFile('/usr/bin/osascript', ['-e', `display alert ${q(title)} message ${q(message)} as critical`], () => done());
   });
+}
+
+/** `--quit`: stop a running server, if any. Exit code 0 once none is running. */
+async function quit(): Promise<void> {
+  const running = await findRunning();
+  if (running && !(await replaceRunning(running))) process.exitCode = 1;
 }
 
 // ---- server -----------------------------------------------------------------
@@ -268,7 +287,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-const main = process.argv.includes('--serve') ? serve : launch;
+const main = process.argv.includes('--serve') ? serve : process.argv.includes('--quit') ? quit : launch;
 main().catch((err: Error) => {
   console.error(err.stack ?? String(err));
   void alert(`${APP_NAME} couldn't start`, `${err.message}\n\nLog: ${logFile}`).then(() => process.exit(1));
