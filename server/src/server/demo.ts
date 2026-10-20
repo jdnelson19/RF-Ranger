@@ -1,6 +1,7 @@
 import net from 'node:net';
 import { ChargerSim } from '../sim/charger-sim.js';
 import { ShureSim } from '../sim/shure-sim.js';
+import type { LiveNow } from '../core/live.js';
 import { normalizeConfig, type Config } from './config.js';
 
 /**
@@ -121,4 +122,34 @@ async function unusedPort(): Promise<number> {
   const port = (s.address() as net.AddressInfo).port;
   await new Promise<void>((r) => s.close(() => r()));
   return port;
+}
+
+/**
+ * Demo mode's stand-in for Planning Center Services Live: a short running
+ * order that loops, each item with a leader from the demo team.
+ */
+export function demoLive(now = Date.now()): LiveNow {
+  const order = [
+    { title: 'Worship Set', lengthSec: 8 * 60, leader: 'Maya Torres/BGVs/Band' },
+    { title: 'Announcements', lengthSec: 3 * 60, leader: 'Chris Patel' },
+    { title: 'Message', lengthSec: 12 * 60, leader: 'Pastor Daniel Reyes' },
+  ];
+  const total = order.reduce((t, i) => t + i.lengthSec, 0) * 1000;
+  let at = now % total;
+  for (let i = 0; i < order.length; i++) {
+    const item = order[i]!;
+    if (at < item.lengthSec * 1000) {
+      const startedAt = now - at;
+      const next = order[(i + 1) % order.length]!;
+      return {
+        serviceName: 'Demo Service',
+        planTitle: 'Demo',
+        item: { title: item.title, lengthSec: item.lengthSec, startedAt: new Date(startedAt).toISOString(), endsAt: new Date(startedAt + item.lengthSec * 1000).toISOString() },
+        next: { title: next.title, lengthSec: next.lengthSec },
+        leader: item.leader,
+      };
+    }
+    at -= item.lengthSec * 1000;
+  }
+  throw new Error('unreachable');
 }

@@ -132,7 +132,7 @@ describe('live', () => {
     expect(parseLive(live('it1', 'i1'))).toEqual({
       planTitle: 'Week 1',
       state: 'running',
-      current: { title: 'Countdown', lengthSec: 300, startedAt: '2026-10-18T09:00:00Z', endsAt: '2026-10-18T09:05:00.000Z' },
+      current: { id: 'i1', title: 'Countdown', lengthSec: 300, startedAt: '2026-10-18T09:00:00Z', endsAt: '2026-10-18T09:05:00.000Z' },
       next: { title: 'Song 1', lengthSec: 240 },
     });
   });

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
+import { LiveStrip } from '../components/LiveNow';
 import { Brand, StatusPill } from '../components/ui';
 import { READINESS_TONE, initials, kindLabel, shownReadiness } from '../format';
 import { href, type Route } from '../route';
@@ -42,6 +43,8 @@ export function Pickup({ live, route }: { live: Live; route: Route }) {
         <h1 className="pickup__title">{preset?.name ?? route.group ?? 'Wireless Pickup'}</h1>
         <div className="pickup__clock">{clock}</div>
       </header>
+
+      <LiveStrip live={live} />
 
       {!live.online && (
         <div className="pickup__offline" role="alert">
@@ -100,9 +103,10 @@ function ArtistCard({ s, nickname, online }: { s: SlotView; nickname?: string; o
   else if (online && r.source === 'receiver' && s.telemetry.batteryPercent.state === 'ok') note = `Battery ${s.telemetry.batteryPercent.value}%`;
 
   return (
-    <article className={`card card--${tone}`}>
+    <article className={`card card--${tone}${online && s.leading ? ' card--leading' : ''}`}>
       <div className="card__status">
         {online ? <StatusPill readiness={r} size="lg" /> : <span className="pill pill--idle pill--lg">Unknown</span>}
+        {online && s.leading && <span className="card__leading">Leading now</span>}
       </div>
       <div className="card__who">
         <div className="card__avatar">

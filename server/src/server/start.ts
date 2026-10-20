@@ -5,11 +5,12 @@ import { PlanningCenterLink } from '../integrations/planning-center/link.js';
 import { loadConfig, normalizeConfig, type Config } from './config.js';
 import { loadSettings } from '../integrations/planning-center/credentials.js';
 import { AutoSync } from './auto-sync.js';
+import { LiveWatcher } from './live-watch.js';
 import { UpdateCheck } from './update-check.js';
 import { VERSION } from '../version.js';
 import { MicRosterStore, micRosterPath } from './mic-roster-store.js';
 import { PresetStore, presetsPath } from './presets.js';
-import { startDemo } from './demo.js';
+import { demoLive, startDemo } from './demo.js';
 import { startHttp } from './http.js';
 import { Inspector } from './inspector.js';
 import { LiveManager, type LiveTarget } from './live.js';
@@ -83,6 +84,10 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
   const micRoster = opts.micRoster ?? new MicRosterStore(opts.mode === 'demo' ? undefined : micRosterPath(), Date.now, legacyType);
   runtime.roster = () => micRoster.roster();
   micRoster.on('change', () => runtime.emit('dirty'));
+  const liveWatch = new LiveWatcher(planningCenter, micRoster, { log: (m) => log(`  ${m}`) });
+  // Demo mode plays a made-up running order instead of a real Services Live.
+  runtime.live = opts.mode === 'demo' ? () => demoLive() : () => liveWatch.live();
+  liveWatch.on('change', () => runtime.emit('dirty'));
   const autoSync = new AutoSync(planningCenter, micRoster, { log: (m) => log(`  ${m}`) });
   let server: http.Server;
   try {
@@ -104,6 +109,7 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
   runtime.app = opts.app !== undefined;
   runtime.start();
   autoSync.start();
+  if (opts.mode !== 'demo') liveWatch.start();
   const updates = new UpdateCheck(VERSION, { log: (m) => log(`  ${m}`) });
   runtime.update = () => updates.notice();
   if (!process.env.RF_RANGER_NO_UPDATE_CHECK && opts.mode !== 'demo') updates.start();
@@ -136,6 +142,7 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
     stop: async () => {
       liveManager?.stop();
       autoSync.stop();
+      liveWatch.stop();
       updates.stop();
       await inspector.closeAll();
       server.close();

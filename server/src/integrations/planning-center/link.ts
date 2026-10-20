@@ -18,7 +18,20 @@ import {
   settingsPath,
   type PcoSettings,
 } from './credentials.js';
-import { organization, planEndsAt, scheduledPeople, serviceTypes, teamPeople, teams, upcomingPlan, type Plan, type ScheduledPerson } from './services.js';
+import {
+  itemLeaders,
+  liveState,
+  organization,
+  planEndsAt,
+  scheduledPeople,
+  serviceTypes,
+  teamPeople,
+  teams,
+  upcomingPlan,
+  type LiveState,
+  type Plan,
+  type ScheduledPerson,
+} from './services.js';
 import type { Organization, PcoStatus, ServiceType, Team, TeamPerson, UpcomingSummary } from './types.js';
 
 export type { PcoStatus, UpcomingSummary } from './types.js';
@@ -204,6 +217,18 @@ export class PlanningCenterLink {
     if (!plan) return { plan, people: [] };
     const people = await this.reported('looking up who is scheduled', () => scheduledPeople(client, id, plan.id));
     return { plan, people };
+  }
+
+  /** Services Live for a plan: the current item and the next one. */
+  async live(serviceTypeId: string, planId: string): Promise<LiveState> {
+    const id = this.requireServiceType(serviceTypeId);
+    return this.reported('reading Services Live', () => liveState(this.requireClient(), id, planId));
+  }
+
+  /** Each item's Leader note on a plan, by item id. */
+  async leaders(serviceTypeId: string, planId: string): Promise<Record<string, string>> {
+    const id = this.requireServiceType(serviceTypeId);
+    return this.reported('reading item leaders', () => itemLeaders(this.requireClient(), id, planId));
   }
 
   /** The service type in use: the one given, else the one chosen in settings. */

@@ -3,6 +3,7 @@ import { ShureCharger } from '../adapters/shure/charger.js';
 import { ShureReceiver } from '../adapters/shure/receiver.js';
 import { channelAlerts } from '../core/alerts.js';
 import { splitChannelName, type AssignmentConfig, type SlotConfig } from '../core/assignment.js';
+import { namesPerson, type LiveNow } from '../core/live.js';
 import { EMPTY_ROSTER, type Roster } from '../core/mic-roster.js';
 import { emptyTelemetry, type ChannelTelemetry } from '../core/model.js';
 import { readiness, txPresent } from '../core/readiness.js';
@@ -25,6 +26,8 @@ export class Runtime extends EventEmitter<Events> {
   presets: () => ShowPreset[] = () => [];
   /** Set at startup: this service's mic assignments from Planning Center (see core/mic-roster.ts). */
   roster: () => Roster = () => EMPTY_ROSTER;
+  /** Set at startup: what is live in Planning Center Services Live. */
+  live: () => LiveNow | undefined = () => undefined;
   /** Set at startup: a newer version, once one is found. */
   update: () => Snapshot['update'] = () => undefined;
   /** Running as the desktop app (offers Quit in the UI). */
@@ -155,6 +158,13 @@ export class Runtime extends EventEmitter<Events> {
         };
       });
 
+    // Light up whoever the live item's Leader note names.
+    const live = this.live();
+    if (live?.leader) {
+      const names = slots.map((x) => x.assignment?.artist).filter((x): x is string => !!x);
+      for (const x of slots) if (x.assignment && namesPerson(live.leader, x.assignment.artist, names)) x.leading = true;
+    }
+
     const listed = this.config.groups;
     const extra = [...new Set(slots.map((s) => s.group).filter((g): g is string => !!g && !listed.includes(g)))].sort();
 
@@ -175,6 +185,7 @@ export class Runtime extends EventEmitter<Events> {
       discovered: this.discovered(),
       presets: this.presets(),
       update: this.update(),
+      live,
     };
   }
 }

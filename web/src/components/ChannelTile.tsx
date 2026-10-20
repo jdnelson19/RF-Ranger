@@ -40,13 +40,14 @@ export function ChannelTile({ s, frozen, onOpen, fields, preset }: {
   const mw = value(t.rfOutputMw);
 
   return (
-    <button type="button" className={`tile tile--${tone}${offline ? ' tile--offline' : ''}`} onClick={onOpen}>
+    <button type="button" className={`tile tile--${tone}${offline ? ' tile--offline' : ''}${s.leading && !frozen ? ' tile--leading' : ''}`} onClick={onOpen}>
       <div className="tile__head">
         <span className="tile__label">{s.label}</span>
         <span className="tile__where">{s.receiverId} · ch{s.channel}</span>
         <StatusPill readiness={readiness} />
       </div>
 
+      {s.leading && !frozen && <span className="tile__leading" title="Named as the leader of the live Planning Center item">Leading now</span>}
       <div className="tile__name" title={preset?.nickname ? `${name} (channel name: ${channelName})` : name}>{name}</div>
       {show_('transmitter') && <div className="tile__sub">
         {iem

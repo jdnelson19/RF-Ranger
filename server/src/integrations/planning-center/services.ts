@@ -59,8 +59,8 @@ export interface LiveItem {
 export interface LiveState {
   planTitle?: string;
   state: 'not-started' | 'running' | 'ended';
-  /** Present while running. */
-  current?: LiveItem & { startedAt: string; endsAt: string };
+  /** Present while running. `id` is the plan item's, for looking up its notes (e.g. its leader). */
+  current?: LiveItem & { id: string; startedAt: string; endsAt: string };
   /** The next non-header item. */
   next?: LiveItem;
 }
@@ -110,6 +110,15 @@ export async function teams(client: PcoClient, serviceTypeId: string): Promise<T
 export async function teamPeople(client: PcoClient, teamId: string): Promise<TeamPerson[]> {
   const doc = await client.getAll(`${SERVICES}/teams/${teamId}/people`, {});
   return parseTeamPeople(doc);
+}
+
+/**
+ * Each item's leader on a plan: the text of its item note in a "Leader"
+ * category (e.g. "Sam/BGVs/Band" or "Pastor Alex Morgan"), by item id.
+ */
+export async function itemLeaders(client: PcoClient, serviceTypeId: string, planId: string): Promise<Record<string, string>> {
+  const doc = await client.getAll(`${SERVICES}/service_types/${serviceTypeId}/plans/${planId}/items`, { include: 'item_notes' });
+  return parseItemLeaders(doc);
 }
 
 export async function liveState(client: PcoClient, serviceTypeId: string, planId: string): Promise<LiveState> {
@@ -219,6 +228,20 @@ export function parseTeamPeople(doc: PcoDocument<PcoResource[]>): TeamPerson[] {
     .sort((x, y) => x.name.localeCompare(y.name));
 }
 
+export function parseItemLeaders(doc: PcoDocument<PcoResource[]>): Record<string, string> {
+  const notes = new Map((doc.included ?? []).filter((r) => r.type === 'ItemNote').map((r) => [r.id, r.attributes as { category_name?: string; content?: string }]));
+  const out: Record<string, string> = {};
+  for (const item of doc.data) {
+    const refs = item.relationships?.item_notes?.data;
+    for (const ref of Array.isArray(refs) ? refs : []) {
+      const note = notes.get(ref.id);
+      const text = note?.content?.trim();
+      if (text && /leader/i.test(note?.category_name ?? '')) out[item.id] = text;
+    }
+  }
+  return out;
+}
+
 type ItemAttrs = { title: string; length: number | null; item_type: string };
 type ItemTimeAttrs = { live_start_at: string | null };
 
@@ -245,6 +268,7 @@ export function parseLive(doc: PcoDocument<PcoResource>): LiveState {
     planTitle,
     state: 'running',
     current: {
+      id: item.id,
       title: item.attributes.title,
       lengthSec,
       startedAt,

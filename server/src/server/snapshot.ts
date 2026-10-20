@@ -1,5 +1,6 @@
 /** Wire format shared with the web UI. */
 import type { Alert } from '../core/alerts.js';
+import type { LiveNow } from '../core/live.js';
 import type { LevelHistory } from '../core/history.js';
 import type { BayTelemetry, ChannelRole, ChannelTelemetry, ChargerInfo, ConnectionStatus, ReceiverInfo } from '../core/model.js';
 import type { Readiness } from '../core/readiness.js';
@@ -60,6 +61,8 @@ export interface SlotView {
   bay?: BayTelemetry;
   readiness: Readiness;
   alerts: Alert[];
+  /** The live Planning Center item's Leader note names this mic's person (see core/live.ts). */
+  leading?: boolean;
 }
 
 export interface DeviceView<I> {
@@ -100,4 +103,6 @@ export interface Snapshot {
   presets: ShowPreset[];
   /** A newer RF Ranger is out (see update-check.ts). */
   update?: UpdateNotice;
+  /** What is live in Planning Center Services Live right now (see live-watch.ts). */
+  live?: LiveNow;
 }

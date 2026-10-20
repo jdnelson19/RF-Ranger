@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ChannelDetail } from '../components/ChannelDetail';
 import { ChannelTile } from '../components/ChannelTile';
+import { LiveBanner } from '../components/LiveNow';
 import { ShowEditor } from '../components/ShowEditor';
 import { Brand, Chip, ServerLink, UpdateLink } from '../components/ui';
 import { TILE_FIELDS, useDisplayOptions } from '../display';
@@ -91,6 +92,8 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
           <ServerLink online={live.online} version={live.snapshot?.version} />
         </div>
       </header>
+
+      <LiveBanner live={live} />
 
       {frozen && s && (
         <div className="frozen-banner" role="alert">No link to the RF Ranger server. Values below are frozen and may be out of date.</div>
