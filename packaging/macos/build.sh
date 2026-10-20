@@ -125,8 +125,15 @@ staple() {
 
 notarize() { # notarize <file>; staples nothing, returns non-zero unless Accepted
   local result id status
-  result="$(xcrun notarytool submit "$1" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
-    --password "$APPLE_APP_PASSWORD" --wait --output-format json)"
+  # Apple usually answers within minutes but now and then holds a submission
+  # for an hour or more. Stop waiting after 25 min with a clear message (the
+  # fix is to re-run the job) instead of running into the job's time limit.
+  if ! result="$(xcrun notarytool submit "$1" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+    --password "$APPLE_APP_PASSWORD" --wait --timeout 25m --output-format json)"; then
+    echo "$result"
+    echo "::error::Apple notarization did not finish within 25 minutes (Apple's queue is slow). Re-run this job; nothing needs to change."
+    return 1
+  fi
   echo "$result"
   id="$(echo "$result" | plutil -extract id raw -o - -)"
   status="$(echo "$result" | plutil -extract status raw -o - -)"

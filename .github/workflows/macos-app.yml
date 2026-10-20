@@ -20,7 +20,8 @@ permissions:
 jobs:
   build:
     runs-on: macos-15
-    timeout-minutes: 45
+    # Notarization waits up to 25 min per file (build.sh); this leaves room for both.
+    timeout-minutes: 60
     env:
       HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
       BUNDLE_ID: ${{ vars.MACOS_BUNDLE_ID || 'io.github.jdnelson19.rfranger' }}
