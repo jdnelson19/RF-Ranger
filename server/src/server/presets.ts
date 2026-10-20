@@ -41,15 +41,35 @@ interface Events {
 
 export class PresetStore extends EventEmitter<Events> {
   private presets: ShowPreset[] = [];
+  private pickup: string | undefined;
 
   /** Without a path, presets live in memory only (tests, demo). */
   constructor(private readonly path?: string, private readonly now: () => number = Date.now) {
     super();
-    if (path) this.presets = load(path);
+    if (path) ({ presets: this.presets, pickup: this.pickup } = load(path));
   }
 
   list(): ShowPreset[] {
     return this.presets;
+  }
+
+  /**
+   * The preset the pickup display shows (`#/pickup` without its own preset),
+   * set from the engineer view; undefined shows every channel.
+   */
+  pickupPreset(): string | undefined {
+    return this.pickup;
+  }
+
+  setPickupPreset(id: unknown): string | undefined {
+    if (id === null || id === undefined || id === '') {
+      this.pickup = undefined;
+    } else {
+      if (typeof id !== 'string' || !this.presets.some((p) => p.id === id)) throw new PresetError('That preset no longer exists.');
+      this.pickup = id;
+    }
+    this.persist();
+    return this.pickup;
   }
 
   create(input: { name: unknown; slots: unknown; channels?: unknown; pickupColumns?: unknown }): ShowPreset {
@@ -85,6 +105,8 @@ export class PresetStore extends EventEmitter<Events> {
   delete(id: string): void {
     if (!this.presets.some((p) => p.id === id)) throw new PresetError('That preset no longer exists.');
     this.presets = this.presets.filter((p) => p.id !== id);
+    // The pickup display falls back to every channel rather than a preset that's gone.
+    if (this.pickup === id) this.pickup = undefined;
     this.persist();
   }
 
@@ -98,18 +120,29 @@ export class PresetStore extends EventEmitter<Events> {
       mkdirSync(dirname(this.path), { recursive: true });
       // Write then rename, so a crash mid-write can't leave a half-written file.
       const tmp = `${this.path}.tmp`;
-      writeFileSync(tmp, JSON.stringify({ version: 1, presets: this.presets }, null, 2) + '\n');
+      writeFileSync(tmp, JSON.stringify({ version: 1, presets: this.presets, pickupPreset: this.pickup }, null, 2) + '\n');
       renameSync(tmp, this.path);
     }
     this.emit('change');
   }
 }
 
-function load(path: string): ShowPreset[] {
+function load(path: string): { presets: ShowPreset[]; pickup: string | undefined } {
+  let raw: { presets?: unknown; pickupPreset?: unknown };
   try {
-    const raw = JSON.parse(readFileSync(path, 'utf8')) as { presets?: unknown };
-    if (!Array.isArray(raw.presets)) return [];
-    return raw.presets.flatMap((p): ShowPreset[] => {
+    raw = JSON.parse(readFileSync(path, 'utf8')) as typeof raw;
+  } catch {
+    return { presets: [], pickup: undefined };
+  }
+  const presets = loadPresets(raw.presets);
+  const pickup = typeof raw.pickupPreset === 'string' && presets.some((p) => p.id === raw.pickupPreset) ? raw.pickupPreset : undefined;
+  return { presets, pickup };
+}
+
+function loadPresets(list: unknown): ShowPreset[] {
+  try {
+    if (!Array.isArray(list)) return [];
+    return list.flatMap((p): ShowPreset[] => {
       try {
         const o = p as Record<string, unknown>;
         const slots = cleanSlots(o.slots);

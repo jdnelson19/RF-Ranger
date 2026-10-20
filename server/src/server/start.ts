@@ -79,6 +79,7 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
   const planningCenter = opts.planningCenter ?? new PlanningCenterLink({ log: (m) => log(`  ${m}`) });
   const presets = opts.presets ?? new PresetStore(opts.mode === 'demo' ? undefined : presetsPath());
   runtime.presets = () => presets.list();
+  runtime.pickupPreset = () => presets.pickupPreset();
   presets.on('change', () => runtime.emit('dirty'));
   // Mic rules saved before services existed belong to the service type chosen in the Planning Center settings.
   const pcoSettings = loadSettings();

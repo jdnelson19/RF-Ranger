@@ -73,6 +73,19 @@ describe('PresetStore', () => {
     expect(new PresetStore(path).list()[0]).toMatchObject({ name: 'Old', channels: {} });
   });
 
+  it('assigns a preset to the pickup display, keeps it across a restart, and drops it with the preset', () => {
+    const path = tmpFile();
+    const store = new PresetStore(path);
+    const room = store.create({ name: 'Room A', slots: ['a/1'] });
+    expect(store.pickupPreset()).toBeUndefined();
+    expect(store.setPickupPreset(room.id)).toBe(room.id);
+    expect(new PresetStore(path).pickupPreset()).toBe(room.id);
+    expect(() => store.setPickupPreset('nope')).toThrow(/no longer exists/);
+    store.delete(room.id);
+    expect(store.pickupPreset()).toBeUndefined(); // back to every channel
+    expect(store.setPickupPreset(null)).toBeUndefined();
+  });
+
   it('writes a readable file', () => {
     const path = tmpFile();
     new PresetStore(path).create({ name: 'Message', slots: ['AD4Q-A/3'] });

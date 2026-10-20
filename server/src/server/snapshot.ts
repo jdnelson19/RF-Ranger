@@ -102,6 +102,8 @@ export interface Snapshot {
   discovered: DiscoveredView[];
   /** Show presets shared by every engineer screen. */
   presets: ShowPreset[];
+  /** The preset the pickup display (#/pickup) shows, set from the engineer view; absent: every channel. */
+  pickupPreset?: string;
   /** A newer RF Ranger is out (see update-check.ts). */
   update?: UpdateNotice;
   /** What is live in Planning Center Services Live right now (see live-watch.ts). */

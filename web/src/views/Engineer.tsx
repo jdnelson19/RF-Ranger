@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ChannelDetail } from '../components/ChannelDetail';
 import { ChannelTile } from '../components/ChannelTile';
 import { LiveBanner } from '../components/LiveNow';
-import { ShowEditor } from '../components/ShowEditor';
+import { ShowEditor, presetApi } from '../components/ShowEditor';
 import { Brand, Chip, ServerLink, UpdateLink } from '../components/ui';
 import { TILE_FIELDS, useDisplayOptions } from '../display';
 import { TONE_RANK, shownReadiness, slotTone } from '../format';
@@ -87,7 +87,7 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
           <a className={`tab${route.view === 'planning-center' ? ' tab--active' : ''}`} href={href({ view: 'planning-center' })}>Planning Center</a>
         </nav>
         <div className="topbar__right">
-          <a className="btn btn--ghost" href={href({ view: 'pickup', group: route.group, show: activePreset?.id })}>Pickup view ↗</a>
+          <a className="btn btn--ghost" href={href({ view: 'pickup' })} title="Opens the pickup display, showing the preset assigned to it">Pickup view ↗</a>
           <UpdateLink update={s?.update} />
           <ServerLink online={live.online} version={live.snapshot?.version} />
         </div>
@@ -122,6 +122,18 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
               </label>
               {activePreset && <button type="button" className="btn btn--ghost btn--sm" onClick={() => setEditing({ preset: activePreset })}>Edit preset</button>}
               <button type="button" className="btn btn--ghost btn--sm" onClick={() => setEditing({})} disabled={!s}>New preset</button>
+              <label className="showbar__pick showbar__pickup" title="What the pickup display shows. TVs bookmarked to one preset stay on it.">
+                <span className="showbar__label">Pickup display</span>
+                <select
+                  className="input input--sm"
+                  value={s?.pickupPreset ?? ''}
+                  disabled={!s}
+                  onChange={(e) => void presetApi('/pickup', { id: e.target.value || null }).catch((err: Error) => window.alert(err.message))}
+                >
+                  <option value="">All channels</option>
+                  {presets.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </label>
               <div className="showbar__display">
                 <button type="button" className="btn btn--ghost btn--sm" aria-expanded={displayOpen} onClick={() => setDisplayOpen((o) => !o)}>
                   Display ▾

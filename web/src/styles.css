@@ -667,3 +667,14 @@ select.input { padding-right: 6px; }
 .ant { display: inline-flex; gap: 2px; }
 .ant__seg { display: grid; place-items: center; width: 15px; height: 15px; border-radius: 3px; font: 700 9px var(--mono); color: var(--dim); background: var(--bg-2); box-shadow: inset 0 0 0 1px var(--line-2); }
 .ant__seg--on { color: #001419; background: var(--accent); box-shadow: none; }
+
+.showbar__pickup { margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--line); }
+@media (max-width: 720px) { .showbar__pickup { margin-left: 0; padding-left: 0; border-left: 0; } }
+/* Strip cards: names come first. Status and tags stack on the right, and a long name wraps to two lines instead of being cut short. */
+.pickup--strips .card__status { flex-direction: column; align-items: flex-end; gap: 4px; }
+.pickup--strips .card__names { min-width: 0; }
+.pickup--strips .card__artist { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.05; }
+.pickup--strips .card__role { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Names scale with the strip's width too, and never break mid-word. */
+.pickup--strips .card { container-type: inline-size; }
+.pickup--strips .card__artist { font-size: min(var(--name), 5.4cqw); overflow-wrap: normal; word-break: normal; }

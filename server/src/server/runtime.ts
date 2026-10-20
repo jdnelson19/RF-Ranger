@@ -24,6 +24,8 @@ export class Runtime extends EventEmitter<Events> {
   discovered: () => DiscoveredView[] = () => [];
   /** Set at startup to share show presets with every screen. */
   presets: () => ShowPreset[] = () => [];
+  /** Set at startup: the preset assigned to the pickup display. */
+  pickupPreset: () => string | undefined = () => undefined;
   /** Set at startup: this service's mic assignments from Planning Center (see core/mic-roster.ts). */
   roster: () => Roster = () => EMPTY_ROSTER;
   /** Set by live mode: a channel's last known name, for receivers that are offline now. */
@@ -203,6 +205,7 @@ export class Runtime extends EventEmitter<Events> {
       })),
       discovered: this.discovered(),
       presets: this.presets(),
+      pickupPreset: this.pickupPreset(),
       update: this.update(),
       live,
     };

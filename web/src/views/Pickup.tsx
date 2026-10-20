@@ -10,15 +10,19 @@ import type { Live } from '../useSnapshot';
  * Artist-facing display for a TV at the RF table: identification and
  * readiness only, readable from several feet away, no interaction needed.
  *
- * With a show preset (#/pickup?show=<id>) it shows just that preset's
- * channels, in its order, with its nicknames: on a shared network the room's
- * own mics, not every receiver RF Ranger can see. Cards fill top to bottom,
- * then the next column, the way mics are laid out on a table.
+ * With a show preset it shows just that preset's channels, in its order,
+ * with its nicknames: on a shared network the room's own mics, not every
+ * receiver RF Ranger can see. #/pickup shows the preset assigned from the
+ * engineer view (or every channel); a TV bookmarked to #/pickup?show=<id>
+ * stays on that preset. Cards fill top to bottom, then the next column, the
+ * way mics are laid out on a table.
  */
 export function Pickup({ live, route }: { live: Live; route: Route }) {
   const s = live.snapshot;
   const clock = useClock();
-  const preset = route.show ? s?.presets.find((p) => p.id === route.show) : undefined;
+  // Its own preset if the address names one, else whatever the engineer view assigned.
+  const presetId = route.show ?? s?.pickupPreset;
+  const preset = presetId ? s?.presets.find((p) => p.id === presetId) : undefined;
   const nickname = (x: SlotView) => preset?.channels?.[x.key]?.nickname;
 
   const inView = presetSlots(s?.slots ?? [], preset).filter((x) => !route.group || x.group === route.group);

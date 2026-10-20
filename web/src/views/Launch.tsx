@@ -50,7 +50,10 @@ export function Launch({ live }: { live: Live }) {
           </span>
           <span className="choice__title">Artist Pickup</span>
           <span className="choice__desc">Full-screen display for the RF table. Artists find their mic by name and see if it's ready.</span>
-          <span className="choice__stat">{s ? `${ready} of ${assigned.length} ready` : 'Connecting…'}</span>
+          <span className="choice__stat">
+            {s ? `${ready} of ${assigned.length} ready` : 'Connecting…'}
+            {s?.pickupPreset && ` · showing ${s.presets.find((p) => p.id === s.pickupPreset)?.name ?? 'a preset'}`}
+          </span>
           <span className="choice__go">Open pickup display →</span>
         </a>
 
