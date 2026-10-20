@@ -157,7 +157,7 @@ The older SBC450/SBC850 (SB900 batteries) use a different string set, documented
 
 ## In-ear monitors: PSM 1000 (P10T) — provisional
 
-Sources: Shure *PSM1000 Command Strings* (https://pubs.shure.com/command-strings/PSM1000/en-US) and bitfocus `companion-module-shure-psm1000` (MIT, © 2020 Bitfocus AS). Two device reports from a real P10T (October 2026) confirmed the connection details below; the value encodings are still unconfirmed.
+Sources: Shure *PSM1000 Command Strings* (https://pubs.shure.com/command-strings/PSM1000/en-US) and bitfocus `companion-module-shure-psm1000` (MIT, © 2020 Bitfocus AS). Two device reports from a real P10T (October 2026) confirmed the connection details below. A third (RF Ranger 0.2.4) confirmed the `FREQUENCY`, `RF_TX_LVL`, `RF_MUTE` and `AUDIO_TX_MODE` encodings in the table: `< REPORT 1 FREQUENCY 554750 >`, `< REPORT 1 RF_TX_LVL 10 >`, `< REPORT 1 RF_MUTE 0 >`, `< REPORT 1 AUDIO_TX_MODE 3 >`.
 
 IEM is the reverse of a mic system. The networked rack unit is the **transmitter** (P10T, 2 channels). The **P10R/P10R+ bodypack only receives**, so pack battery, pack RF, and whether the pack is even switched on are invisible on the network. RF Ranger therefore reports on what the rack is sending, and judges the pack only through an assigned charger bay.
 
@@ -183,7 +183,7 @@ Differences from the receivers, handled by `ShureFamily.lineEnding`, `deviceIdKe
 - **Identification:** a device that streams `AUDIO_IN_LVL_L/R` is a P10T. RF Ranger then asks `DEVICE_NAME` and the channel keys with `\r\n`. A silent device also gets one round of `\r\n` questions, including `GET 1 AUDIO_TX_MODE`, which only a P10T answers.
 - **Device Inspector:** switches to `\r\n` by itself once it sees `REPORT` or `AUDIO_IN_LVL`, and notes it in the log.
 
-**Still to verify on hardware:** the exact `RF_TX_LVL` / `RF_MUTE` / `AUDIO_TX_MODE` encodings, whether `MODEL` is answered with `\r\n`, and the `AUDIO_IN_LVL_L/R` scale. A Device Inspector report after **Get all** (now sent with `\r\n`) will show them.
+**Still to verify on hardware:** the `CHAN_NAME` and `GROUP_CHAN` replies, whether `MODEL` is answered with `\r\n`, and the `AUDIO_IN_LVL_L/R` scale. `GET 0 ALL` is not answered.
 
 Not supported yet: **PSM 900 / PSM 300** (no network control), **Axient Digital PSM** (ADTD/ADTQ; identified and declined with a message).
 
