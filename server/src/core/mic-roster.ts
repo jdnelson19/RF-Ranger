@@ -3,7 +3,7 @@
  *
  * Rules are set up once: which teams carry wireless (e.g. Vocals), and for
  * each of their positions the mics it uses ("Worship Leader" → RF1–RF3,
- * "BGV 1" → RF5), with optional preferences inside a position ("Josh prefers
+ * "BGV 1" → RF5), with optional preferences inside a position ("Sam prefers
  * RF1"). "Sync from Planning Center" applies them to the upcoming plan and
  * produces a roster; the A1 can then change any mic by hand. The roster is
  * what the engineer and pickup screens show.

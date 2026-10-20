@@ -17,7 +17,7 @@ export interface ShowPreset {
 }
 
 export interface PresetChannel {
-  /** Who is on this transmitter for this show ("Josh" on RF-4), shown in place of the channel name. */
+  /** Who is on this transmitter for this show ("Sam" on RF-4), shown in place of the channel name. */
   nickname?: string;
   /** Show the audio and RF history strip on this channel's tile. */
   waveform?: boolean;

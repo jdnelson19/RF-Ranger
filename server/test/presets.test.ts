@@ -56,9 +56,9 @@ describe('PresetStore', () => {
     const p = store.create({
       name: 'Sunday',
       slots: ['AD4Q-A/1', 'AD4Q-A/4'],
-      channels: { 'AD4Q-A/4': { nickname: '  Josh  ', waveform: true }, 'AD4Q-A/1': { nickname: '' }, 'other/1': { nickname: 'Ghost' } },
+      channels: { 'AD4Q-A/4': { nickname: '  Sam  ', waveform: true }, 'AD4Q-A/1': { nickname: '' }, 'other/1': { nickname: 'Ghost' } },
     });
-    expect(p.channels).toEqual({ 'AD4Q-A/4': { nickname: 'Josh', waveform: true } });
+    expect(p.channels).toEqual({ 'AD4Q-A/4': { nickname: 'Sam', waveform: true } });
     expect(new PresetStore(path).list()[0]!.channels).toEqual(p.channels);
 
     // A rename leaves channel settings alone; removing the channel removes its settings.

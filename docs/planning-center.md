@@ -14,7 +14,7 @@ On **Engineer → Planning Center**, under the service to follow:
 **Mic rules** are set up once:
 1. **Teams:** pick the teams whose people use wireless, for example *Vocals*. Others, like *Band*, are ignored.
 2. **Mics per position:** under each of the team's positions (*Worship Leader*, *BGV 1*, *BGV 2*, …), click the mics it uses, in the order to fill them. For example, Worship Leader gets RF1, RF2 and RF3, and BGV 1 gets RF5. The list includes every position the team has, scheduled this week or not.
-3. **Preferred mics (optional):** inside a position, "Josh prefers RF1" puts Josh on RF1 whenever he's scheduled in that position. When he isn't, RF1 goes to the next person. A preference only applies to the position's own mics. The picker offers the team's members, plus anyone scheduled on the team at the last sync. Staff are often scheduled on a team without being listed as its members.
+3. **Preferred mics (optional):** inside a position, "Sam prefers RF1" puts Sam on RF1 whenever they're scheduled in that position. When they aren't, RF1 goes to the next person. A preference only applies to the position's own mics. The picker offers the team's members, plus anyone scheduled on the team at the last sync. Staff are often scheduled on a team without being listed as its members.
 
 **Sync from Planning Center** applies the rules to the upcoming plan:
 - **Order:** for each position, preferences go first. Everyone else gets the next free mic, in Planning Center's order.

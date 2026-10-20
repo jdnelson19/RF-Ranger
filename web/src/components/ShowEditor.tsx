@@ -133,7 +133,7 @@ export function ShowEditor({ slots, groups, preset, onClose, onSaved }: {
                           className="input input--sm show-editor__nick"
                           value={c.nickname ?? ''}
                           onChange={(e) => setChannel(k, { nickname: e.target.value })}
-                          placeholder="Nickname, e.g. Josh"
+                          placeholder="Nickname, e.g. Sam"
                           maxLength={40}
                           aria-label={`Nickname for ${label}`}
                         />
