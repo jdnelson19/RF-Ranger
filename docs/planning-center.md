@@ -30,8 +30,13 @@ On **Engineer → Planning Center**, under the service to follow:
 
 **Storage and access:** the rules and the current assignments are saved in `~/.rf-ranger/mic-assignments.json`, so a restart keeps them. Like the rest of this screen, they can only be changed on the computer running RF Ranger.
 
+**Auto-sync** is off by default. Set it to a time between 15 minutes and 1 day before the plan's first rehearsal or service, for example "2 hours before". RF Ranger then syncs that service once, on its own:
+- **Schedule:** it checks Planning Center every 2 minutes. The screen shows when the next sync will run.
+- **Changes stay:** a service that has already been synced, by hand or automatically, is never synced again on its own. A tech can fix things at rehearsal and the changes stay for the service.
+- **Next service:** once the service's last time has ended, the next plan becomes the upcoming one and gets its own sync.
+- **While RF Ranger is closed:** nothing syncs. It catches up when it next runs, as long as the service hasn't started.
+
 Not yet:
-- RF Ranger doesn't sync on its own. Press **Sync** for each service.
 - It doesn't write names back to the receivers.
 
 ## Linking an account (each church, in the app)
