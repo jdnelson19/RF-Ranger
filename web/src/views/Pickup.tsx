@@ -143,14 +143,28 @@ function Board({ count, children }: { count: number; children: React.ReactNode }
 const MIN_COLUMN_W = 170;
 const COLUMN_GAP = 12;
 
+/**
+ * Whose name a card shows. The Planning Center person on the mic comes
+ * first; the preset's nickname for the channel (e.g. "Lead Vox") is then
+ * shown alongside. Without one, the nickname, then the receiver's channel
+ * name, then the RF label. Photos come only with a person, not a nickname.
+ */
+function shownName(s: SlotView, nickname?: string): { name: string; photo?: string; aside?: string } {
+  const a = s.assignment;
+  if (a?.planningCenter) return { name: a.artist, photo: a.photoUrl, aside: nickname };
+  if (nickname) return { name: nickname };
+  return { name: a?.artist ?? s.label, photo: a?.photoUrl };
+}
+
 /** One person: photo behind, then RF label, name, battery, and their in-ear pack. */
 function MicColumn({ s, nickname, iem, online }: { s: SlotView; nickname?: string; iem?: SlotView; online: boolean }) {
   const a = s.assignment;
   const r = shownReadiness(s, nickname);
   const tone = online ? READINESS_TONE[r.label] : 'idle';
   const [photoFailed, setPhotoFailed] = useState(false);
-  const name = nickname ?? a?.artist ?? s.label;
-  const photo = a?.photoUrl && !photoFailed && !nickname ? a.photoUrl : undefined;
+  const who = shownName(s, nickname);
+  const name = who.name;
+  const photo = who.photo && !photoFailed ? who.photo : undefined;
   const t = s.telemetry;
   const isIem = s.role === 'iem';
 
@@ -170,7 +184,7 @@ function MicColumn({ s, nickname, iem, online }: { s: SlotView; nickname?: strin
       <div className="col__body">
         <div className="col__name">{name}</div>
         {a?.role && <div className="col__role">{a.role}</div>}
-        <div className="col__kind">{kindLabel(s.kind)}</div>
+        <div className="col__kind">{[kindLabel(s.kind), who.aside].filter(Boolean).join(' · ')}</div>
 
         {online && (isIem ? <IemLine s={s} /> : <BatteryLine s={s} r={r} />)}
         {online && iem && (
@@ -227,7 +241,8 @@ function ArtistCard({ s, nickname, online }: { s: SlotView; nickname?: string; o
   const r = shownReadiness(s, nickname);
   const tone = online ? READINESS_TONE[r.label] : 'idle';
   const [photoFailed, setPhotoFailed] = useState(false);
-  const name = nickname ?? a?.artist ?? s.label;
+  const who = shownName(s, nickname);
+  const name = who.name;
 
   let note: string | undefined;
   if (online && r.source === 'charger' && r.chargePercent !== undefined) note = `Charge ${r.chargePercent}%`;
@@ -241,8 +256,8 @@ function ArtistCard({ s, nickname, online }: { s: SlotView; nickname?: string; o
       </div>
       <div className="card__who">
         <div className="card__avatar">
-          {a?.photoUrl && !photoFailed && !nickname
-            ? <img src={a.photoUrl} alt="" onError={() => setPhotoFailed(true)} />
+          {who.photo && !photoFailed
+            ? <img src={who.photo} alt="" onError={() => setPhotoFailed(true)} />
             : <span>{initials(name)}</span>}
         </div>
         <div className="card__names">
