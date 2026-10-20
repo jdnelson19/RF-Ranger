@@ -26,6 +26,7 @@ export function ShowEditor({ slots, groups, preset, onClose, onSaved }: {
   const [name, setName] = useState(preset?.name ?? '');
   const [keys, setKeys] = useState<string[]>(preset?.slots ?? []);
   const [channels, setChannels] = useState<Record<string, PresetChannel>>(preset?.channels ?? {});
+  const [columns, setColumns] = useState<number | undefined>(preset?.pickupColumns);
   const [filter, setFilter] = useState('');
   const [dragFrom, setDragFrom] = useState<number | undefined>();
   // Rows only become draggable from the grip, so the nickname field still takes text selection.
@@ -63,7 +64,7 @@ export function ShowEditor({ slots, groups, preset, onClose, onSaved }: {
     setBusy(true);
     setError(undefined);
     try {
-      const body = { name, slots: keys, channels };
+      const body = { name, slots: keys, channels, pickupColumns: columns ?? null };
       const saved = preset && !asNew
         ? await presetApi<ShowPreset>(`/${encodeURIComponent(preset.id)}`, body)
         : await presetApi<ShowPreset>('', body);
@@ -95,10 +96,19 @@ export function ShowEditor({ slots, groups, preset, onClose, onSaved }: {
           <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">✕</button>
         </header>
 
-        <label className="show-editor__name">
-          <span>Name</span>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Worship, Message, Announcements" maxLength={60} autoFocus />
-        </label>
+        <div className="show-editor__top">
+          <label className="show-editor__name">
+            <span>Name</span>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Worship, Room A, Message" maxLength={60} autoFocus />
+          </label>
+          <label className="show-editor__name show-editor__cols" title="How the pickup display lays out this preset: cards fill each column top to bottom">
+            <span>Pickup columns</span>
+            <select className="input" value={columns ?? ''} onChange={(e) => setColumns(e.target.value ? Number(e.target.value) : undefined)}>
+              <option value="">Auto (as many as fit)</option>
+              {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+        </div>
 
         <div className="show-editor__panes">
           <section className="show-editor__pane">

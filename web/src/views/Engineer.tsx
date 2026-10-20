@@ -86,7 +86,7 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
           <a className={`tab${route.view === 'planning-center' ? ' tab--active' : ''}`} href={href({ view: 'planning-center' })}>Planning Center</a>
         </nav>
         <div className="topbar__right">
-          <a className="btn btn--ghost" href={href({ view: 'pickup', group: route.group })}>Pickup view ↗</a>
+          <a className="btn btn--ghost" href={href({ view: 'pickup', group: route.group, show: activePreset?.id })}>Pickup view ↗</a>
           <ServerLink online={live.online} version={live.snapshot?.version} />
         </div>
       </header>

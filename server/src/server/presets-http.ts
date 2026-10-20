@@ -12,7 +12,7 @@
  *   POST /api/presets               { name, slots, channels? }   create
  *   POST /api/presets/:id           { name?, slots?, channels? } change
  *   POST /api/presets/:id/delete    {}                           delete
- *   channels: { "<receiverId/channel>": { nickname?, waveform? } }
+ *   channels: { "<receiverId/channel>": { nickname?, waveform? } }, pickupColumns: 1-8 | null (auto)
  * Presets are read from the snapshot (`presets`), so every screen updates live.
  */
 import type http from 'node:http';
@@ -32,8 +32,8 @@ export async function handlePresets(store: PresetStore, req: http.IncomingMessag
   const parts = url.pathname.replace(/^\/api\/presets\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
   try {
     const body = (await readJson(req)) as Record<string, unknown>;
-    if (parts.length === 0) return json(201, store.create({ name: body.name, slots: body.slots, channels: body.channels }));
-    if (parts.length === 1) return json(200, store.update(parts[0]!, { name: body.name, slots: body.slots, channels: body.channels }));
+    if (parts.length === 0) return json(201, store.create({ name: body.name, slots: body.slots, channels: body.channels, pickupColumns: body.pickupColumns }));
+    if (parts.length === 1) return json(200, store.update(parts[0]!, { name: body.name, slots: body.slots, channels: body.channels, pickupColumns: body.pickupColumns }));
     if (parts.length === 2 && parts[1] === 'delete') {
       store.delete(parts[0]!);
       return json(200, { deleted: parts[0] });

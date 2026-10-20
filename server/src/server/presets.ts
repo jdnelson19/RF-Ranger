@@ -52,17 +52,17 @@ export class PresetStore extends EventEmitter<Events> {
     return this.presets;
   }
 
-  create(input: { name: unknown; slots: unknown; channels?: unknown }): ShowPreset {
+  create(input: { name: unknown; slots: unknown; channels?: unknown; pickupColumns?: unknown }): ShowPreset {
     if (this.presets.length >= MAX_PRESETS) throw new PresetError(`There's a limit of ${MAX_PRESETS} presets. Delete one first.`);
     const slots = cleanSlots(input.slots);
-    const preset: ShowPreset = { id: randomUUID(), name: cleanName(input.name), slots, channels: cleanChannels(input.channels, slots), updatedAt: this.now() };
+    const preset: ShowPreset = { id: randomUUID(), name: cleanName(input.name), slots, channels: cleanChannels(input.channels, slots), ...cleanColumns(input.pickupColumns), updatedAt: this.now() };
     this.ensureUniqueName(preset.name);
     this.presets = [...this.presets, preset];
     this.persist();
     return preset;
   }
 
-  update(id: string, input: { name?: unknown; slots?: unknown; channels?: unknown }): ShowPreset {
+  update(id: string, input: { name?: unknown; slots?: unknown; channels?: unknown; pickupColumns?: unknown }): ShowPreset {
     const current = this.presets.find((p) => p.id === id);
     if (!current) throw new PresetError('That preset no longer exists.');
     const slots = input.slots === undefined ? current.slots : cleanSlots(input.slots);
@@ -72,6 +72,8 @@ export class PresetStore extends EventEmitter<Events> {
       slots,
       // Settings for a channel taken out of the preset go with it.
       channels: cleanChannels(input.channels === undefined ? current.channels : input.channels, slots),
+      pickupColumns: undefined,
+      ...cleanColumns(input.pickupColumns === undefined ? current.pickupColumns : input.pickupColumns),
       updatedAt: this.now(),
     };
     if (next.name.toLowerCase() !== current.name.toLowerCase()) this.ensureUniqueName(next.name);
@@ -117,7 +119,7 @@ function load(path: string): ShowPreset[] {
         } catch {
           // keep the preset; only its per-channel settings are lost
         }
-        return [{ id: String(o.id), name: cleanName(o.name), slots, channels, updatedAt: Number(o.updatedAt) || 0 }];
+        return [{ id: String(o.id), name: cleanName(o.name), slots, channels, ...cleanColumns(o.pickupColumns), updatedAt: Number(o.updatedAt) || 0 }];
       } catch {
         return []; // skip a damaged entry rather than losing the rest
       }
@@ -140,6 +142,12 @@ function cleanSlots(v: unknown): string[] {
   if (keys.length === 0) throw new PresetError('Pick at least one channel for the preset.');
   if (keys.length > MAX_SLOTS) throw new PresetError('Too many channels in one preset.');
   return keys;
+}
+
+/** Pickup display columns: 1-8, or left out for automatic. */
+function cleanColumns(v: unknown): { pickupColumns?: number } {
+  const n = Number(v);
+  return v !== null && v !== undefined && v !== '' && Number.isInteger(n) && n >= 1 && n <= 8 ? { pickupColumns: n } : {};
 }
 
 /** Nicknames and waveform switches, kept only for channels in the preset and only when set. */

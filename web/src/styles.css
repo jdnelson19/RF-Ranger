@@ -302,11 +302,12 @@ button { font: inherit; color: inherit; }
 .pickup__title { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: 0.01em; }
 .pickup__clock { justify-self: end; font-family: var(--mono); font-size: 26px; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .pickup__offline { padding: 14px 28px; background: var(--bad); color: #fff; font-size: 22px; text-align: center; }
-.pickup__body { flex: 1; padding: 20px 28px 32px; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 26px 40px; }
-.pickup__section { max-width: 100%; }
+.pickup__body { flex: 1; padding: 20px 28px 32px; display: flex; flex-direction: column; gap: 26px; }
+.pickup__section { width: 100%; }
 .pickup__body--offline .card { opacity: 0.5; }
 .pickup__group { margin: 0 0 12px; font-size: 15px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
-.pickup__grid { display: flex; flex-wrap: wrap; gap: 16px; }
+/* Fill each column top to bottom, like mics on a table; Pickup.tsx sets the row count. */
+.pickup__grid { display: grid; grid-auto-flow: column; grid-auto-columns: var(--card-w); gap: 16px; }
 .pickup__grid .card { width: var(--card-w); max-width: 100%; }
 
 .card {
@@ -519,6 +520,9 @@ select.input { padding-right: 6px; }
 .modal__spacer { flex: 1; }
 
 .show-editor__name { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
+.show-editor__top { display: flex; flex-wrap: wrap; gap: 12px; }
+.show-editor__top .show-editor__name { flex: 1 1 260px; }
+.show-editor__top .show-editor__cols { flex: 0 1 200px; }
 .show-editor__panes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; min-height: 0; flex: 1; }
 .show-editor__pane { display: flex; flex-direction: column; gap: 8px; min-height: 0; border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
 .show-editor__pane h3 { margin: 0; font-size: 13px; }
@@ -598,3 +602,25 @@ select.input { padding-right: 6px; }
   .mics__prefs { grid-column: 1; }
   .mics__actions { margin-left: 0; }
 }
+
+/* Pickup with a set number of columns: each card is a wide strip, like a row
+   on a mic table: label, who, status. Columns share the screen width. */
+.pickup--strips .pickup__grid { grid-auto-columns: minmax(0, 1fr); column-gap: 24px; row-gap: 12px; }
+.pickup--strips .pickup__grid .card { width: auto; }
+.pickup--strips .card {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "gear who status" "gear who note";
+  align-items: center; gap: 2px 18px; padding: calc(var(--name) * 0.35) 18px calc(var(--name) * 0.35) 22px;
+}
+.pickup--strips .card::before { inset: 0 auto 0 0; width: 6px; height: auto; }
+.pickup--strips .card__gear { grid-area: gear; flex-direction: column; align-items: flex-start; gap: 0; padding: 0; border: 0; min-width: calc(var(--label) * 2.4); }
+.pickup--strips .card__label { order: -1; }
+.pickup--strips .card__who { grid-area: who; gap: 12px; }
+.pickup--strips .card__avatar { width: calc(var(--name) * 1.8); height: calc(var(--name) * 1.8); font-size: calc(var(--name) * 0.7); }
+.pickup--strips .card__status { grid-area: status; margin: 0; justify-self: end; }
+.pickup--strips .card__note { grid-area: note; justify-self: end; }
+.pickup--strips .card__notes { display: none; }
+.pickup--strips .card__artist { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mics__auto { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--bg-2); border: 1px solid var(--line); font-size: 13px; }
+.mics__auto label { display: inline-flex; align-items: center; gap: 8px; color: var(--text-2); }
+.mics__auto label > span:first-child { font-weight: 700; color: var(--text); }
+.mics__auto .input--sm { flex: none; width: auto; }

@@ -13,6 +13,8 @@ export interface ShowPreset {
   slots: string[];
   /** Per-channel settings within this preset, by slot key. Channels with none are left out. */
   channels: Record<string, PresetChannel>;
+  /** Columns on the pickup display; automatic (as many as fit) when left out. */
+  pickupColumns?: number;
   updatedAt: number;
 }
 

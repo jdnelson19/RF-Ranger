@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
  * Hash routes, so any view (e.g. a backstage TV's pickup screen) can be
  * bookmarked and reopens straight into that view:
  *   #/                   launch screen
- *   #/pickup?group=Vocals
+ *   #/pickup?group=Vocals  #/pickup?show=<preset id>   pickup for one group or one show preset
  *   #/engineer  #/engineer/attention  #/engineer/devices  #/engineer/inspector  #/engineer/planning-center
  *   #/engineer?show=<preset id>   the engineer grid limited to a show preset
  */
@@ -13,7 +13,7 @@ export type View = 'launch' | 'pickup' | 'engineer' | 'attention' | 'devices' | 
 export interface Route {
   view: View;
   group?: string;
-  /** Show preset id (engineer grid only). */
+  /** Show preset id (engineer grid and pickup display). */
   show?: string;
 }
 
@@ -23,7 +23,7 @@ export function parseRoute(hash: string): Route {
   const group = params.get('group') ?? undefined;
   const show = params.get('show') ?? undefined;
   const parts = path.split('/').filter(Boolean);
-  if (parts[0] === 'pickup') return { view: 'pickup', group };
+  if (parts[0] === 'pickup') return { view: 'pickup', group, show };
   if (parts[0] === 'engineer') {
     if (parts[1] === 'attention') return { view: 'attention', group };
     if (parts[1] === 'devices') return { view: 'devices', group };
@@ -46,7 +46,7 @@ export function href(route: Route): string {
   }[route.view];
   const params = new URLSearchParams();
   if (route.group) params.set('group', route.group);
-  if (route.show && route.view === 'engineer') params.set('show', route.show);
+  if (route.show && (route.view === 'engineer' || route.view === 'pickup')) params.set('show', route.show);
   const query = params.toString();
   return `#${path}${query ? `?${query}` : ''}`;
 }

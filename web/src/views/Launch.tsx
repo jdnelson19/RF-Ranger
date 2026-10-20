@@ -72,6 +72,14 @@ export function Launch({ live }: { live: Live }) {
         </a>
       </div>
 
+      {s && s.presets.length > 0 && (
+        <div className="launch__groups">
+          <span className="launch__groups-label">Pickup display for a show preset:</span>
+          {s.presets.map((p) => (
+            <Chip key={p.id} onClick={() => navigate({ view: 'pickup', show: p.id })}>{p.name}</Chip>
+          ))}
+        </div>
+      )}
       {s && s.groups.length > 0 && (
         <div className="launch__groups">
           <span className="launch__groups-label">Pickup display for one group:</span>
