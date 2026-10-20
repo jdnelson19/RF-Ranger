@@ -6,7 +6,7 @@ import { identifySennheiser, type SscIdentity } from '../adapters/sennheiser/ide
 import { SSC_PORT } from '../adapters/sennheiser/ssc.js';
 import type { ShureFamilyId } from '../adapters/shure/families.js';
 import { identifyShure, identifyShureOnPorts, type Identity } from '../adapters/shure/identify.js';
-import type { KnownDevices } from './known-devices.js';
+import { customPort, deviceKey, type KnownDevices } from './known-devices.js';
 import type { Runtime } from './runtime.js';
 import type { DiscoveredView } from './snapshot.js';
 
@@ -136,7 +136,7 @@ export class LiveManager {
 
   private async consider(host: string, source: 'discovery' | 'manual', target?: LiveTarget): Promise<void> {
     const now = Date.now();
-    const key = target?.port ? `${host}:${target.port}` : host;
+    const key = deviceKey(host, target?.port);
     const existing = this.entries.get(key);
     if (existing) {
       if (existing.state !== 'unreachable' || now - existing.lastAttempt < RETRY_MS) return;
@@ -209,26 +209,32 @@ export class LiveManager {
     const known = this.opts.known?.list();
     if (!known) return;
     const now = Date.now();
+    // Keyed by address, so the same device found again (by discovery or by IP)
+    // finds this entry and isn't added twice: the remembered receiver simply
+    // reconnects and re-reads its channels. Standard ports are left to the
+    // family's default, so a port that changed between versions can't strand it.
     for (const r of known.receivers) {
-      const key = r.port ? `${r.host}:${r.port}` : r.host;
+      const key = deviceKey(r.host, r.port);
       if (this.entries.has(key) || this.runtime.receivers.has(r.id)) continue;
+      const port = customPort(r.port);
       this.usedIds.add(r.id);
       this.entries.set(key, {
         host: key, source: 'remembered', state: 'monitoring', model: r.model, kind: r.family, deviceId: r.id,
         note: 'Remembered from before; waiting for it to answer', lastAttempt: now,
-        target: { host: r.host, port: r.port, family: r.family, channels: r.channels },
+        target: { host: r.host, port, family: r.family, channels: r.channels },
       });
-      this.runtime.addReceiver({ id: r.id, family: r.family, host: r.host, port: r.port, channels: r.channels }, r.id);
+      this.runtime.addReceiver({ id: r.id, family: r.family, host: r.host, port, channels: r.channels }, r.id);
     }
     for (const c of known.chargers) {
-      const key = c.port ? `${c.host}:${c.port}` : c.host;
+      const key = deviceKey(c.host, c.port);
       if (this.entries.has(key) || this.runtime.chargers.has(c.id)) continue;
+      const port = customPort(c.port);
       this.usedIds.add(c.id);
       this.entries.set(key, {
         host: key, source: 'remembered', state: 'monitoring', model: c.model, kind: 'charger', deviceId: c.id,
-        note: 'Remembered from before; waiting for it to answer', lastAttempt: now, target: { host: c.host, port: c.port, charger: true },
+        note: 'Remembered from before; waiting for it to answer', lastAttempt: now, target: { host: c.host, port, charger: true },
       });
-      this.runtime.addCharger({ id: c.id, host: c.host, port: c.port });
+      this.runtime.addCharger({ id: c.id, host: c.host, port });
     }
     if (known.receivers.length + known.chargers.length) this.log(`Remembered ${known.receivers.length} receivers and ${known.chargers.length} chargers from before.`);
   }
@@ -251,7 +257,7 @@ export class LiveManager {
    */
   add(spec: string): string {
     const target = parseTarget(spec.trim());
-    const key = target.port ? `${target.host}:${target.port}` : target.host;
+    const key = deviceKey(target.host, target.port);
     const existing = this.entries.get(key);
     // Asked again by hand: an unreachable one is tried again now.
     if (existing?.state === 'unreachable') existing.lastAttempt = 0;
