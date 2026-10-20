@@ -26,6 +26,8 @@ export class Runtime extends EventEmitter<Events> {
   presets: () => ShowPreset[] = () => [];
   /** Set at startup: this service's mic assignments from Planning Center (see core/mic-roster.ts). */
   roster: () => Roster = () => EMPTY_ROSTER;
+  /** Set by live mode: a channel's last known name, for receivers that are offline now. */
+  rememberedName: (receiverId: string, channel: number) => string | undefined = () => undefined;
   /** Set at startup: what is live in Planning Center Services Live. */
   live: () => LiveNow | undefined = () => undefined;
   /** Set at startup: a newer version, once one is found. */
@@ -52,6 +54,21 @@ export class Runtime extends EventEmitter<Events> {
     }
     if (this.running) rx.start();
     this.emit('dirty');
+  }
+
+  /** Stop and remove a receiver or charger and its slots (Devices, Forget). */
+  removeDevice(id: string): boolean {
+    const rx = this.receivers.get(id);
+    const charger = this.chargers.get(id);
+    if (!rx && !charger) return false;
+    void (rx ?? charger)!.stop();
+    this.receivers.delete(id);
+    this.chargers.delete(id);
+    this.config.receivers = this.config.receivers.filter((r) => r.id !== id);
+    this.config.chargers = this.config.chargers.filter((c) => c.id !== id);
+    this.config.slots = this.config.slots.filter((x) => x.receiver !== id);
+    this.emit('dirty');
+    return true;
   }
 
   addCharger(cc: ChargerConfig): void {
@@ -106,7 +123,9 @@ export class Runtime extends EventEmitter<Events> {
         const state = rx.channels.get(s.channel);
         const telemetry = state?.telemetry ?? emptyTelemetry();
         const key = `${s.receiver}/${s.channel}`;
-        const named = s.autoName ? fromChannelName(s, telemetry) : { label: s.label ?? String(s.slot), assignment: s.assignment };
+        const named = s.autoName
+          ? fromChannelName(s, telemetry, this.rememberedName(s.receiver, s.channel))
+          : { label: s.label ?? String(s.slot), assignment: s.assignment };
         const label = named.label;
         // This service's Planning Center roster names who is on the mic; the
         // configured charger bay and expected transmitter still apply.
@@ -190,8 +209,9 @@ export class Runtime extends EventEmitter<Events> {
   }
 }
 
-function fromChannelName(s: SlotConfig, t: ChannelTelemetry): { label: string; assignment?: AssignmentConfig } {
-  const raw = t.name.state === 'ok' ? t.name.value : '';
+/** Label and person from the receiver's channel name; the last known name while the receiver is offline. */
+function fromChannelName(s: SlotConfig, t: ChannelTelemetry, remembered?: string): { label: string; assignment?: AssignmentConfig } {
+  const raw = t.name.state === 'ok' ? t.name.value : remembered ?? '';
   const { id, name } = splitChannelName(raw);
   return { label: id ?? String(s.slot), assignment: name ? { artist: name } : undefined };
 }

@@ -3,7 +3,7 @@ import http from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { PlanningCenterLink } from '../integrations/planning-center/link.js';
-import { handleInspector, isLocalRequest, type Inspector } from './inspector.js';
+import { handleInspector, isLocalRequest, readJson, type Inspector } from './inspector.js';
 import { handlePco } from './pco-http.js';
 import type { AutoSync } from './auto-sync.js';
 import type { MicRosterStore } from './mic-roster-store.js';
@@ -44,6 +44,8 @@ export interface HttpOptions {
   micRoster?: MicRosterStore;
   /** Scheduled mic sync, reported on the Planning Center screen. */
   autoSync?: AutoSync;
+  /** Live mode: stop monitoring and remembering a device (Devices, Forget). This computer only. */
+  forgetDevice?: (host: string) => boolean;
 }
 
 /**
@@ -81,6 +83,11 @@ export function startHttp(runtime: Runtime, opts: HttpOptions): Promise<http.Ser
 
     if (url.pathname.startsWith('/api/presets') && opts.presets) {
       void handlePresets(opts.presets, req, res, url);
+      return;
+    }
+
+    if (url.pathname === '/api/devices/forget' && opts.forgetDevice) {
+      void forget(opts.forgetDevice, req, res);
       return;
     }
 
@@ -162,4 +169,23 @@ function serveFile(res: http.ServerResponse, root: string, rel: string, spaFallb
   const cache = path.endsWith('index.html') ? 'no-cache' : 'public, max-age=3600';
   res.writeHead(200, { 'content-type': type, 'cache-control': cache });
   createReadStream(path).pipe(res);
+}
+
+/** POST /api/devices/forget { host }: only from the computer running RF Ranger, like the Inspector. */
+async function forget(fn: (host: string) => boolean, req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  const json = (status: number, body: unknown) => {
+    res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+    res.end(JSON.stringify(body));
+  };
+  if (req.method !== 'POST') return json(405, { error: 'POST only' });
+  if (!isLocalRequest(req)) return json(403, { error: 'Devices can only be forgotten on the computer running RF Ranger.' });
+  if (!(req.headers['content-type'] ?? '').startsWith('application/json')) return json(415, { error: 'Expected JSON' });
+  try {
+    const body = (await readJson(req)) as { host?: unknown };
+    const host = typeof body.host === 'string' ? body.host : '';
+    const done = fn(host);
+    json(done ? 200 : 404, done ? { forgotten: host } : { error: 'That device is not known.' });
+  } catch (err) {
+    json(400, { error: err instanceof Error ? err.message : String(err) });
+  }
 }

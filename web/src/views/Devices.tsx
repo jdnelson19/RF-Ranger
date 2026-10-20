@@ -27,6 +27,15 @@ const FOUND_TEXT = {
   unreachable: 'No answer',
 } as const;
 
+/** Forgetting a device changes what is monitored, so like the Inspector it's only offered on this computer. */
+const local = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+
+async function forget(host: string): Promise<void> {
+  if (!window.confirm(`Forget ${host}? RF Ranger stops monitoring it and won't remember it at the next start. Its channels leave every screen.`)) return;
+  const res = await fetch('/api/devices/forget', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ host }) });
+  if (!res.ok) window.alert(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `Couldn't forget ${host}.`);
+}
+
 /** Network and integration status for every configured device. */
 export function Devices({ live }: { live: Live }) {
   const s = live.snapshot;
@@ -46,7 +55,7 @@ export function Devices({ live }: { live: Live }) {
           ) : (
             <table className="table">
               <thead>
-                <tr><th>Address</th><th>Model</th><th>Device ID</th><th>Type</th><th>Found by</th><th>Status</th><th>Note</th></tr>
+                <tr><th>Address</th><th>Model</th><th>Device ID</th><th>Type</th><th>Found by</th><th>Status</th><th>Note</th>{local && <th />}</tr>
               </thead>
               <tbody>
                 {s.discovered.map((d) => (
@@ -55,9 +64,19 @@ export function Devices({ live }: { live: Live }) {
                     <td>{d.model ?? <span className="dim">—</span>}</td>
                     <td>{d.deviceId ?? <span className="dim">—</span>}</td>
                     <td>{d.kind ? d.kind.toUpperCase() : <span className="dim">—</span>}</td>
-                    <td className="dim">{d.source === 'manual' ? 'Address given' : 'Discovery'}</td>
+                    <td className="dim">{d.source === 'manual' ? 'Address given' : d.source === 'remembered' ? 'Remembered' : 'Discovery'}</td>
                     <td><span className={`found found--${d.state}`}>{FOUND_TEXT[d.state]}</span></td>
                     <td className="dim">{d.note ?? ''}</td>
+                    {local && (
+                      <td>
+                        {d.state === 'monitoring' && (
+                          <button type="button" className="btn btn--ghost btn--sm" onClick={() => void forget(d.host)}
+                            title="Stop monitoring this device and stop remembering it. It comes back if it's found on the network again.">
+                            Forget
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

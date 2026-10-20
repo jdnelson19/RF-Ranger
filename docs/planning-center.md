@@ -46,6 +46,18 @@ On **Engineer → Planning Center**:
 
 RF Ranger checks the schedules every minute, and each service's panel shows when its next sync will run.
 
+## Services Live: clock, banner and leader
+
+While a service is running in Planning Center's **Services Live**:
+- **Pickup screen:** a **Now** strip shows the live segment, a countdown to its planned end, and what's next. The countdown turns orange in the last 30 seconds and counts up in red when over time.
+- **Engineer view:** a **LIVE** banner shows the service, segment, time left, leader and next item.
+- **Leader highlight:** each item's note in the **Leader** category ("Sam/BGVs/Band", "Pastor Alex Morgan") is matched against who is on each mic. Names can be full names, names after a title, or a first name nobody else on a mic shares. Matching mics are marked **Leading now** on both screens.
+
+How it works:
+- **When it watches:** from 30 minutes before a plan's first rehearsal or service time until 30 minutes after its last, RF Ranger reads Services Live every 5 seconds, for each set-up service. The first one that's running is shown. Outside those times, it checks each service's next plan once a minute.
+- **Clock:** it runs on the server's clock, so a TV with the wrong time still counts down correctly.
+- **Demo mode** plays a made-up running order instead.
+
 Not yet:
 - It doesn't write names back to the receivers.
 

@@ -13,6 +13,7 @@ import { PresetStore, presetsPath } from './presets.js';
 import { demoLive, startDemo } from './demo.js';
 import { startHttp } from './http.js';
 import { Inspector } from './inspector.js';
+import { KnownDevices, knownDevicesPath } from './known-devices.js';
 import { LiveManager, type LiveTarget } from './live.js';
 import { Runtime } from './runtime.js';
 import type { RunMode } from './snapshot.js';
@@ -73,6 +74,7 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
   }
 
   const runtime = new Runtime(config, opts.mode);
+  const forgetDevice: { current?: (host: string) => boolean } = {};
   const inspector = new Inspector(runtime);
   const planningCenter = opts.planningCenter ?? new PlanningCenterLink({ log: (m) => log(`  ${m}`) });
   const presets = opts.presets ?? new PresetStore(opts.mode === 'demo' ? undefined : presetsPath());
@@ -100,6 +102,7 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
       presets,
       micRoster,
       autoSync,
+      forgetDevice: (host) => forgetDevice.current?.(host) ?? false,
       onQuit: opts.app?.onQuit,
     });
   } catch (err) {
@@ -120,13 +123,20 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
   }
 
   let liveManager: LiveManager | undefined;
+  // Set below in live mode; the HTTP server is already up, so it reads this lazily.
+  forgetDevice.current = undefined;
   if (opts.mode === 'live') {
+    const known = new KnownDevices(knownDevicesPath());
+    runtime.rememberedName = (id, ch) => known.name(id, ch);
     liveManager = new LiveManager(runtime, {
+      known,
       discover: opts.discover ?? true,
       targets: opts.targets ?? [],
       log: (m) => log(`  ${m}`),
     });
     await liveManager.start();
+    const manager = liveManager;
+    forgetDevice.current = (host) => manager.forget(host);
   }
 
   const label = { demo: '(DEMO: simulated hardware) ', live: '(live: auto-discovery) ', config: '' }[opts.mode];

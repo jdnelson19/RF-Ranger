@@ -50,7 +50,9 @@ Opening the app shows a launch screen with two choices: **Artist Pickup** (the T
 
 **Pickup display for a preset:** on the start screen, pick a preset under **Pickup display for a show preset**, or use the engineer view's **Pickup view ↗** while a preset is selected. It's also bookmarkable (`#/pickup?show=<id>`). The TV then shows only that preset's channels, in its order, with its nicknames. On a shared network, that keeps other rooms' receivers off the screen. Cards fill each column top to bottom, like mics laid out on a table. Set **Pickup columns** in the preset editor (for example, 2 columns of 6 for 12 mics) and each card becomes a wide strip: mic label, person, status.
 
-**Planning Center:** fill mics from the people scheduled for the next service, by hand or automatically before each service. See [docs/planning-center.md](docs/planning-center.md).
+**Planning Center:** fill mics from the people scheduled for the next service, by hand or automatically before each service. During a service, the pickup screen shows the live segment with its clock, and the engineer view shows a live banner. Whoever the item's Leader note names is highlighted. See [docs/planning-center.md](docs/planning-center.md).
+
+**Remembered receivers (live mode):** every receiver and charger RF Ranger finds is remembered, with its channel names, in `~/.rf-ranger/known-devices.json`. At the next start they're on screen straight away, offline until they answer, so mics on a switched-off receiver can still have roles and presets. To remove one for good, use **Forget** on the Devices tab (on the RF Ranger computer).
 
 **Updates:** the app checks rfranger.app now and then for a newer version, and shows **Update available** on the engineer and start screens when there is one. Offline, it shows nothing. Set `RF_RANGER_NO_UPDATE_CHECK=1` to turn the check off.
 

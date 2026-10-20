@@ -75,7 +75,8 @@ export type RunMode = 'config' | 'live' | 'demo';
 /** A device seen on the network by discovery or given on the command line. */
 export interface DiscoveredView {
   host: string;
-  source: 'discovery' | 'manual';
+  /** remembered: found on an earlier run (see known-devices.ts). */
+  source: 'discovery' | 'manual' | 'remembered';
   state: 'identifying' | 'monitoring' | 'unsupported' | 'unreachable';
   model?: string;
   kind?: string;

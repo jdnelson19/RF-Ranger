@@ -2,6 +2,7 @@ import { ShureDiscovery } from '../adapters/shure/discovery.js';
 import { SHURE_PORTS } from '../adapters/shure/connection.js';
 import { SHURE_FAMILIES, SHURE_FAMILY_IDS as FAMILIES, type ShureFamilyId } from '../adapters/shure/families.js';
 import { identifyShure, identifyShureOnPorts, type Identity } from '../adapters/shure/identify.js';
+import type { KnownDevices } from './known-devices.js';
 import type { Runtime } from './runtime.js';
 import type { DiscoveredView } from './snapshot.js';
 
@@ -49,20 +50,36 @@ export class LiveManager {
   private entries = new Map<string, Entry>();
   private discovery: ShureDiscovery | undefined;
   private retryTimer: NodeJS.Timeout | undefined;
+  private namesTimer: NodeJS.Timeout | undefined;
   private usedIds = new Set<string>();
   discoveryError: string | undefined;
 
   constructor(
     private readonly runtime: Runtime,
-    private readonly opts: { discover: boolean; targets: LiveTarget[]; log?: (msg: string) => void; onPacket?: (ip: string, text: string) => void },
+    private readonly opts: {
+      discover: boolean;
+      targets: LiveTarget[];
+      /** Devices found before, added at startup even if they don't answer yet. */
+      known?: KnownDevices;
+      log?: (msg: string) => void;
+      onPacket?: (ip: string, text: string) => void;
+    },
   ) {
     runtime.discovered = () =>
       [...this.entries.values()]
-        .map(({ target: _t, lastAttempt: _a, ...view }) => view)
+        .map(({ target: _t, lastAttempt: _a, ...view }) => {
+          // A remembered device that has answered is just monitored now.
+          const up = view.deviceId && (runtime.receivers.get(view.deviceId) ?? runtime.chargers.get(view.deviceId))?.status.state === 'connected';
+          return view.source === 'remembered' && up ? { ...view, note: undefined } : view;
+        })
         .sort((a, b) => a.host.localeCompare(b.host, undefined, { numeric: true }));
   }
 
   async start(): Promise<void> {
+    this.restoreKnown();
+    // Keep the remembered channel names current, so an offline receiver's mics keep their labels.
+    this.namesTimer = setInterval(() => this.saveNames(), 30_000);
+
     for (const t of this.opts.targets) void this.consider(t.host, 'manual', t);
 
     if (this.opts.discover) {
@@ -91,7 +108,9 @@ export class LiveManager {
   }
 
   stop(): void {
+    this.saveNames();
     clearInterval(this.retryTimer);
+    clearInterval(this.namesTimer);
     this.discovery?.stop();
   }
 
@@ -119,7 +138,9 @@ export class LiveManager {
     if (!id.reachable && !target?.family && !target?.charger) {
       Object.assign(entry, { state: 'unreachable', note: target?.port ? `No answer on port ${target.port}` : `No answer on port ${ports.join(' or ')}` });
     } else if (target?.charger || id.kind === 'charger') {
-      this.runtime.addCharger({ id: this.deviceName(id, 'SBC'), host, port });
+      const chargerId = this.deviceName(id, 'SBC');
+      this.runtime.addCharger({ id: chargerId, host, port });
+      this.opts.known?.rememberCharger({ id: chargerId, host, port, model: id.model });
       Object.assign(entry, { state: 'monitoring', note: undefined });
       this.log(`Monitoring charger ${id.model ?? ''} at ${host}`);
     } else if (target?.family || id.kind) {
@@ -129,6 +150,7 @@ export class LiveManager {
         { id: name, family, host, port, channels: target?.channels ?? id.channels },
         name,
       );
+      this.opts.known?.rememberReceiver({ id: name, host, port, family, channels: target?.channels ?? id.channels, model: id.model });
       Object.assign(entry, {
         state: 'monitoring',
         note: id.reachable ? undefined : 'Not answering yet; will keep trying',
@@ -138,6 +160,64 @@ export class LiveManager {
       Object.assign(entry, { state: 'unsupported', note: id.unsupported });
     }
     this.runtime.emit('dirty');
+  }
+
+  /**
+   * Add every device found on an earlier run straight away. One that is
+   * switched off shows as offline (its channels keep their last names) and
+   * connects as soon as it answers.
+   */
+  private restoreKnown(): void {
+    const known = this.opts.known?.list();
+    if (!known) return;
+    const now = Date.now();
+    for (const r of known.receivers) {
+      const key = r.port ? `${r.host}:${r.port}` : r.host;
+      if (this.entries.has(key) || this.runtime.receivers.has(r.id)) continue;
+      this.usedIds.add(r.id);
+      this.entries.set(key, {
+        host: key, source: 'remembered', state: 'monitoring', model: r.model, kind: r.family, deviceId: r.id,
+        note: 'Remembered from before; waiting for it to answer', lastAttempt: now,
+        target: { host: r.host, port: r.port, family: r.family, channels: r.channels },
+      });
+      this.runtime.addReceiver({ id: r.id, family: r.family, host: r.host, port: r.port, channels: r.channels }, r.id);
+    }
+    for (const c of known.chargers) {
+      const key = c.port ? `${c.host}:${c.port}` : c.host;
+      if (this.entries.has(key) || this.runtime.chargers.has(c.id)) continue;
+      this.usedIds.add(c.id);
+      this.entries.set(key, {
+        host: key, source: 'remembered', state: 'monitoring', model: c.model, kind: 'charger', deviceId: c.id,
+        note: 'Remembered from before; waiting for it to answer', lastAttempt: now, target: { host: c.host, port: c.port, charger: true },
+      });
+      this.runtime.addCharger({ id: c.id, host: c.host, port: c.port });
+    }
+    if (known.receivers.length + known.chargers.length) this.log(`Remembered ${known.receivers.length} receivers and ${known.chargers.length} chargers from before.`);
+  }
+
+  private saveNames(): void {
+    const known = this.opts.known;
+    if (!known) return;
+    for (const rx of this.runtime.receivers.values()) {
+      const names: Record<string, string> = {};
+      for (const [ch, state] of rx.channels) if (state.telemetry.name.state === 'ok') names[String(ch)] = state.telemetry.name.value;
+      if (Object.keys(names).length) known.setNames(rx.info.id, names);
+    }
+  }
+
+  /** Stop monitoring a device and stop remembering it (Devices, Forget). */
+  forget(host: string): boolean {
+    const entry = this.entries.get(host);
+    const id = entry?.deviceId;
+    const forgotten = this.opts.known?.forget(host) ?? false;
+    if (!entry && !forgotten) return false;
+    if (id) {
+      this.runtime.removeDevice(id);
+      this.usedIds.delete(id);
+    }
+    this.entries.delete(host);
+    this.runtime.emit('dirty');
+    return true;
   }
 
   /** Prefer the name engineers gave the device in Wireless Workbench. */
