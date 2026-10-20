@@ -55,6 +55,17 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
     return list;
   }, [s, route.view, route.group, query, sort, activePreset]);
 
+  // None of the preset's receivers is online: each channel is either missing
+  // (its receiver hasn't been found since RF Ranger started) or offline.
+  const presetOffline = useMemo(() => {
+    if (!activePreset || !s) return false;
+    const byKey = new Map(s.slots.map((x) => [x.key, x]));
+    return activePreset.slots.every((k) => {
+      const x = byKey.get(k);
+      return !x || x.alerts.some((a) => a.code === 'rx-offline');
+    });
+  }, [s, activePreset]);
+
   const attentionCount = (s?.slots ?? []).filter(needsAttention).length;
   const openSlot = s?.slots.find((x) => x.slot === open);
   const rxDown = s?.receivers.filter((r) => r.status.state !== 'connected') ?? [];
@@ -135,6 +146,14 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
           {missingPreset && (
             <div className="notice">That show preset was deleted. <a className="link" href={href({ view: 'engineer', group: route.group })}>Show all channels</a></div>
           )}
+          {/* While the link to the server is down, the frozen banner already says so. */}
+          {presetOffline && !frozen && activePreset && (
+            <div className="notice notice--offline" role="status">
+              <b>No receivers online for this preset.</b> The receivers for its {activePreset.slots.length === 1 ? 'channel are' : `${activePreset.slots.length} channels are`} switched
+              off, unplugged, or not on this network. Channels come back here as soon as their receiver does.{' '}
+              <a className="link" href={href({ view: 'devices' })}>Devices</a>
+            </div>
+          )}
 
           <div className="toolbar">
             <div className="toolbar__chips">
@@ -164,6 +183,11 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
               <div className="empty__title">Looking for Shure receivers…</div>
               <p>Devices appear here as they're found. Progress is on the <a className="link" href={href({ view: 'devices' })}>Devices</a> tab.</p>
               <p className="dim">Nothing showing up? Make sure this computer is on the receivers' network, or restart with <code>npm run live -- --receiver &lt;ip&gt;</code>.</p>
+            </div>
+          ) : slots.length === 0 && presetOffline && !query && !route.group ? (
+            <div className="empty">
+              <div className="empty__title">No receivers online</div>
+              <p>Waiting for the receivers in “{activePreset?.name}”. Switch them on, or check they're on this network.</p>
             </div>
           ) : slots.length === 0 ? (
             <div className="empty">{route.view === 'attention' ? <><span className="ok-text">✓</span> Nothing needs attention{route.group ? ` in ${route.group}` : ''}.</> : 'No channels match.'}</div>

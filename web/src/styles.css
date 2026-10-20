@@ -491,6 +491,8 @@ select.input { padding-right: 6px; }
 .showbar__pick .input { flex: 0 1 260px; min-width: 180px; }
 .showbar__display { position: relative; margin-left: auto; }
 .notice { margin: 10px 16px 0; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--warn-bg); color: var(--warn); font-size: 13px; }
+.notice--offline { background: var(--bad-bg); color: var(--bad); }
+.notice--offline b { font-weight: 700; }
 
 .popover-backdrop { position: fixed; inset: 0; z-index: 40; }
 .popover {
