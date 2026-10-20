@@ -13,10 +13,10 @@ export async function startDemo(port: number): Promise<{ config: Config; stop: (
   const axd = new ShureSim({
     family: 'axd',
     channels: [
-      { name: 'Maya', txModel: 'AD2', txDeviceId: 'LeadVox', batteryBars: 5, batteryPercent: 92, runtimeMin: 412, rfDbm: -52, audioDbfs: -18 },
-      { name: 'Jordan', txModel: 'AD2', batteryBars: 3, batteryPercent: 44, runtimeMin: 128, rfDbm: -61, audioDbfs: -24 },
-      { name: 'Priya', txOn: false },
-      { name: 'Sam', txOn: false },
+      { name: 'Hugh', txModel: 'AD2', txDeviceId: 'LeadVox', batteryBars: 5, batteryPercent: 92, runtimeMin: 412, rfDbm: -52, audioDbfs: -18 },
+      { name: 'Carrie', txModel: 'AD2', batteryBars: 3, batteryPercent: 44, runtimeMin: 128, rfDbm: -61, audioDbfs: -24 },
+      { name: 'Stan', txOn: false },
+      { name: 'Will', txOn: false },
     ],
   });
   const ulxd = new ShureSim({
@@ -39,8 +39,8 @@ export async function startDemo(port: number): Promise<{ config: Config; stop: (
     family: 'psm1000',
     deviceId: 'IEM RACK',
     channels: [
-      { name: 'IEM1 Maya', frequencyKhz: 518_125, rfOutputMw: 50 },
-      { name: 'IEM2 Eli', frequencyKhz: 519_375, rfOutputMw: 50, rfMuted: true },
+      { name: 'IEM1 Hugh', frequencyKhz: 518_125, rfOutputMw: 50 },
+      { name: 'IEM2 Otto', frequencyKhz: 519_375, rfOutputMw: 50, rfMuted: true },
     ],
   });
   const charger = new ChargerSim([
@@ -73,31 +73,31 @@ export async function startDemo(port: number): Promise<{ config: Config; stop: (
     chargers: [{ id: 'SBC220-A', host: '127.0.0.1', port: chargerPort }],
     slots: [
       { slot: 1, receiver: 'AD4Q-1', channel: 1, label: 'H1', kind: 'handheld', group: 'Vocals',
-        assignment: { artist: 'Maya Torres', role: 'Worship Leader', expectedTxId: 'LeadVox' } },
+        assignment: { artist: 'Hugh Gain', role: 'Worship Leader', expectedTxId: 'LeadVox' } },
       { slot: 2, receiver: 'AD4Q-1', channel: 2, label: 'H2', kind: 'handheld', group: 'Vocals',
-        assignment: { artist: 'Jordan Lee', role: 'Vocals' } },
+        assignment: { artist: 'Carrie On', role: 'Vocals' } },
       { slot: 3, receiver: 'AD4Q-1', channel: 3, label: 'H3', kind: 'handheld', group: 'Vocals',
-        assignment: { artist: 'Priya Shah', role: 'Vocals', charger: { id: 'SBC220-A', bay: 1 } } },
+        assignment: { artist: 'Stan By', role: 'Vocals', charger: { id: 'SBC220-A', bay: 1 } } },
       { slot: 4, receiver: 'AD4Q-1', channel: 4, label: 'H4', kind: 'handheld', group: 'Vocals',
-        assignment: { artist: 'Sam Okafor', role: 'Vocals', charger: { id: 'SBC220-A', bay: 2 } } },
+        assignment: { artist: 'Will Call', role: 'Vocals', charger: { id: 'SBC220-A', bay: 2 } } },
       { slot: 5, receiver: 'ULXD4Q-1', channel: 1, label: 'BP1', kind: 'bodypack', group: 'Speakers',
-        assignment: { artist: 'Daniel Reyes', role: 'Teaching Pastor' } },
+        assignment: { artist: 'Mike Check', role: 'Teaching Pastor' } },
       { slot: 6, receiver: 'ULXD4Q-1', channel: 2, label: 'BP2', kind: 'bodypack', group: 'Speakers',
-        assignment: { artist: 'Grace Kim', role: 'Host', charger: { id: 'SBC220-A', bay: 3 } } },
+        assignment: { artist: 'Phil In', role: 'Host', charger: { id: 'SBC220-A', bay: 3 } } },
       { slot: 7, receiver: 'ULXD4Q-1', channel: 3, label: 'BP3', kind: 'bodypack', group: 'Band',
-        assignment: { artist: 'Eli Brooks', role: 'Acoustic Guitar' } },
+        assignment: { artist: 'Otto Tune', role: 'Acoustic Guitar' } },
       { slot: 8, receiver: 'ULXD4Q-1', channel: 4, label: 'BP4', kind: 'bodypack', group: 'Band',
-        assignment: { artist: 'Nora Lind', role: 'Violin' } },
+        assignment: { artist: 'Brock En', role: 'Violin' } },
       { slot: 9, receiver: 'SLXD4D-1', channel: 1, label: 'H5', kind: 'handheld', group: 'Speakers',
-        assignment: { artist: 'Chris Patel', role: 'Announcements' } },
+        assignment: { artist: 'Ray D. Oh', role: 'Announcements' } },
       { slot: 10, receiver: 'SLXD4D-1', channel: 2, label: 'H6', kind: 'handheld', group: 'Speakers' },
       { slot: 11, receiver: 'ULXD4D-2', channel: 1, label: 'BP5', kind: 'bodypack', group: 'Band',
         assignment: { artist: 'Marcus Hill', role: 'Drums' } },
       { slot: 12, receiver: 'ULXD4D-2', channel: 2, label: 'BP6', kind: 'bodypack', group: 'Band' },
       { slot: 13, receiver: 'P10T-1', channel: 1, label: 'IEM1', kind: 'iem', group: 'Vocals',
-        assignment: { artist: 'Maya Torres', role: 'Worship Leader' } },
+        assignment: { artist: 'Hugh Gain', role: 'Worship Leader' } },
       { slot: 14, receiver: 'P10T-1', channel: 2, label: 'IEM2', kind: 'iem', group: 'Band',
-        assignment: { artist: 'Eli Brooks', role: 'Acoustic Guitar' } },
+        assignment: { artist: 'Otto Tune', role: 'Acoustic Guitar' } },
     ],
   });
 
@@ -130,9 +130,9 @@ async function unusedPort(): Promise<number> {
  */
 export function demoLive(now = Date.now()): LiveNow {
   const order = [
-    { title: 'Worship Set', lengthSec: 8 * 60, leader: 'Maya Torres/BGVs/Band' },
-    { title: 'Announcements', lengthSec: 3 * 60, leader: 'Chris Patel' },
-    { title: 'Message', lengthSec: 12 * 60, leader: 'Pastor Daniel Reyes' },
+    { title: 'Worship Set', lengthSec: 8 * 60, leader: 'Hugh Gain/BGVs/Band' },
+    { title: 'Announcements', lengthSec: 3 * 60, leader: 'Ray D. Oh' },
+    { title: 'Message', lengthSec: 12 * 60, leader: 'Pastor Mike Check' },
   ];
   const total = order.reduce((t, i) => t + i.lengthSec, 0) * 1000;
   let at = now % total;

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { READINESS_TONE, type Tone } from '../format';
+import { READINESS_TONE, antennasInUse, antennasText, type Tone } from '../format';
 import type { Readiness, SlotView, Snapshot } from '../types';
 
 export function Logo({ size = 22 }: { size?: number }) {
@@ -158,5 +158,16 @@ export function UpdateLink({ update }: { update: Snapshot['update'] }) {
     <a className="update-link" href={update.url} target="_blank" rel="noreferrer" title={`Download RF Ranger ${update.version} for the computer running RF Ranger`}>
       Update available: v{update.version}
     </a>
+  );
+}
+
+/** Small A / B (/ C / D) lights for the diversity antennas in use. */
+export function AntennaLights({ field }: { field: string }) {
+  const ants = antennasInUse(field);
+  if (ants.length < 2) return null;
+  return (
+    <span className="ant" title={`Antennas: ${antennasText(field)}`} aria-label={`Antennas: ${antennasText(field)}`}>
+      {ants.map((a) => <span key={a.name} className={`ant__seg${a.on ? ' ant__seg--on' : ''}`}>{a.name}</span>)}
+    </span>
   );
 }

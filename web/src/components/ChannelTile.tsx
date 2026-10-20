@@ -1,7 +1,7 @@
 import { SEVERITY_TONE, mhz, runtime, show, shownReadiness, slotTone, value } from '../format';
 import type { DisplayOptions } from '../display';
 import type { PresetChannel, SlotView } from '../types';
-import { Battery, Meter, StatusPill, ToneIcon, Waveform } from './ui';
+import { AntennaLights, Battery, Meter, StatusPill, ToneIcon, Waveform } from './ui';
 
 const RF_MIN = -100;
 const RF_MAX = -30;
@@ -92,6 +92,7 @@ export function ChannelTile({ s, frozen, onOpen, fields, preset }: {
 
       <div className="tile__foot">
         {show_('frequency') && <span className="tile__num">{t.frequencyKhz.state === 'ok' ? `${mhz(t.frequencyKhz.value)} MHz` : '— MHz'}</span>}
+        {show_('rf') && txOn && t.antennas.state === 'ok' && <AntennaLights field={t.antennas.value} />}
         {show_('quality') && t.linkQuality.state !== 'unsupported' && <span className="tile__num tile__num--dim">Q {show(t.linkQuality)}/5</span>}
         {txOn && value(t.txTalkSwitch) && <span className="tag tag--talk" title="Talk switch held: audio is going to talkback">TALK</span>}
         {value(t.rxMuted) && <span className="tag tag--warn">MUTED</span>}

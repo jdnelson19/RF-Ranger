@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { SEVERITY_TONE, mhz, runtime, show, shownReadiness } from '../format';
+import { SEVERITY_TONE, antennasText, mhz, runtime, show, shownReadiness } from '../format';
 import type { ChannelTelemetry, Reading, SlotView } from '../types';
 import { StatusPill, ToneIcon, Waveform } from './ui';
 
@@ -26,7 +26,7 @@ const ROWS: Array<[section: string, rows: Row[]]> = [
     ['Frequency', 'frequencyKhz', (v: number) => `${mhz(v)} MHz`],
     ['Group / channel', 'groupChannel'],
     ['RSSI', 'rfDbm', (v: number[]) => v.map((x) => `${x} dBm`).join('  ·  ')],
-    ['Antennas', 'antennas'],
+    ['Antennas', 'antennas', (v: string) => antennasText(v)],
     ['Link quality', 'linkQuality', (v: number) => `${v} / 5`],
     ['Interference', 'interference', (v: boolean) => (v ? 'Detected' : 'None')],
     ['Encryption', 'encryptionFault', (v: boolean) => (v ? 'Mismatch' : 'OK')],

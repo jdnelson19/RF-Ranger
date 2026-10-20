@@ -235,7 +235,8 @@ export class ShureSim {
 
     switch (this.family) {
       case 'ulxd':
-        return `< SAMPLE ${n} ALL ${on ? 'AX' : 'XX'} ${pad(on ? rf + 128 : 0, 3)} ${pad(on ? audio + 50 : 0, 3)} >`;
+        // Switching diversity: the antenna in use changes every few seconds.
+        return `< SAMPLE ${n} ALL ${on ? ((Math.floor(Date.now() / 4000) + n) % 2 ? 'AX' : 'XB') : 'XX'} ${pad(on ? rf + 128 : 0, 3)} ${pad(on ? audio + 50 : 0, 3)} >`;
       case 'axd': {
         const r = pad(rf + 120, 3);
         return `< SAMPLE ${n} ALL ${on ? '005' : '255'} 000 ${pad(audio + 126, 3)} ${pad(audio + 120, 3)} ${on ? 'BB' : 'XX'} 31 ${r} 31 ${r} >`;

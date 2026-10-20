@@ -61,3 +61,21 @@ export const TONE_RANK: Record<Tone, number> = { bad: 0, warn: 1, info: 2, ok: 3
 export function kindLabel(kind: SlotView['kind']): string {
   return kind === 'handheld' ? 'Handheld' : kind === 'bodypack' ? 'Bodypack' : kind === 'iem' ? 'In-ear' : 'Mic';
 }
+
+/**
+ * Which diversity antennas are in use, from the receiver's antenna field: one
+ * character per antenna, A first. ULX-D sends the antenna's letter when in
+ * use ("AX": A, "XB": B); Axient Digital sends "B" for each active antenna
+ * ("BB": both, as it uses them together). "X" means not in use.
+ */
+export function antennasInUse(field: string): Array<{ name: string; on: boolean }> {
+  return [...field].slice(0, 4).map((c, i) => ({ name: 'ABCD'[i]!, on: c.toUpperCase() !== 'X' }));
+}
+
+export function antennasText(field: string): string {
+  const ants = antennasInUse(field);
+  const on = ants.filter((a) => a.on).map((a) => a.name);
+  if (!on.length) return 'None in use';
+  if (on.length === ants.length && ants.length > 1) return ants.length === 2 ? 'Both in use (A and B)' : `All in use (${on.join(', ')})`;
+  return `${on.join(' and ')} in use`;
+}
