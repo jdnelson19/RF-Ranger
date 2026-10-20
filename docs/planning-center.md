@@ -5,7 +5,7 @@ Goal: fill RF slots with the people scheduled for the next service, and show Ser
 **Status:**
 - Each church links its own account in the app: **Engineer → Planning Center**. It shows the linked organization, the service type to follow, and the next service with its head count.
 - Tested against a real account (Grace Church): 34 service types, and the next plan with 35 scheduled.
-- **Mic assignments** (below) put scheduled people on mics, showing their name, position and photo on the engineer tiles and the pickup screen. Services Live timers are still to come.
+- **Mic assignments** (below) put scheduled people on mics, showing their name, position and photo on the engineer tiles and the pickup screen. **Services Live** (below) adds the live segment clock, the engineer LIVE banner and the leader highlight.
 
 ## Mic assignments
 
