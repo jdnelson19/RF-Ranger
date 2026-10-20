@@ -110,7 +110,8 @@ describe('AutoSync', () => {
     t.at(REHEARSAL + 30 * H);
     await t.auto.tick();
     expect(t.syncs).toEqual(['100', '200']);
-    expect(Object.keys(t.store.roster().entries).sort()).toEqual(['rx/1', 'rx/2']);
+    // Each sync replaces the roster: the youth sync leaves only its own mic.
+    expect(Object.keys(t.store.roster().entries).sort()).toEqual(['rx/2']);
   });
 
   it('refuses a nonsense lead time', () => {

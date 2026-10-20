@@ -12,7 +12,7 @@ Goal: fill RF slots with the people scheduled for the next service, and show Ser
 On **Engineer → Planning Center**:
 
 **Services:** add each Planning Center service type you fill mics from with **Add a service**, for example a weekend service, a youth night and a midweek service in the same room. In Planning Center, teams and positions belong to a service type, so each service has its own mic rules, its own **Sync now** button and its own auto-sync.
-- **A sync changes only that service's mics:** the mics in its rules, plus any mics it filled before. In a multipurpose room where every service uses RF1–12, each sync switches the room over. Two rooms with separate mics, synced by different services, don't overwrite each other.
+- **A sync replaces every mic assignment:** mics it doesn't fill are cleared, including people an earlier sync of another service put there and names set by hand. So switching to another service never leaves the previous service's people on mics. People from other services' last syncs can still be put on a mic by hand.
 - **Removing a service** deletes its rules. The mics it filled stay until they're changed or cleared.
 - **Rules saved before services existed** become the first service, for the service type that was chosen then.
 

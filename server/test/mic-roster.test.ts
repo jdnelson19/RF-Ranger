@@ -111,18 +111,23 @@ describe('MicRosterStore', () => {
     expect(() => again.assign('rx/1', { personId: 'nobody' })).toThrow(/last sync/);
   });
 
-  it('replaces only the syncing service\'s mics, so rooms and services do not overwrite each other', () => {
+  it('clears every mic a sync does not fill, whichever service or hand change filled it', () => {
     const store = new MicRosterStore();
     const weekend = withService(store, '100');
     const youth = withService(store, '200', { teamIds: [VOCALS], roles: [{ teamId: VOCALS, position: 'Worship Leader', mics: ['rx/9'], prefer: [] }] });
-    store.sync(weekend, plan, [person('avery', 'Worship Leader')]);
-    store.assign('rx/12', { name: 'Guest' }); // nobody's: no sync touches it
-    store.sync(youth, { id: 'plan-2', dates: 'Wednesday' }, [person('zoe', 'Worship Leader')]);
-    expect(entries(store)).toEqual({ 'rx/1': 'avery', 'rx/9': 'zoe', 'rx/12': 'Guest' });
+    store.sync(weekend, plan, [person('avery', 'Worship Leader'), person('casey', 'Worship Leader')]);
+    store.assign('rx/12', { name: 'Guest' });
+    expect(entries(store)).toEqual({ 'rx/1': 'avery', 'rx/2': 'casey', 'rx/12': 'Guest' });
 
-    // The weekend service syncs again: its mics change, the youth mic and the guest stay.
+    // The youth service uses other mics: the weekend's people and the guest are cleared, not left behind.
+    store.sync(youth, { id: 'plan-2', dates: 'Wednesday' }, [person('zoe', 'Worship Leader')]);
+    expect(entries(store)).toEqual({ 'rx/9': 'zoe' });
+
+    // And back: the youth mic is cleared too. The youth service's people can still be picked by hand.
     store.sync(weekend, { id: 'plan-3', dates: 'Next weekend' }, [person('casey', 'Worship Leader')]);
-    expect(entries(store)).toEqual({ 'rx/1': 'casey', 'rx/9': 'zoe', 'rx/12': 'Guest' });
+    expect(entries(store)).toEqual({ 'rx/1': 'casey' });
+    store.assign('rx/9', { personId: 'zoe' });
+    expect(entries(store)).toEqual({ 'rx/1': 'casey', 'rx/9': 'zoe' });
   });
 
   it('lets a multipurpose room switch over: services sharing mics take them in turn', () => {

@@ -63,8 +63,8 @@ export function MicAssignments({ slots, types }: { slots: SlotView[]; types: Ser
       <section className="pco__card">
         <h2 className="section-title">Services</h2>
         <p className="pco__note">
-          Each Planning Center service you fill mics from, with its own rules and sync time. A sync changes only that service's
-          mics, so a multipurpose room can switch between services through the week.
+          Each Planning Center service you fill mics from, with its own rules and sync time. A sync replaces every mic
+          assignment: mics it doesn't fill are cleared, so nobody from the previous service is left on a mic.
         </p>
         {data.services.length === 0 && <p className="dim">Add the first service below.</p>}
         {data.services.map((s) => (

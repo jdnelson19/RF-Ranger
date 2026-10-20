@@ -15,7 +15,6 @@ import {
   assignMics,
   lastWeekly,
   rosterPeople,
-  serviceMics,
   type AutoSyncRule,
   type MicRules,
   type Roster,
@@ -127,24 +126,19 @@ export class MicRosterStore extends EventEmitter<Events> {
   }
 
   /**
-   * Apply a service's rules to its plan. Only that service's mics change:
-   * the ones its rules use, and any it filled before. Hand changes on those
-   * mics are replaced; every other mic is left alone.
+   * Apply a service's rules to its plan. The sync replaces the whole
+   * roster: every mic it doesn't fill is cleared, including people another
+   * service's sync put there and hand changes, so nobody from an earlier
+   * service is left on a mic. Other services' last syncs stay listed (their
+   * people can still be picked by hand).
    */
   sync(id: string, plan: ServiceSync['plan'], scheduled: RosterPerson[], opts: { automatic?: boolean; weeklyDue?: number } = {}): Roster {
     const service = this.service(id);
     const teams = new Set(service.rules.teamIds);
     const people = scheduled.filter((p) => teams.has(p.teamId) && p.status !== 'declined');
     const { entries: fresh, unplaced } = assignMics(scheduled, service.rules);
-    const ours = serviceMics(service.rules);
 
     const entries: Roster['entries'] = {};
-    for (const [mic, e] of Object.entries(this.state.roster.entries)) {
-      if (ours.has(mic) || e.serviceId === id) continue;
-      // Someone this sync placed elsewhere can't stay on a second mic.
-      if (e.personId && Object.values(fresh).some((f) => f.personId === e.personId)) continue;
-      entries[mic] = e;
-    }
     for (const [mic, e] of Object.entries(fresh)) entries[mic] = { ...e, serviceId: id };
 
     this.state = {
