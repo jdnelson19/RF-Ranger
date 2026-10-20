@@ -1,15 +1,16 @@
 /**
- * Hardware validation tool: connect to one Shure receiver, log every frame to
+ * Hardware validation tool: connect to one receiver (Shure or Sennheiser), log every frame to
  * a file, and print the normalised telemetry once a second so it can be
  * compared with the receiver's front panel / Wireless Workbench.
  *
- *   npm run probe -- <ulxd|axd|slxd|psm1000> <host> [--port 2202, or 2201 for psm1000] [--channels 4] [--meter 250]
+ *   npm run probe -- <ulxd|axd|slxd|psm1000|ewdx|d6000> <host> [--port N] [--channels 4] [--meter 250]
+ *
+ * Default ports: 2202 (Shure receivers), 2201 (PSM 1000), 45 (Sennheiser SSC).
  */
 import { createWriteStream, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
-import { SHURE_FAMILIES, type ShureFamilyId } from '../adapters/shure/families.js';
-import { ShureReceiver } from '../adapters/shure/receiver.js';
+import { FAMILY_IDS, createReceiverDevice, familyLabel, type DeviceFamilyId } from '../adapters/families.js';
 import type { ChannelTelemetry } from '../core/model.js';
 import type { Reading } from '../core/reading.js';
 import { readiness, txPresent } from '../core/readiness.js';
@@ -24,8 +25,8 @@ const { values, positionals } = parseArgs({
 });
 
 const [family, host] = positionals;
-if (!family || !host || !(family in SHURE_FAMILIES)) {
-  console.error('usage: npm run probe -- <ulxd|axd|slxd|psm1000> <host> [--port 2202|2201] [--channels N] [--meter ms]');
+if (!family || !host || !FAMILY_IDS.includes(family as DeviceFamilyId)) {
+  console.error(`usage: npm run probe -- <${FAMILY_IDS.join('|')}> <host> [--port N] [--channels N] [--meter ms]`);
   process.exit(1);
 }
 
@@ -33,10 +34,10 @@ mkdirSync('logs', { recursive: true });
 const logPath = join('logs', `probe-${family}-${host.replace(/[^\w.-]/g, '_')}-${new Date().toISOString().replace(/[:.]/g, '-')}.log`);
 const log = createWriteStream(logPath);
 
-const rx = new ShureReceiver({
+const rx = createReceiverDevice({
   id: host,
   host,
-  family: family as ShureFamilyId,
+  family: family as DeviceFamilyId,
   port: values.port ? Number(values.port) : undefined,
   channels: values.channels ? Number(values.channels) : undefined,
   meterRateMs: values.meter ? Number(values.meter) : undefined,
@@ -78,7 +79,7 @@ const timer = setInterval(() => {
   const now = Date.now();
   const s = rx.status;
   console.clear();
-  console.log(`${SHURE_FAMILIES[family as ShureFamilyId].label} @ ${host}  —  ${s.state.toUpperCase()}${s.lastError && s.state !== 'connected' ? `  (${s.lastError})` : ''}`);
+  console.log(`${familyLabel(family as DeviceFamilyId)} @ ${host}  —  ${s.state.toUpperCase()}${s.lastError && s.state !== 'connected' ? `  (${s.lastError})` : ''}`);
   console.log(`model: ${rx.info.model ?? '?'}  device id: ${rx.info.deviceId ?? '?'}  firmware: ${rx.info.firmware ?? '?'}`);
   console.log(`raw log: ${logPath}    legend: — = device says unavailable, n/a = not supported, … = not received yet\n`);
   console.table([...rx.channels].map(([ch, st]) => row(ch, st.telemetry, now)));

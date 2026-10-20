@@ -5,14 +5,18 @@ import type { Live } from '../useSnapshot';
 interface Frame { seq: number; t: number; dir: 'in' | 'out' | 'note'; frame: string }
 interface KeyStat { key: string; channel?: number; value: string; count: number; lastSeen: number }
 interface Tags { kind?: string; model?: string; firmware?: string; notes?: string }
-interface SessionSummary { id: string; host: string; port: number; status: string; monitoredBy?: string; model?: string }
+type Protocol = 'shure' | 'ssc';
+interface SessionSummary { id: string; host: string; port: number; protocol: Protocol; status: string; monitoredBy?: string; model?: string }
 interface SessionView {
   id: string;
   host: string;
   port: number;
+  protocol: Protocol;
   status: string;
   monitoredBy?: string;
-  identity?: { reachable: boolean; model?: string; deviceId?: string; kind?: string; channels?: number; unsupported?: string };
+  identity?: { reachable: boolean; model?: string; deviceId?: string; firmware?: string; kind?: string; channels?: number; unsupported?: string };
+  /** SSC: "Read everything" is still going. */
+  reading?: boolean;
   tags: Tags;
   meteringUntil?: number;
   lastSeq: number;
@@ -20,16 +24,28 @@ interface SessionView {
   keys: KeyStat[];
 }
 
-const KINDS = ['', 'ULX-D', 'Axient Digital', 'SLX-D', 'QLX-D', 'UHF-R', 'PSM (in-ear)', 'Charger', 'Sennheiser', 'Other'];
-const QUICK: Array<[string, string]> = [
-  ['Get all', 'GET 0 ALL'],
-  ['Model', 'GET MODEL'],
-  ['Device ID', 'GET DEVICE_ID'],
-  ['Firmware', 'GET FW_VER'],
-  ['Ch 1 all', 'GET 1 ALL'],
-];
+const KINDS = ['', 'ULX-D', 'Axient Digital', 'SLX-D', 'QLX-D', 'UHF-R', 'PSM (in-ear)', 'Charger', 'Sennheiser EW-DX', 'Sennheiser Digital 6000', 'Sennheiser (other)', 'Other'];
+const QUICK: Record<Protocol, Array<[string, string]>> = {
+  shure: [
+    ['Get all', 'GET 0 ALL'],
+    ['Model', 'GET MODEL'],
+    ['Device ID', 'GET DEVICE_ID'],
+    ['Firmware', 'GET FW_VER'],
+    ['Ch 1 all', 'GET 1 ALL'],
+  ],
+  ssc: [
+    ['Identity', '/device/name /device/identity/product /device/identity/version'],
+    ['Address list', '{"osc":{"schema":null}}'],
+    ['Ch 1 (EW-DX)', '/rx1/name /rx1/frequency /rx1/warnings /rx1/mates /mates/tx1/battery/gauge /mates/tx1/type'],
+    ['Ch 1 (D6000)', '/rx1/name /rx1/carrier /rx1/active_warnings /rx1/skx/type /rx1/skx/battery'],
+  ],
+};
+const PLACEHOLDER: Record<Protocol, string> = { shure: 'GET 1 BATT_BARS', ssc: '/rx1/name /mm  or  {"rx1":{"name":null}}' };
 const MAX_CLIENT_FRAMES = 5_000;
-const ISSUE_URL = 'https://github.com/jdnelson19/RF-Ranger/issues/new?template=device-report.yml';
+const REPORT_URL = 'https://rfranger.app/#feedback';
+
+/** Meter traffic: Shure SAMPLE lines, SSC /mm (Digital 6000) and /m (EW-DX) notifications. */
+const isSample = (frame: string) => frame.includes('SAMPLE') || frame.startsWith('{"mm"') || frame.startsWith('{"m":');
 
 async function api<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api/inspector${path}`, body === undefined ? undefined : {
@@ -130,9 +146,13 @@ export function Inspector({ live }: { live: Live }) {
         )}
 
         <div className="insp__help">
-          <b>Help support more hardware.</b> Have a model RF Ranger doesn't support yet? Watch it here, press <i>Get all</i>,
-          tag what it is, then <i>Export report</i> and attach it to a{' '}
-          <a className="link" href={ISSUE_URL} target="_blank" rel="noreferrer">device report</a>. Names and addresses are removed by default.
+          <b>Help support more hardware.</b> Have a model RF Ranger doesn't support yet? Watch it here, press <i>Get all</i>{' '}
+          (Shure) or <i>Read everything</i> (Sennheiser), tag what it is, then <i>Export report</i> and send it with the{' '}
+          <a className="link" href={REPORT_URL} target="_blank" rel="noreferrer">feedback form</a> (choose “New device / device report”).
+          Names and addresses are removed by default.
+          <br /><br />
+          <b>Sennheiser EW-DX:</b> first turn on third-party access in Sennheiser Control Cockpit (Access → 3rd party media control access → <i>Legacy</i>).
+          Digital 6000 answers without setup. Both use port 45.
         </div>
       </aside>
 
@@ -162,7 +182,7 @@ function OpenForm({ onOpen }: { onOpen: (host: string, port: string) => void }) 
       <h3 className="insp__h">Watch a device</h3>
       <div className="insp__row">
         <input className="input" placeholder="IP address" value={host} onChange={(e) => setHost(e.target.value)} aria-label="IP address" />
-        <input className="input input--port" placeholder="2202" value={port} onChange={(e) => setPort(e.target.value)} aria-label="Port" />
+        <input className="input input--port" placeholder="auto" title="Leave blank to try Shure (2202, 2201) and Sennheiser (45)" value={port} onChange={(e) => setPort(e.target.value)} aria-label="Port" />
       </div>
       <button type="submit" className="btn btn--primary">Watch</button>
     </form>
@@ -206,7 +226,7 @@ function SessionPanel({ id, onClosed }: { id: string; onClosed: () => void }) {
 
   const shown = useMemo(() => {
     const q = filter.trim().toUpperCase();
-    return frames.filter((f) => (!hideSamples || !f.frame.includes('SAMPLE')) && (!q || f.frame.toUpperCase().includes(q))).slice(-1_500);
+    return frames.filter((f) => (!hideSamples || !isSample(f.frame)) && (!q || f.frame.toUpperCase().includes(q))).slice(-1_500);
   }, [frames, hideSamples, filter]);
 
   // Follow the newest line unless paused.
@@ -231,6 +251,15 @@ function SessionPanel({ id, onClosed }: { id: string; onClosed: () => void }) {
     }
   };
 
+  const readEverything = async () => {
+    setMessage(undefined);
+    try {
+      await api('/read-everything', { id });
+    } catch (e) {
+      setMessage({ tone: 'bad', text: (e as Error).message });
+    }
+  };
+
   const close = async () => {
     await api('/close', { id }).catch(() => {});
     onClosed();
@@ -249,7 +278,7 @@ function SessionPanel({ id, onClosed }: { id: string; onClosed: () => void }) {
           </div>
           <div className="dim insp__sub">
             {view.monitoredBy ? <>Monitored by RF Ranger as <b>{view.monitoredBy}</b> · </> : null}
-            {idn ? (idn.reachable ? `${idn.model ?? 'Unknown model'}${idn.kind ? ` · ${idn.kind.toUpperCase()}` : ''}${idn.channels ? ` · ${idn.channels} ch` : ''}${idn.unsupported ? ` · ${idn.unsupported}` : ''}` : 'No answer on the control port') : 'Identifying…'}
+            {idn ? (idn.reachable ? `${idn.model ?? 'Unknown model'}${idn.kind ? ` · ${idn.kind.toUpperCase()}` : ''}${idn.firmware ? ` · v${idn.firmware}` : ''}${idn.channels ? ` · ${idn.channels} ch` : ''}${idn.unsupported ? ` · ${idn.unsupported}` : ''}` : view.protocol === 'ssc' ? 'No answer on SSC port 45 (EW-DX: turn on Legacy third-party access in Control Cockpit)' : 'No answer on the control port') : 'Identifying…'}
           </div>
         </div>
         <div className="insp__actions">
@@ -261,16 +290,22 @@ function SessionPanel({ id, onClosed }: { id: string; onClosed: () => void }) {
 
       <div className="insp__controls">
         <div className="insp__quick">
-          {QUICK.map(([label, cmd]) => (
+          {view.protocol === 'ssc' && (
+            <button type="button" className="chip" onClick={readEverything} disabled={view.reading}
+              title="List every address the device has and read each one (read-only). Takes up to a minute.">
+              {view.reading ? 'Reading everything…' : 'Read everything'}
+            </button>
+          )}
+          {QUICK[view.protocol].map(([label, cmd]) => (
             <button key={cmd} type="button" className="chip" onClick={() => send(cmd)} title={cmd}>{label}</button>
           ))}
           <button type="button" className="chip" onClick={meter} disabled={!!view.monitoredBy || !!metering}
-            title={view.monitoredBy ? 'Already metered by RF Ranger' : 'Turn meters on for 30 seconds to capture SAMPLE messages'}>
+            title={view.monitoredBy ? 'Already metered by RF Ranger' : 'Turn meters on for 30 seconds to capture meter samples'}>
             {metering ? 'Metering…' : 'Sample meters 30 s'}
           </button>
         </div>
         <form className="insp__cmd" onSubmit={(e) => { e.preventDefault(); if (command.trim()) { void send(command); } }}>
-          <input className="input input--mono" placeholder="GET 1 BATT_BARS" value={command} onChange={(e) => setCommand(e.target.value)} aria-label="Command" />
+          <input className="input input--mono" placeholder={PLACEHOLDER[view.protocol]} value={command} onChange={(e) => setCommand(e.target.value)} aria-label="Command" />
           <button type="submit" className="btn btn--ghost">Send</button>
         </form>
         {message && <span className={`insp__msg insp__msg--${message.tone}`}>{message.text}</span>}
@@ -287,7 +322,7 @@ function SessionPanel({ id, onClosed }: { id: string; onClosed: () => void }) {
           </div>
           <div className="insp__log" ref={logRef}>
             {shown.map((f) => (
-              <div key={f.seq} className={`logline logline--${f.dir}${f.frame.includes('SAMPLE') ? ' logline--sample' : ''}${f.frame.includes('REP ERR') ? ' logline--err' : ''}`}>
+              <div key={f.seq} className={`logline logline--${f.dir}${isSample(f.frame) ? ' logline--sample' : ''}${f.frame.includes('REP ERR') || f.frame.startsWith('{"osc":{"error"') ? ' logline--err' : ''}`}>
                 <span className="logline__t">{time(f.t)}</span>
                 <span className="logline__d">{f.dir === 'in' ? '←' : f.dir === 'out' ? '→' : '•'}</span>
                 <span className="logline__f">{f.frame}</span>
@@ -338,7 +373,7 @@ function TagForm({ id, initial }: { id: string; initial: Tags }) {
             {KINDS.map((k) => <option key={k} value={k}>{k || 'Choose…'}</option>)}
           </select>
         </label>
-        <label>Model<input className="input" placeholder="e.g. ULXD4Q" value={tags.model ?? ''} onChange={set('model')} /></label>
+        <label>Model<input className="input" placeholder="e.g. ULXD4Q, EM 6000" value={tags.model ?? ''} onChange={set('model')} /></label>
         <label>Firmware<input className="input" placeholder="e.g. 2.7.6" value={tags.firmware ?? ''} onChange={set('firmware')} /></label>
       </div>
       <label>Notes<textarea className="input" rows={3} placeholder="Transmitters, batteries, anything that looked wrong…" value={tags.notes ?? ''} onChange={set('notes')} /></label>
@@ -351,11 +386,12 @@ function suggestions(live: Live): Array<{ id: string; host: string; port: string
   const s = live.snapshot;
   if (!s) return [];
   const out = new Map<string, { id: string; host: string; port: string; label: string }>();
+  const ssc = new Set(['ewdx', 'd6000']);
   for (const d of s.discovered) {
     const [host, port = ''] = d.host.split(':');
-    out.set(d.host, { id: d.host, host: host!, port, label: d.model ?? d.state });
+    out.set(d.host, { id: d.host, host: host!, port: port || (d.kind && ssc.has(d.kind) ? '45' : ''), label: d.model ?? d.state });
   }
-  for (const r of s.receivers) if (![...out.values()].some((o) => o.host === r.info.host)) out.set(r.info.host, { id: r.info.host, host: r.info.host, port: '', label: r.info.id });
+  for (const r of s.receivers) if (![...out.values()].some((o) => o.host === r.info.host)) out.set(r.info.host, { id: r.info.host, host: r.info.host, port: r.info.manufacturer === 'sennheiser' ? '45' : '', label: r.info.id });
   for (const c of s.chargers) if (![...out.values()].some((o) => o.host === c.info.host)) out.set(c.info.host, { id: c.info.host, host: c.info.host, port: '', label: c.info.id });
   return [...out.values()];
 }

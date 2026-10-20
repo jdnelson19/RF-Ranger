@@ -375,6 +375,9 @@ button { font: inherit; color: inherit; }
 .found--identifying { color: var(--accent); }
 .found--unsupported { color: var(--muted); }
 .found--unreachable { color: var(--warn); }
+.add-device { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.add-device .input { width: min(280px, 100%); }
+.add-device__error { color: var(--bad); font-size: 13px; }
 .empty__title { color: var(--text); font-size: 20px; font-weight: 700; margin-bottom: 8px; }
 .empty p { margin: 6px 0; }
 .link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }

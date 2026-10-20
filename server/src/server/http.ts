@@ -46,6 +46,8 @@ export interface HttpOptions {
   autoSync?: AutoSync;
   /** Live mode: stop monitoring and remembering a device (Devices, Forget). This computer only. */
   forgetDevice?: (host: string) => boolean;
+  /** Live mode: monitor a device by address (Devices, Add device). This computer only. */
+  addDevice?: (spec: string) => string;
 }
 
 /**
@@ -88,6 +90,11 @@ export function startHttp(runtime: Runtime, opts: HttpOptions): Promise<http.Ser
 
     if (url.pathname === '/api/devices/forget' && opts.forgetDevice) {
       void forget(opts.forgetDevice, req, res);
+      return;
+    }
+
+    if (url.pathname === '/api/devices/add' && opts.addDevice) {
+      void addDevice(opts.addDevice, req, res);
       return;
     }
 
@@ -169,6 +176,25 @@ function serveFile(res: http.ServerResponse, root: string, rel: string, spaFallb
   const cache = path.endsWith('index.html') ? 'no-cache' : 'public, max-age=3600';
   res.writeHead(200, { 'content-type': type, 'cache-control': cache });
   createReadStream(path).pipe(res);
+}
+
+/** POST /api/devices/add { address }: only from the computer running RF Ranger, like Forget. */
+async function addDevice(fn: (spec: string) => string, req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  const json = (status: number, body: unknown) => {
+    res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+    res.end(JSON.stringify(body));
+  };
+  if (req.method !== 'POST') return json(405, { error: 'POST only' });
+  if (!isLocalRequest(req)) return json(403, { error: 'Devices can only be added on the computer running RF Ranger.' });
+  if (!(req.headers['content-type'] ?? '').startsWith('application/json')) return json(415, { error: 'Expected JSON' });
+  try {
+    const body = (await readJson(req)) as { address?: unknown };
+    const address = typeof body.address === 'string' ? body.address : '';
+    if (!address.trim()) return json(400, { error: 'Enter an IP address.' });
+    json(200, { added: fn(address) });
+  } catch (err) {
+    json(400, { error: err instanceof Error ? err.message : String(err) });
+  }
 }
 
 /** POST /api/devices/forget { host }: only from the computer running RF Ranger, like the Inspector. */

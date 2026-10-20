@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs';
-import type { ShureFamilyId } from '../adapters/shure/families.js';
+import type { DeviceFamilyId } from '../adapters/families.js';
 import type { AlertThresholds } from '../core/alerts.js';
 import type { SlotConfig } from '../core/assignment.js';
 import { DEFAULT_THRESHOLDS } from '../core/readiness.js';
 
 export interface ReceiverConfig {
   id: string;
-  family: ShureFamilyId;
+  family: DeviceFamilyId;
   host: string;
   port?: number;
   channels?: number;

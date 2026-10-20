@@ -100,7 +100,10 @@ The engineer alerts are receiver offline, data stale, TX lost while assigned, ba
 ```
 server/            Node service: adapters, store, derive, API
   src/core/        model types, readings, readiness (pure; shared with web)
-  src/adapters/shure/
+  src/adapters/device.ts      what the runtime needs from any receiver (ReceiverDevice)
+  src/adapters/families.ts    every family across makers; createReceiverDevice()
+  src/adapters/shure/         Shure TCP command strings (ULX-D, AD, SLX-D, PSM 1000, chargers)
+  src/adapters/sennheiser/    Sennheiser SSC v1, JSON over UDP port 45 (EW-DX, Digital 6000)
 web/               UI (Engineer + Pickup views)
 docs/
 ```

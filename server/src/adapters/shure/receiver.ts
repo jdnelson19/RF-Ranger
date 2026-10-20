@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import type { ChannelTelemetry, ConnectionStatus, ReceiverInfo } from '../../core/model.js';
 import { LevelRecorder } from '../../core/history.js';
+import { recordLevels, type ChannelState, type ReceiverDevice, type ReceiverEvents } from '../device.js';
 import { ShureConnection } from './connection.js';
 import { SHURE_FAMILIES, initialTelemetry, type ShureFamily, type ShureFamilyId } from './families.js';
 import { getCommand, meterRateCommand, type ShureMessage } from './protocol.js';
@@ -23,28 +24,14 @@ export interface ShureReceiverOptions {
   now?: () => number;
 }
 
-export interface ChannelState {
-  telemetry: ChannelTelemetry;
-  /** Latest raw value per command key, for diagnostics. */
-  raw: Record<string, string>;
-  /** Recent audio and RF levels, from meter samples. */
-  levels: LevelRecorder;
-}
-
-interface Events {
-  status: [ConnectionStatus];
-  /** A channel's telemetry changed. */
-  channel: [channel: number, state: ChannelState];
-  info: [ReceiverInfo];
-  wire: [direction: 'in' | 'out', frame: string];
-}
+export type { ChannelState } from '../device.js';
 
 /**
  * A networked Shure rack unit: a mic receiver, or for `iem` families an in-ear
  * monitor transmitter. Keeps one connection alive, meters every channel,
  * and turns metering off before closing so receivers aren't left streaming.
  */
-export class ShureReceiver extends EventEmitter<Events> {
+export class ShureReceiver extends EventEmitter<ReceiverEvents> implements ReceiverDevice {
   readonly family: ShureFamily;
   readonly info: ReceiverInfo;
   readonly channels = new Map<number, ChannelState>();
@@ -121,10 +108,7 @@ export class ShureReceiver extends EventEmitter<Events> {
       const ch = this.channels.get(msg.channel);
       if (!ch) return;
       this.family.applySample(ch.telemetry, msg.args, now);
-      const t = ch.telemetry;
-      const audio = t.audioPeakDbfs.state === 'ok' ? t.audioPeakDbfs.value : t.audioRmsDbfs.state === 'ok' ? t.audioRmsDbfs.value : undefined;
-      const rf = t.rfDbm.state === 'ok' && t.rfDbm.value.length ? Math.max(...t.rfDbm.value) : undefined;
-      ch.levels.add(now, audio, rf);
+      recordLevels(ch, now);
       this.emit('channel', msg.channel, ch);
       return;
     }

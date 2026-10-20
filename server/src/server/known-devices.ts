@@ -8,7 +8,7 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { SHURE_FAMILY_IDS, type ShureFamilyId } from '../adapters/shure/families.js';
+import { FAMILY_IDS, type DeviceFamilyId } from '../adapters/families.js';
 
 export function knownDevicesPath(home = homedir()): string {
   return join(home, '.rf-ranger', 'known-devices.json');
@@ -18,7 +18,7 @@ export interface KnownReceiver {
   id: string;
   host: string;
   port?: number;
-  family: ShureFamilyId;
+  family: DeviceFamilyId;
   channels?: number;
   model?: string;
   /** Channel number → the last name the receiver reported, e.g. "RF1 Sam". */
@@ -97,8 +97,8 @@ export class KnownDevices {
         const o = (x ?? {}) as Record<string, unknown>;
         const id = str(o.id);
         const host = str(o.host);
-        const family = str(o.family) as ShureFamilyId | undefined;
-        if (!id || !host || !family || !SHURE_FAMILY_IDS.includes(family)) return [];
+        const family = str(o.family) as DeviceFamilyId | undefined;
+        if (!id || !host || !family || !FAMILY_IDS.includes(family)) return [];
         const names = Object.fromEntries(Object.entries((o.names ?? {}) as Record<string, unknown>).filter(([, v]) => typeof v === 'string')) as Record<string, string>;
         return [{ id, host, port: num(o.port), family, channels: num(o.channels), model: str(o.model), names, lastSeen: num(o.lastSeen) ?? 0 }];
       });

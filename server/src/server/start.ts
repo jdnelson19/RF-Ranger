@@ -75,6 +75,7 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
 
   const runtime = new Runtime(config, opts.mode);
   const forgetDevice: { current?: (host: string) => boolean } = {};
+  const addDevice: { current?: (spec: string) => string } = {};
   const inspector = new Inspector(runtime);
   const planningCenter = opts.planningCenter ?? new PlanningCenterLink({ log: (m) => log(`  ${m}`) });
   const presets = opts.presets ?? new PresetStore(opts.mode === 'demo' ? undefined : presetsPath());
@@ -104,6 +105,10 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
       micRoster,
       autoSync,
       forgetDevice: (host) => forgetDevice.current?.(host) ?? false,
+      addDevice: (spec) => {
+        if (!addDevice.current) throw new Error('Devices can be added in live mode only.');
+        return addDevice.current(spec);
+      },
       onQuit: opts.app?.onQuit,
     });
   } catch (err) {
@@ -138,6 +143,7 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
     await liveManager.start();
     const manager = liveManager;
     forgetDevice.current = (host) => manager.forget(host);
+    addDevice.current = (spec) => manager.add(spec);
   }
 
   const label = { demo: '(DEMO: simulated hardware) ', live: '(live: auto-discovery) ', config: '' }[opts.mode];

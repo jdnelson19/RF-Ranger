@@ -1,8 +1,13 @@
 import type http from 'node:http';
+import { defaultPort, isSennheiser, type DeviceFamilyId } from '../adapters/families.js';
+import { SscConnection } from '../adapters/sennheiser/connection.js';
+import { identifySennheiser } from '../adapters/sennheiser/identify.js';
+import { SSC_PORT, merge, tree, type SscValue } from '../adapters/sennheiser/ssc.js';
 import { SHURE_PORT, SHURE_PORTS, ShureConnection } from '../adapters/shure/connection.js';
 import { identifyShure, identifyShureOnPorts, type Identity } from '../adapters/shure/identify.js';
 import { getCommand, meterRateCommand, parseMessage } from '../adapters/shure/protocol.js';
 import { VERSION } from '../version.js';
+import { SscCrawl, isPrivateAddress, knownAddresses, meterSubscriptions, normalizeSscRead, redactSsc, sscKeys } from './inspector-ssc.js';
 import type { Runtime } from './runtime.js';
 
 /**
@@ -12,6 +17,8 @@ import type { Runtime } from './runtime.js';
  *
  * Safety: only GET commands can be sent. The single exception is a timed
  * metering burst (SET METER_RATE), which is always switched back off.
+ * Sennheiser devices (SSC, port 45) are handled alike: reads only, plus a
+ * crawl of the address tree and a timed meter subscription (inspector-ssc.ts).
  */
 
 export { VERSION };
@@ -38,10 +45,16 @@ export interface InspectorTags {
   notes?: string;
 }
 
+export type InspectorProtocol = 'shure' | 'ssc';
+
+/** What the device says it is: Shure identify, or the SSC identity mapped onto the same fields. */
+type InspectorIdentity = Omit<Identity, 'kind'> & { kind?: string; firmware?: string };
+
 interface Session {
   id: string;
   host: string;
   port: number;
+  protocol: InspectorProtocol;
   openedAt: number;
   monitoredBy?: string;
   status: () => string;
@@ -50,9 +63,10 @@ interface Session {
   frames: InspectorFrame[];
   seq: number;
   keys: Map<string, KeyStat>;
-  identity?: Identity;
+  identity?: InspectorIdentity;
   tags: InspectorTags;
   metering?: { channels: number[]; timer: NodeJS.Timeout; until: number };
+  crawl?: SscCrawl;
 }
 
 const MAX_FRAMES = 5_000;
@@ -63,7 +77,7 @@ export class Inspector {
 
   constructor(private readonly runtime: Runtime) {}
 
-  open(host: string, port = SHURE_PORT): Session {
+  open(host: string, port = SHURE_PORT, protocol: InspectorProtocol = port === SSC_PORT ? 'ssc' : 'shure'): Session {
     if (!/^[\w.-]+$/.test(host)) throw new Error('Enter an IP address or host name');
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid port');
     const id = `${host}:${port}`;
@@ -71,7 +85,7 @@ export class Inspector {
     if (existing) return existing;
 
     const session: Session = {
-      id, host, port, openedAt: Date.now(), frames: [], seq: 0, keys: new Map(), tags: {},
+      id, host, port, protocol, openedAt: Date.now(), frames: [], seq: 0, keys: new Map(), tags: {},
       status: () => 'disconnected', send: () => {}, stop: async () => {},
     };
     const record = (dir: 'in' | 'out', frame: string) => this.record(session, dir, frame);
@@ -79,18 +93,44 @@ export class Inspector {
     // Reuse the live connection if RF Ranger already monitors this device.
     const device = [...this.runtime.receivers.values(), ...this.runtime.chargers.values()].find((d) => {
       const cfg = [...this.runtime.config.receivers, ...this.runtime.config.chargers].find((c) => c.id === d.info.id);
-      const familyPort = 'family' in d && d.family ? d.family.defaultPort : SHURE_PORT;
+      const familyPort = 'family' in d && d.family ? defaultPort(d.family.id as DeviceFamilyId) : SHURE_PORT;
       return d.info.host === host && (cfg?.port ?? familyPort) === port;
     });
 
     if (device) {
       session.monitoredBy = device.info.id;
+      session.protocol = device.info.manufacturer === 'sennheiser' ? 'ssc' : 'shure';
       device.on('wire', record);
       session.status = () => device.status.state;
-      session.send = (f) => device.send(f);
+      session.send = (f) => device.send?.(f);
       session.stop = async () => { device.off('wire', record); };
-      session.identity = { host, reachable: true, model: device.info.model, deviceId: device.info.deviceId };
+      session.identity = {
+        host, reachable: true, model: device.info.model, deviceId: device.info.deviceId, firmware: device.info.firmware,
+        kind: 'family' in device ? device.family.id : undefined, channels: 'channelCount' in device.info ? device.info.channelCount : undefined,
+      };
       this.note(session, `Watching ${device.info.id}'s existing connection (already monitored by RF Ranger).`);
+    } else if (protocol === 'ssc') {
+      const conn = new SscConnection({
+        host,
+        port,
+        silenceTimeoutMs: 15_000,
+        onConnect: () => [merge(tree(['device', 'name']), tree(['device', 'identity', 'product']), tree(['device', 'identity', 'version'])), { osc: { version: null } }],
+        // Nothing to keep alive but the link itself: pings do that.
+        renew: () => [],
+        onClose: () => (session.metering ? meterSubscriptions(this.sscFamily(session), session.metering.channels, 0, true) : []),
+      });
+      conn.on('wire', record);
+      conn.on('status', (st) => this.note(session, `Connection ${st.state}${st.lastError && st.state !== 'connected' ? `: ${st.lastError}` : ''}`));
+      session.status = () => conn.status.state;
+      session.send = (f) => conn.send(JSON.parse(f) as Record<string, SscValue>);
+      session.stop = () => conn.stop();
+      conn.start();
+      void identifySennheiser(host, port).then((idn) => {
+        session.identity = { host, port, reachable: idn.reachable, model: idn.product, deviceId: idn.deviceName, firmware: idn.version, kind: idn.family, channels: idn.channels, unsupported: idn.unsupported };
+        this.note(session, idn.reachable
+          ? `Identified: ${idn.product ?? 'unknown product'}${idn.family ? ` (${idn.family})` : ''}${idn.unsupported ? `: ${idn.unsupported}` : ''}`
+          : 'No answer on SSC port 45. On EW-DX, turn on 3rd party access ("Legacy", SSCv1) in Control Cockpit first.');
+      });
     } else {
       const conn = new ShureConnection({
         host,
@@ -120,6 +160,7 @@ export class Inspector {
 
   async close(id: string): Promise<void> {
     const s = this.get(id);
+    s.crawl?.stop();
     this.stopMetering(s);
     await s.stop();
     this.sessions.delete(id);
@@ -129,10 +170,10 @@ export class Inspector {
     await Promise.all([...this.sessions.keys()].map((id) => this.close(id)));
   }
 
-  /** Send a read-only query. Accepts "GET 1 ALL" or "< GET 1 ALL >". */
+  /** Send a read-only query. Shure: "GET 1 ALL" or "< GET 1 ALL >". SSC: "/rx1/name /mm" or JSON with null values. */
   send(id: string, command: string): string {
     const s = this.get(id);
-    const frame = normalizeGet(command);
+    const frame = s.protocol === 'ssc' ? JSON.stringify(normalizeSscRead(command)) : normalizeGet(command);
     s.send(frame);
     return frame;
   }
@@ -145,9 +186,18 @@ export class Inspector {
     const known = s.identity?.channels;
     const channels = Array.from({ length: known ?? 4 }, (_, i) => i + 1);
     this.stopMetering(s);
-    for (const ch of channels) s.send(meterRateCommand(ch, 1_000));
+    if (s.protocol === 'ssc') for (const m of meterSubscriptions(this.sscFamily(s), channels, secs)) s.send(JSON.stringify(m));
+    else for (const ch of channels) s.send(meterRateCommand(ch, 1_000));
     s.metering = { channels, until: Date.now() + secs * 1000, timer: setTimeout(() => this.stopMetering(s), secs * 1000) };
     this.note(s, `Metering on for ${secs} s (1 sample per second on channels ${channels.join(', ')}). It switches off automatically.`);
+  }
+
+  /** SSC: list every address the device has and read each one, for a complete device report. */
+  readEverything(id: string): void {
+    const s = this.get(id);
+    if (s.protocol !== 'ssc') throw new Error('Read everything is for Sennheiser (SSC) devices; on Shure devices use Get all.');
+    if (s.crawl && !s.crawl.done) throw new Error('Already reading.');
+    s.crawl = new SscCrawl((m) => s.send(JSON.stringify(m)), (t) => this.note(s, t), () => knownAddresses(this.sscFamily(s)));
   }
 
   setTags(id: string, tags: InspectorTags): void {
@@ -162,7 +212,7 @@ export class Inspector {
 
   list() {
     return [...this.sessions.values()].map((s) => ({
-      id: s.id, host: s.host, port: s.port, status: s.status(), monitoredBy: s.monitoredBy, model: s.identity?.model ?? s.tags.model,
+      id: s.id, host: s.host, port: s.port, protocol: s.protocol, status: s.status(), monitoredBy: s.monitoredBy, model: s.identity?.model ?? s.tags.model,
     }));
   }
 
@@ -173,9 +223,11 @@ export class Inspector {
       id: s.id,
       host: s.host,
       port: s.port,
+      protocol: s.protocol,
       status: s.status(),
       monitoredBy: s.monitoredBy,
       identity: s.identity,
+      reading: !!s.crawl && !s.crawl.done,
       tags: s.tags,
       meteringUntil: s.metering?.until,
       lastSeq: s.seq,
@@ -187,10 +239,13 @@ export class Inspector {
   /** Everything needed to add or fix support for this device. */
   report(id: string, anonymize: boolean) {
     const s = this.get(id);
-    const scrub = (text: string) => (anonymize ? redact(text, s.host) : text);
+    const ssc = s.protocol === 'ssc';
+    const scrub = (text: string) => (!anonymize ? text : ssc ? redactSsc(text, s.host) : redact(text, s.host));
+    const privateKey = (key: string) => (ssc ? isPrivateAddress(key) : NAME_KEYS.has(key));
     return {
       kind: 'rf-ranger-device-report',
       reportVersion: 1,
+      protocol: s.protocol,
       rfRangerVersion: VERSION,
       createdAt: new Date().toISOString(),
       platform: `${process.platform} ${process.arch}, Node ${process.version}`,
@@ -206,7 +261,7 @@ export class Inspector {
         },
         userTags: s.tags,
       },
-      keysSeen: [...s.keys.values()].map((k) => ({ ...k, value: anonymize && NAME_KEYS.has(k.key) ? 'redacted' : scrub(k.value) })),
+      keysSeen: [...s.keys.values()].map((k) => ({ ...k, value: anonymize && privateKey(k.key) ? 'redacted' : scrub(k.value) })),
       frames: s.frames.map((f) => ({ ...f, frame: scrub(f.frame) })),
     };
   }
@@ -217,10 +272,16 @@ export class Inspector {
     return s;
   }
 
+  private sscFamily(s: Session) {
+    const kind = s.identity?.kind;
+    return kind && isSennheiser(kind as DeviceFamilyId) ? (kind as 'ewdx' | 'd6000') : undefined;
+  }
+
   private stopMetering(s: Session): void {
     if (!s.metering) return;
     clearTimeout(s.metering.timer);
-    for (const ch of s.metering.channels) s.send(meterRateCommand(ch, 0));
+    if (s.protocol === 'ssc') for (const m of meterSubscriptions(this.sscFamily(s), s.metering.channels, 0, true)) s.send(JSON.stringify(m));
+    else for (const ch of s.metering.channels) s.send(meterRateCommand(ch, 0));
     s.metering = undefined;
     this.note(s, 'Metering off.');
   }
@@ -232,7 +293,6 @@ export class Inspector {
   private record(s: Session, dir: 'in' | 'out', frame: string): void {
     this.push(s, dir, frame);
     if (dir !== 'in') return;
-    const m = parseMessage(frame);
     const now = Date.now();
     const bump = (key: string, channel: number | undefined, value: string) => {
       const k = `${channel ?? '-'}:${key}`;
@@ -240,6 +300,18 @@ export class Inspector {
       if (stat) Object.assign(stat, { value, count: stat.count + 1, lastSeen: now });
       else s.keys.set(k, { key, channel, value, count: 1, lastSeen: now });
     };
+    if (s.protocol === 'ssc') {
+      let msg: Record<string, SscValue>;
+      try {
+        msg = JSON.parse(frame) as Record<string, SscValue>;
+      } catch {
+        return;
+      }
+      for (const k of sscKeys(msg)) bump(k.key, k.channel, k.value);
+      s.crawl?.onMessage(msg);
+      return;
+    }
+    const m = parseMessage(frame);
     if (m.kind === 'rep') bump(m.key, m.channel, m.args.join(' '));
     else if (m.kind === 'sample') bump('SAMPLE ALL', m.channel, m.args.join(' '));
   }
@@ -333,15 +405,14 @@ export async function handleInspector(inspector: Inspector, req: http.IncomingMe
       const id = String(body.id ?? '');
       if (route === 'open') {
         const host = String(body.host ?? '').trim();
-        // No port given: use whichever of 2202 / 2201 (PSM 1000) answers.
-        const port = body.port === undefined || body.port === ''
-          ? (/^[\w.-]+$/.test(host) ? ((await identifyShureOnPorts(host, SHURE_PORTS, 1_500)).port ?? SHURE_PORT) : SHURE_PORT)
-          : Number(body.port);
+        // No port given: use whichever answers of 2202 / 2201 (Shure, PSM 1000) and 45 (Sennheiser SSC).
+        const port = body.port === undefined || body.port === '' ? await findPort(host) : Number(body.port);
         const s = inspector.open(host, port);
         return json(200, { id: s.id });
       }
       if (route === 'close') { await inspector.close(id); return json(200, {}); }
       if (route === 'send') return json(200, { sent: inspector.send(id, String(body.command ?? '')) });
+      if (route === 'read-everything') { inspector.readEverything(id); return json(200, {}); }
       if (route === 'meter') { inspector.meter(id, Number(body.seconds ?? 30)); return json(200, {}); }
       if (route === 'tags') { inspector.setTags(id, body.tags as InspectorTags); return json(200, {}); }
     }
@@ -349,6 +420,13 @@ export async function handleInspector(inspector: Inspector, req: http.IncomingMe
   } catch (err) {
     json(400, { error: (err as Error).message });
   }
+}
+
+async function findPort(host: string): Promise<number> {
+  if (!/^[\w.-]+$/.test(host)) return SHURE_PORT;
+  const [shure, ssc] = await Promise.all([identifyShureOnPorts(host, SHURE_PORTS, 1_500), identifySennheiser(host, SSC_PORT, 1_500)]);
+  if (shure.reachable && shure.port) return shure.port;
+  return ssc.reachable ? SSC_PORT : SHURE_PORT;
 }
 
 export function readJson(req: http.IncomingMessage): Promise<unknown> {

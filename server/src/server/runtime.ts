@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { ShureCharger } from '../adapters/shure/charger.js';
-import { ShureReceiver } from '../adapters/shure/receiver.js';
+import type { ReceiverDevice } from '../adapters/device.js';
+import { createReceiverDevice } from '../adapters/families.js';
 import { channelAlerts } from '../core/alerts.js';
 import { splitChannelName, type AssignmentConfig, type SlotConfig } from '../core/assignment.js';
 import { namesPerson, type LiveNow } from '../core/live.js';
@@ -18,7 +19,7 @@ interface Events {
 
 /** Owns every device connection and builds the single source of truth for both views. */
 export class Runtime extends EventEmitter<Events> {
-  readonly receivers = new Map<string, ShureReceiver>();
+  readonly receivers = new Map<string, ReceiverDevice>();
   readonly chargers = new Map<string, ShureCharger>();
   /** Set by live mode to report what discovery has found. */
   discovered: () => DiscoveredView[] = () => [];
@@ -91,9 +92,9 @@ export class Runtime extends EventEmitter<Events> {
     await Promise.all([...this.receivers.values(), ...this.chargers.values()].map((d) => d.stop()));
   }
 
-  private createReceiver(rc: ReceiverConfig): ShureReceiver {
+  private createReceiver(rc: ReceiverConfig): ReceiverDevice {
     const usedChannels = this.config.slots.filter((s) => s.receiver === rc.id).map((s) => s.channel);
-    const rx = new ShureReceiver({
+    const rx = createReceiverDevice({
       id: rc.id,
       host: rc.host,
       port: rc.port,

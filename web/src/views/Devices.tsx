@@ -1,3 +1,4 @@
+import { useState, type FormEvent } from 'react';
 import type { ConnectionStatus } from '../types';
 import type { Live } from '../useSnapshot';
 
@@ -36,6 +37,32 @@ async function forget(host: string): Promise<void> {
   if (!res.ok) window.alert(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `Couldn't forget ${host}.`);
 }
 
+/**
+ * Add a device by address, for networks where discovery can't see it (other
+ * subnets, mDNS blocked). Same forms as --receiver: "10.0.1.40",
+ * "ewdx@10.0.1.40", "10.0.1.40:2202". This computer only, like Forget.
+ */
+function AddDevice() {
+  const [address, setAddress] = useState('');
+  const [error, setError] = useState<string>();
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!address.trim()) return;
+    setError(undefined);
+    const res = await fetch('/api/devices/add', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address }) });
+    if (res.ok) setAddress('');
+    else setError(((await res.json().catch(() => ({}))) as { error?: string }).error ?? 'Could not add that device.');
+  };
+  return (
+    <form className="add-device" onSubmit={submit}>
+      <input className="input" placeholder="IP address, e.g. 10.0.1.40" value={address} onChange={(e) => setAddress(e.target.value)} aria-label="Device address"
+        title="An IP address finds Shure (ports 2202, 2201) and Sennheiser (port 45) devices. To say what it is: ewdx@10.0.1.40, d6000@10.0.1.41, axd@10.0.1.20" />
+      <button type="submit" className="btn btn--ghost">Add device</button>
+      {error && <span className="add-device__error">{error}</span>}
+    </form>
+  );
+}
+
 /** Network and integration status for every configured device. */
 export function Devices({ live }: { live: Live }) {
   const s = live.snapshot;
@@ -47,15 +74,17 @@ export function Devices({ live }: { live: Live }) {
       {s.mode === 'live' && (
         <section>
           <h2 className="section-title">Found on the network</h2>
+          {local && <AddDevice />}
           {s.discovered.length === 0 ? (
             <p className="dim">
-              Listening for Shure devices… They announce themselves every so often, so this can take a minute. If nothing appears, check
-              this computer is on the same network as the receivers, or start with <code>--receiver &lt;ip&gt;</code>.
+              Listening for Shure and Sennheiser devices… They announce themselves every so often, so this can take a minute. If nothing
+              appears, check this computer is on the same network as the receivers, or add one by its IP address. Sennheiser EW-DX
+              receivers also need third-party access turned on in Sennheiser Control Cockpit (Access → 3rd party media control access → Legacy).
             </p>
           ) : (
             <table className="table">
               <thead>
-                <tr><th>Address</th><th>Model</th><th>Device ID</th><th>Type</th><th>Found by</th><th>Status</th><th>Note</th>{local && <th />}</tr>
+                <tr><th>Address</th><th>Model</th><th>Name</th><th>Type</th><th>Found by</th><th>Status</th><th>Note</th>{local && <th />}</tr>
               </thead>
               <tbody>
                 {s.discovered.map((d) => (
