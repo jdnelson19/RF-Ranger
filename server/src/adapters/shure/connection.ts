@@ -23,6 +23,8 @@ export interface ShureConnectionOptions {
    */
   heartbeat?: string;
   heartbeatMs?: number;
+  /** Appended to every frame sent. The PSM 1000 ignores commands without "\r\n"; receivers don't need it. */
+  lineEnding?: string;
   /** Drop and reconnect when nothing is heard for this long. */
   silenceTimeoutMs?: number;
   connectTimeoutMs?: number;
@@ -57,9 +59,12 @@ export class ShureConnection extends EventEmitter<Events> {
   private readonly silenceTimeoutMs: number;
   private readonly connectTimeoutMs: number;
   readonly now: () => number;
+  /** See ShureConnectionOptions.lineEnding; the Inspector switches it once it recognises a PSM 1000. */
+  lineEnding: string;
 
   constructor(private readonly opts: ShureConnectionOptions) {
     super();
+    this.lineEnding = opts.lineEnding ?? '';
     this.port = opts.port ?? SHURE_PORT;
     this.heartbeatMs = opts.heartbeatMs ?? 2_000;
     this.silenceTimeoutMs = opts.silenceTimeoutMs ?? 5_000;
@@ -103,7 +108,7 @@ export class ShureConnection extends EventEmitter<Events> {
     if (!this.socket || this.socket.destroyed) return;
     this.lastSentAt = this.now();
     this.emit('wire', 'out', frame);
-    this.socket.write(frame);
+    this.socket.write(frame + this.lineEnding);
   }
 
   private connect(): void {

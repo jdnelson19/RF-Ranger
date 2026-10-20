@@ -64,6 +64,7 @@ export class ShureReceiver extends EventEmitter<ReceiverEvents> implements Recei
       connectTimeoutMs: opts.connectTimeoutMs,
       now: opts.now,
       heartbeat: getCommand(undefined, family.deviceIdKey),
+      lineEnding: family.lineEnding,
       onConnect: () => [
         getCommand(undefined, 'MODEL'),
         getCommand(undefined, family.deviceIdKey),

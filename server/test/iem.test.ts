@@ -198,9 +198,29 @@ describe('PSM 1000 control port', () => {
     return port;
   }
 
-  it('uses 2201 for the PSM 1000 and 2202 for everything else', () => {
-    expect(SHURE_FAMILIES.psm1000.defaultPort).toBe(2201);
-    for (const id of ['ulxd', 'axd', 'slxd'] as const) expect(SHURE_FAMILIES[id].defaultPort).toBe(2202);
+  it('uses 2202 for every family, and line endings only for the PSM 1000', () => {
+    for (const id of ['ulxd', 'axd', 'slxd', 'psm1000'] as const) expect(SHURE_FAMILIES[id].defaultPort).toBe(2202);
+    expect(SHURE_FAMILIES.psm1000.lineEnding).toBe('\r\n');
+    expect(SHURE_FAMILIES.axd.lineEnding).toBeUndefined();
+  });
+
+  it('a P10T ignores commands without a line ending, as hardware did', async () => {
+    const sim = new ShureSim({ family: 'psm1000', deviceId: 'IEM RACK' });
+    const port = await sim.listen();
+    cleanup.push(() => sim.close());
+    const net = await import('node:net');
+    const reply = async (text: string) => {
+      const s = net.connect({ host: '127.0.0.1', port });
+      s.setEncoding('ascii');
+      let got = '';
+      s.on('data', (d: string) => (got += d));
+      s.on('connect', () => s.write(text));
+      await new Promise((r) => setTimeout(r, 300));
+      s.destroy();
+      return got.replace(/< REPORT \d AUDIO_IN_LVL_[LR] \d+ >/g, '');
+    };
+    expect(await reply('< GET DEVICE_NAME >')).toBe('');
+    expect(await reply('< GET DEVICE_NAME >\r\n')).toContain('< REPORT DEVICE_NAME {IEM RACK');
   });
 
   it('finds a P10T on the second port tried, and says which port answered', async () => {
@@ -214,5 +234,22 @@ describe('PSM 1000 control port', () => {
   it('reports unreachable only after every port fails', async () => {
     const [a, b] = [await closedPort(), await closedPort()];
     expect(await identifyShureOnPorts('127.0.0.1', [a, b], 800)).toMatchObject({ reachable: false });
+  });
+});
+
+describe('Device Inspector with a P10T', () => {
+  it('switches to line endings once it recognises the PSM 1000, so queries get answers', async () => {
+    const { Inspector } = await import('../src/server/inspector.js');
+    const { Runtime } = await import('../src/server/runtime.js');
+    const { normalizeConfig } = await import('../src/server/config.js');
+    const sim = new ShureSim({ family: 'psm1000', deviceId: 'IEM RACK', channels: [{ name: 'Vox' }, {}] });
+    const port = await sim.listen();
+    const inspector = new Inspector(new Runtime(normalizeConfig({}), 'live'));
+    cleanup.push(() => sim.close(), () => inspector.closeAll());
+    const { id } = inspector.open('127.0.0.1', port);
+    await until(() => inspector.view(id).identity?.kind === 'psm1000');
+    inspector.send(id, 'GET 1 CHAN_NAME');
+    await until(() => inspector.view(id).keys.some((k) => k.key === 'CHAN_NAME' && k.channel === 1));
+    expect(inspector.view(id).frames.some((f) => f.dir === 'note' && /PSM 1000/.test(f.frame))).toBe(true);
   });
 });

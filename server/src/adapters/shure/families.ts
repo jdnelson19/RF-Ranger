@@ -21,7 +21,9 @@ export interface ShureFamily {
   defaultChannels: number;
   /** Device-level name key: Wireless Workbench's device name. */
   deviceIdKey: 'DEVICE_ID' | 'DEVICE_NAME';
-  /** TCP control port: 2202 for receivers and chargers, 2201 for the PSM 1000. */
+  /** Appended to every command; see ShureConnectionOptions.lineEnding. */
+  lineEnding?: string;
+  /** TCP control port: 2202 for everything so far (the PSM 1000 falls back to 2201). */
   defaultPort: number;
   /**
    * Whether `GET 0 ALL` returns every channel value. Without it, each report
@@ -276,8 +278,11 @@ const psm1000: ShureFamily = {
   role: 'iem',
   defaultChannels: 2,
   deviceIdKey: 'DEVICE_NAME',
-  // Shure's PSM1000 command strings give port 2201, not the receivers' 2202.
-  defaultPort: 2201,
+  // Confirmed on a P10T (device reports, Oct 2026): TCP 2202 like the receivers,
+  // and it ignores commands unless each ends in \r\n (as Micboard and Companion send).
+  // It answers "REPORT" rather than "REP", and streams AUDIO_IN_LVL_L/R unasked.
+  defaultPort: 2202,
+  lineEnding: '\r\n',
   getAll: false,
   supports: new Set<Metric>(['name', 'frequencyKhz', 'groupChannel', 'rfOutputMw', 'rfMuted', 'audioMode']),
   reports: {

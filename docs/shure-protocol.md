@@ -157,7 +157,7 @@ The older SBC450/SBC850 (SB900 batteries) use a different string set, documented
 
 ## In-ear monitors: PSM 1000 (P10T) — provisional
 
-Sources: Shure *PSM1000 Command Strings* (https://pubs.shure.com/command-strings/PSM1000/en-US) and bitfocus `companion-module-shure-psm1000` (MIT, © 2020 Bitfocus AS). **None of this has been checked against a real P10T yet.**
+Sources: Shure *PSM1000 Command Strings* (https://pubs.shure.com/command-strings/PSM1000/en-US) and bitfocus `companion-module-shure-psm1000` (MIT, © 2020 Bitfocus AS). Two device reports from a real P10T (October 2026) confirmed the connection details below; the value encodings are still unconfirmed.
 
 IEM is the reverse of a mic system. The networked rack unit is the **transmitter** (P10T, 2 channels). The **P10R/P10R+ bodypack only receives**, so pack battery, pack RF, and whether the pack is even switched on are invisible on the network. RF Ranger therefore reports on what the rack is sending, and judges the pack only through an assigned charger bay.
 
@@ -172,17 +172,18 @@ IEM is the reverse of a mic system. The networked rack unit is the **transmitter
 | Audio mode | `AUDIO_TX_MODE` | 1 mono, 2 point to point, 3 stereo |
 | Line level | `AUDIO_IN_LINE_LVL` | 0 aux (−10), 1 line (+4) (not used yet) |
 | Input gain | `AUDIO_IN_LVL` | dB (not used yet) |
+| Input meters | `AUDIO_IN_LVL_L` / `AUDIO_IN_LVL_R` | streamed unasked about 10×/s per channel; raw values (about 270–390 with programme), scale unknown, not shown yet |
 | Metering | `METER_RATE` / `SAMPLE` | `SAMPLE` layout unknown; ignored until captured |
 
-Differences from the receivers, handled by `ShureFamily.defaultPort`, `deviceIdKey` and `getAll: false`:
-- **Port 2201, not 2202.** Shure's PSM1000 command strings give TCP **2201**; Companion's module defaults to 2202.
-  - RF Ranger uses 2201 for `psm1000`.
-  - With no port given (discovery, a bare `--receiver <ip>`, the Device Inspector), it tries 2202 and then 2201, and connects wherever the device answered.
-  - `psm1000@<ip>` tries 2201 first. An explicit `<ip>:<port>` is used as given.
+Differences from the receivers, handled by `ShureFamily.lineEnding`, `deviceIdKey` and `getAll: false`:
+- **Every command must end in `\r\n`.** The P10T silently ignores `< GET … >` without it (confirmed on hardware), which is why earlier versions never got an answer. Micboard and Companion both send `\r\n` for the P10T. Receivers don't need it, so it's only sent to `psm1000`.
+- **TCP port 2202**, like the receivers (confirmed on hardware). Shure's command-strings page gives 2201, so RF Ranger still tries 2201 when 2202 doesn't answer.
+- **Replies say `REPORT`**, not `REP`. The parser accepts both.
 - RF Ranger doesn't rely on `GET 0 ALL`. It reads each key per channel on connect, as Companion does.
-- `MODEL` may not be answered, so identification falls back to `GET 1 AUDIO_TX_MODE`, which only a P10T answers.
+- **Identification:** a device that streams `AUDIO_IN_LVL_L/R` is a P10T. RF Ranger then asks `DEVICE_NAME` and the channel keys with `\r\n`. A silent device also gets one round of `\r\n` questions, including `GET 1 AUDIO_TX_MODE`, which only a P10T answers.
+- **Device Inspector:** switches to `\r\n` by itself once it sees `REPORT` or `AUDIO_IN_LVL`, and notes it in the log.
 
-**To verify on hardware:** which port the P10T actually answers on (the `discover` table now shows it), whether `MODEL` and `GET 0 ALL` work, the exact `RF_TX_LVL` / `RF_MUTE` / `AUDIO_TX_MODE` encodings, and the `SAMPLE` layout (which could add input-level metering). Run `npm run probe -- psm1000 <ip>` and attach the log to a device report.
+**Still to verify on hardware:** the exact `RF_TX_LVL` / `RF_MUTE` / `AUDIO_TX_MODE` encodings, whether `MODEL` is answered with `\r\n`, and the `AUDIO_IN_LVL_L/R` scale. A Device Inspector report after **Get all** (now sent with `\r\n`) will show them.
 
 Not supported yet: **PSM 900 / PSM 300** (no network control), **Axient Digital PSM** (ADTD/ADTQ; identified and declined with a message).
 

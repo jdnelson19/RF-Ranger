@@ -48,9 +48,11 @@ export function kindForModel(model: string): { kind?: ShureKind; unsupported?: s
  * Ask a device on the Shure control port what it is. Read-only: only GETs are
  * sent, and the connection is closed straight away.
  *
- * Older ULX-D firmware documents no MODEL command, and the PSM 1000 command
- * set may lack it too, so if MODEL isn't answered, family-only queries are
- * used as a fallback: HIGH_DENSITY (ULX-D) and AUDIO_TX_MODE (PSM 1000 P10T).
+ * Older ULX-D firmware documents no MODEL command, so if MODEL isn't
+ * answered, family-only queries are used as a fallback: HIGH_DENSITY
+ * (ULX-D) and AUDIO_TX_MODE (PSM 1000 P10T). The P10T only listens to
+ * commands ending in "\r\n", so the fallback is sent that way too; it also
+ * streams AUDIO_IN_LVL reports unasked, which identify it on their own.
  */
 export async function identifyShure(host: string, port = SHURE_PORT, timeoutMs = 2_500): Promise<Identity> {
   return new Promise((resolve) => {
@@ -81,9 +83,17 @@ export async function identifyShure(host: string, port = SHURE_PORT, timeoutMs =
         if (!id.model && !finished && !socket.destroyed) {
           fallbackSent = true;
           socket.write('< GET HIGH_DENSITY >< GET 1 AUDIO_TX_MODE >< GET 2 CHAN_NAME >');
+          askP10t();
         }
       }, 600);
     });
+    let p10tAsked = false;
+    const askP10t = () => {
+      if (p10tAsked || finished || socket.destroyed) return;
+      p10tAsked = true;
+      socket.write('\r\n< GET MODEL >\r\n< GET DEVICE_NAME >\r\n< GET 1 AUDIO_TX_MODE >\r\n< GET 1 CHAN_NAME >\r\n< GET 2 CHAN_NAME >\r\n');
+    };
+    let doneTimer: NodeJS.Timeout | undefined;
     socket.on('error', finish);
     socket.on('close', finish);
     socket.on('data', (chunk: string) => {
@@ -98,18 +108,28 @@ export async function identifyShure(host: string, port = SHURE_PORT, timeoutMs =
             id.kind = 'ulxd';
             id.model = 'ULX-D';
           }
-        } else if (m.key === 'AUDIO_TX_MODE' && fallbackSent && !id.model) {
+        } else if (/^AUDIO_IN_LVL/.test(m.key)) {
+          // Only the P10T streams AUDIO_IN_LVL_L/R. Ask its name the way it listens (with "\r\n").
+          channelsSeen.add(m.channel);
+          if (!id.kind) {
+            id.kind = 'psm1000';
+            id.model ??= 'P10T';
+            askP10t();
+          }
+        } else if (m.key === 'AUDIO_TX_MODE' && (fallbackSent || p10tAsked) && (!id.model || id.kind === 'psm1000')) {
+          // Only the P10T has AUDIO_TX_MODE.
           id.kind = 'psm1000';
-          id.model = 'P10T';
+          id.model ??= 'P10T';
           channelsSeen.add(m.channel);
         } else if (m.key === 'CHAN_NAME' || m.key === 'BATT_DETECTED') {
           channelsSeen.add(m.channel);
         }
       }
       // Done once we know what it is and channels have had a moment to answer.
-      if (id.kind || id.unsupported) {
+      // A P10T recognised by its meters gets longer, so its name can arrive.
+      if ((id.kind || id.unsupported) && !doneTimer) {
         clearTimeout(timer);
-        setTimeout(finish, 400);
+        doneTimer = setTimeout(finish, p10tAsked && !id.deviceId ? 900 : 400);
       }
     });
   });
@@ -125,8 +145,8 @@ export async function identifyShureOnPorts(host: string, ports: readonly number[
   for (const port of ports) {
     const id = await identifyShure(host, port, timeoutMs);
     if (id.reachable) {
-      if (port !== SHURE_PORT && !id.kind && id.unsupported?.startsWith('Did not identify')) {
-        id.unsupported = `Answered on port ${port} but didn't identify. If it's a PSM 1000, add it as psm1000@${host}:${port} and send a Device Inspector report.`;
+      if (!id.kind && id.unsupported?.startsWith('Did not identify')) {
+        id.unsupported = `Answered on port ${port} but didn't identify. If it's a PSM 1000, add it as psm1000@${host} and send a Device Inspector report.`;
       }
       return id;
     }

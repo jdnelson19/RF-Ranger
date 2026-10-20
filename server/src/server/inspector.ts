@@ -59,6 +59,8 @@ interface Session {
   monitoredBy?: string;
   status: () => string;
   send: (frame: string) => void;
+  /** Shure: end commands in "\r\n" from now on (a PSM 1000 needs it). */
+  useLineEnding?: () => void;
   stop: () => Promise<void>;
   frames: InspectorFrame[];
   seq: number;
@@ -146,10 +148,16 @@ export class Inspector {
       conn.on('status', (s) => this.note(session, `Connection ${s.state}${s.lastError && s.state !== 'connected' ? `: ${s.lastError}` : ''}`));
       session.status = () => conn.status.state;
       session.send = (f) => conn.send(f);
+      session.useLineEnding = () => {
+        if (conn.lineEnding) return;
+        conn.lineEnding = '\r\n';
+        this.note(session, 'This looks like a PSM 1000: commands are now sent ending in a line break, which it needs. Press Get all or send your query again.');
+      };
       session.stop = () => conn.stop();
       conn.start();
       void identifyShure(host, port).then((idn) => {
         session.identity = idn;
+        if (idn.kind === 'psm1000') session.useLineEnding?.();
         this.note(session, idn.reachable ? `Identified: ${idn.model ?? 'unknown model'}${idn.kind ? ` (${idn.kind})` : ''}${idn.unsupported ? `: ${idn.unsupported}` : ''}` : 'No answer on the control port.');
       });
     }
@@ -312,6 +320,8 @@ export class Inspector {
       return;
     }
     const m = parseMessage(frame);
+    // REPORT (not REP) and AUDIO_IN_LVL come only from the PSM 1000.
+    if (/^<\s*REPORT\b/.test(frame) || (m.kind === 'rep' && m.key.startsWith('AUDIO_IN_LVL'))) s.useLineEnding?.();
     if (m.kind === 'rep') bump(m.key, m.channel, m.args.join(' '));
     else if (m.kind === 'sample') bump('SAMPLE ALL', m.channel, m.args.join(' '));
   }

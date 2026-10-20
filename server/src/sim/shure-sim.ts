@@ -111,9 +111,28 @@ export class ShureSim {
     this.clients.set(socket, state);
     const framer = new ShureFramer();
     socket.setEncoding('ascii');
-    socket.on('data', (chunk: string) => {
-      for (const frame of framer.push(chunk)) this.onCommand(socket, frame);
-    });
+    if (this.family === 'psm1000') {
+      // Like a real P10T: a command counts only when "\r\n" (or "\n") follows it,
+      // and the input level streams about ten times a second, unasked.
+      let buf = '';
+      socket.on('data', (chunk: string) => {
+        buf += chunk;
+        for (;;) {
+          const m = /<[^<>]*>/.exec(buf);
+          if (!m) break;
+          const after = buf.slice(m.index + m[0].length);
+          if (!after.length) break; // its ending may still be on the way
+          const ended = /^\r?\n/.exec(after);
+          if (ended) this.onCommand(socket, m[0]);
+          buf = after.slice(ended ? ended[0].length : 0);
+        }
+      });
+      state.meterTimers.set(0, setInterval(() => this.write(socket, this.channels.map((_, i) => this.inputLevels(i + 1)).join('')), 100));
+    } else {
+      socket.on('data', (chunk: string) => {
+        for (const frame of framer.push(chunk)) this.onCommand(socket, frame);
+      });
+    }
     socket.on('error', () => {});
     socket.on('close', () => {
       for (const t of state.meterTimers.values()) clearInterval(t);
@@ -248,8 +267,17 @@ export class ShureSim {
     }
   }
 
+  /** P10T input meters: raw values in an undocumented scale (hardware showed about 270 to 390 with programme). */
+  private inputLevels(n: number): string {
+    const ch = this.channels[n - 1]!;
+    const v = () => Math.max(0, Math.round(300 + (ch.audioDbfs + 30) * 4 + (Math.random() - 0.5) * 40));
+    return `< REPORT ${n} AUDIO_IN_LVL_L ${v()} >< REPORT ${n} AUDIO_IN_LVL_R ${v()} >`;
+  }
+
   private write(socket: net.Socket, data: string): void {
     if (!data || socket.destroyed) return;
+    // The P10T says REPORT where receivers say REP.
+    if (this.family === 'psm1000') data = data.replace(/< REP /g, '< REPORT ');
     if (!this.fragment || data.length < 4) {
       this.enqueue(socket, async () => { socket.write(data); });
       return;
