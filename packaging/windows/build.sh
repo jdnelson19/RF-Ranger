@@ -101,7 +101,8 @@ if [ -z "$ISCC" ]; then
   echo "Inno Setup (ISCC.exe) not found: skipping the installer. The portable .zip is ready."
   [ -z "${GITHUB_ACTIONS:-}" ] || { echo "::error::Inno Setup is required on CI"; false; }
 else
-  "$ISCC" /Qp "/DVersion=$VERSION" "/DSourceDir=$(cygpath -w "$STAGE")" "/DIconFile=$(cygpath -w "$OUT/rf-ranger.ico")" \
+  # Git Bash would rewrite ISCC's /D options as file paths; the paths here are already Windows-style.
+  MSYS2_ARG_CONV_EXCL='*' "$ISCC" /Qp "/DVersion=$VERSION" "/DSourceDir=$(cygpath -w "$STAGE")" "/DIconFile=$(cygpath -w "$OUT/rf-ranger.ico")" \
     "/DOutDir=$(cygpath -w "$OUT")" "$(cygpath -w packaging/windows/rf-ranger.iss)"
 fi
 
