@@ -35,7 +35,7 @@ export function App() {
       {live.snapshot?.demo && route.view !== 'pickup' && <DemoBanner />}
       {route.view === 'launch' && <Launch live={live} />}
       {route.view === 'pickup' && <Pickup live={live} route={route} />}
-      {(route.view === 'engineer' || route.view === 'attention' || route.view === 'devices' || route.view === 'inspector' || route.view === 'planning-center') && (
+      {(route.view === 'engineer' || route.view === 'devices' || route.view === 'inspector' || route.view === 'planning-center') && (
         <Engineer live={live} route={route} />
       )}
     </>

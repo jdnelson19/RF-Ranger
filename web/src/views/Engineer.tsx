@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ChannelDetail } from '../components/ChannelDetail';
 import { ChannelTile } from '../components/ChannelTile';
 import { LiveBanner } from '../components/LiveNow';
+import { PresetMenu, SettingsMenu } from '../components/NavMenus';
 import { ShowEditor, presetApi } from '../components/ShowEditor';
 import { Brand, Chip, ServerLink, UpdateLink } from '../components/ui';
 import { TILE_FIELDS, useDisplayOptions } from '../display';
@@ -40,7 +41,6 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
       list = activePreset.slots.map((k) => byKey.get(k)).filter((x): x is NonNullable<typeof x> => !!x);
     }
     if (route.group) list = list.filter((x) => x.group === route.group);
-    if (route.view === 'attention') list = list.filter(needsAttention);
     const q = query.trim().toLowerCase();
     const nick = (x: (typeof list)[number]) => activePreset?.channels?.[x.key]?.nickname;
     if (q) {
@@ -49,7 +49,7 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
           .some((f) => f?.toLowerCase().includes(q)),
       );
     }
-    if (sort === 'status' || route.view === 'attention') {
+    if (sort === 'status') {
       const rank = (x: (typeof list)[number]) => TONE_RANK[slotTone(x, shownReadiness(x, nick(x)))];
       list = [...list].sort((a, b) => rank(a) - rank(b) || a.slot - b.slot);
     }
@@ -67,7 +67,6 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
     });
   }, [s, activePreset]);
 
-  const attentionCount = (s?.slots ?? []).filter(needsAttention).length;
   const openSlot = s?.slots.find((x) => x.slot === open);
   const rxDown = s?.receivers.filter((r) => r.status.state !== 'connected') ?? [];
 
@@ -76,20 +75,17 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
       <header className="topbar">
         <a href={href({ view: 'launch' })} className="topbar__home" title="Back to start"><Brand compact /></a>
         <nav className="tabs" aria-label="Engineer views">
-          <a className={`tab${route.view === 'engineer' ? ' tab--active' : ''}`} href={href({ view: 'engineer', group: route.group, show: route.show })}>{activePreset ? activePreset.name : 'All channels'}</a>
-          <a className={`tab${route.view === 'attention' ? ' tab--active' : ''}`} href={href({ view: 'attention', group: route.group })}>
-            Attention {attentionCount > 0 && <span className="tab__badge">{attentionCount}</span>}
-          </a>
+          <PresetMenu presets={presets} active={activePreset} route={route} disabled={!s}
+            onEdit={(p) => setEditing({ preset: p })} onNew={() => setEditing({})} />
           <a className={`tab${route.view === 'devices' ? ' tab--active' : ''}`} href={href({ view: 'devices' })}>
             Devices {rxDown.length > 0 && <span className="tab__badge tab__badge--bad">{rxDown.length}</span>}
           </a>
-          <a className={`tab${route.view === 'inspector' ? ' tab--active' : ''}`} href={href({ view: 'inspector' })}>Inspector</a>
-          <a className={`tab${route.view === 'planning-center' ? ' tab--active' : ''}`} href={href({ view: 'planning-center' })}>Planning Center</a>
         </nav>
         <div className="topbar__right">
           <a className="btn btn--ghost" href={href({ view: 'pickup' })} title="Opens the pickup display, showing the preset assigned to it">Pickup view ↗</a>
           <UpdateLink update={s?.update} />
           <ServerLink online={live.online} version={live.snapshot?.version} />
+          <SettingsMenu route={route} />
         </div>
       </header>
 
@@ -109,20 +105,7 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
         <>
           {route.view === 'engineer' && (
             <div className="showbar">
-              <label className="showbar__pick">
-                <span className="showbar__label">Show</span>
-                <select
-                  className="input input--sm"
-                  value={activePreset?.id ?? ''}
-                  onChange={(e) => navigate({ view: 'engineer', group: route.group, show: e.target.value || undefined })}
-                >
-                  <option value="">All channels</option>
-                  {presets.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.slots.length})</option>)}
-                </select>
-              </label>
-              {activePreset && <button type="button" className="btn btn--ghost btn--sm" onClick={() => setEditing({ preset: activePreset })}>Edit preset</button>}
-              <button type="button" className="btn btn--ghost btn--sm" onClick={() => setEditing({})} disabled={!s}>New preset</button>
-              <label className="showbar__pick showbar__pickup" title="What the pickup display shows. TVs bookmarked to one preset stay on it.">
+              <label className="showbar__pick" title="What the pickup display shows. TVs bookmarked to one preset stay on it.">
                 <span className="showbar__label">Pickup display</span>
                 <select
                   className="input input--sm"
@@ -182,12 +165,10 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
               ))}
             </div>
             <div className="toolbar__right">
-              {route.view !== 'attention' && (
-                <div className="seg" role="group" aria-label="Sort">
-                  <button type="button" className={sort === 'slot' ? 'seg--on' : ''} onClick={() => setSort('slot')}>{activePreset ? 'Preset order' : 'Slot'}</button>
-                  <button type="button" className={sort === 'status' ? 'seg--on' : ''} onClick={() => setSort('status')}>Status</button>
-                </div>
-              )}
+              <div className="seg" role="group" aria-label="Sort">
+                <button type="button" className={sort === 'slot' ? 'seg--on' : ''} onClick={() => setSort('slot')}>{activePreset ? 'Preset order' : 'Slot'}</button>
+                <button type="button" className={sort === 'status' ? 'seg--on' : ''} onClick={() => setSort('status')}>Status</button>
+              </div>
               <input className="search" type="search" placeholder="Search name, slot, receiver…" value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
           </div>
@@ -206,7 +187,7 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
               <p>Waiting for the receivers in “{activePreset?.name}”. Switch them on, or check they're on this network.</p>
             </div>
           ) : slots.length === 0 ? (
-            <div className="empty">{route.view === 'attention' ? <><span className="ok-text">✓</span> Nothing needs attention{route.group ? ` in ${route.group}` : ''}.</> : 'No channels match.'}</div>
+            <div className="empty">No channels match.</div>
           ) : (
             <div className={`grid${frozen ? ' grid--frozen' : ''}`}>
               {slots.map((x) => (

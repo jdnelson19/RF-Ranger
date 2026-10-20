@@ -5,10 +5,10 @@ import { useEffect, useState } from 'react';
  * bookmarked and reopens straight into that view:
  *   #/                   launch screen
  *   #/pickup?group=Vocals  #/pickup?show=<preset id>   pickup for one group or one show preset
- *   #/engineer  #/engineer/attention  #/engineer/devices  #/engineer/inspector  #/engineer/planning-center
+ *   #/engineer  #/engineer/devices  #/engineer/inspector  #/engineer/planning-center
  *   #/engineer?show=<preset id>   the engineer grid limited to a show preset
  */
-export type View = 'launch' | 'pickup' | 'engineer' | 'attention' | 'devices' | 'inspector' | 'planning-center';
+export type View = 'launch' | 'pickup' | 'engineer' | 'devices' | 'inspector' | 'planning-center';
 
 export interface Route {
   view: View;
@@ -25,7 +25,7 @@ export function parseRoute(hash: string): Route {
   const parts = path.split('/').filter(Boolean);
   if (parts[0] === 'pickup') return { view: 'pickup', group, show };
   if (parts[0] === 'engineer') {
-    if (parts[1] === 'attention') return { view: 'attention', group };
+    if (parts[1] === 'attention') return { view: 'engineer', group }; // the Attention tab was removed
     if (parts[1] === 'devices') return { view: 'devices', group };
     if (parts[1] === 'inspector') return { view: 'inspector' };
     if (parts[1] === 'planning-center') return { view: 'planning-center' };
@@ -39,7 +39,6 @@ export function href(route: Route): string {
     launch: '/',
     pickup: '/pickup',
     engineer: '/engineer',
-    attention: '/engineer/attention',
     devices: '/engineer/devices',
     inspector: '/engineer/inspector',
     'planning-center': '/engineer/planning-center',

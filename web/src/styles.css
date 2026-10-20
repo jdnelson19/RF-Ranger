@@ -678,3 +678,28 @@ select.input { padding-right: 6px; }
 /* Names scale with the strip's width too, and never break mid-word. */
 .pickup--strips .card { container-type: inline-size; }
 .pickup--strips .card__artist { font-size: min(var(--name), 5.4cqw); overflow-wrap: normal; word-break: normal; }
+
+/* Header menus: the preset dropdown tab and the settings cog */
+.menu { position: relative; display: flex; align-items: stretch; height: 100%; }
+.topbar__right .menu { height: auto; }
+.tab--menu { background: none; border: 0; border-bottom: 2px solid transparent; cursor: pointer; font: inherit; font-weight: 600; font-size: 13px; }
+.tab--menu.tab--active { border-bottom-color: var(--accent); }
+.tab__caret { font-size: 10px; color: var(--muted); }
+.popover--left { left: 0; right: auto; }
+.menu__row { display: flex; align-items: center; gap: 4px; border-radius: var(--radius-sm); }
+.menu__row .menu__item { flex: 1; }
+.menu__item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 8px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; text-decoration: none; }
+.menu__item:hover, .menu__row:hover { background: var(--panel-3); }
+.menu__item:disabled { opacity: 0.5; cursor: default; }
+.menu__item--on .menu__name { font-weight: 700; }
+.menu__check { width: 14px; flex: none; color: var(--accent); font-weight: 800; text-align: center; }
+.menu__name { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu__hint { font-size: 12px; font-weight: 400; }
+.menu__count { font-family: var(--mono); font-size: 12px; }
+.menu__edit { width: 28px; height: 28px; display: grid; place-items: center; border-color: transparent; }
+.menu__row:hover .menu__edit { border-color: var(--line-2); }
+.menu__sep { height: 1px; margin: 6px 0; background: var(--line); }
+.menu__item--new .menu__check { font-size: 15px; }
+.settings-btn { display: grid; place-items: center; width: 34px; height: 34px; }
+.settings-btn--on { color: var(--accent); border-color: var(--accent); }
+.showbar__label { white-space: nowrap; }
