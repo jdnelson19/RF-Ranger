@@ -56,7 +56,6 @@ export function slotTone(s: SlotView, r: Readiness = s.readiness): Tone {
   return 'ok';
 }
 
-export const TONE_RANK: Record<Tone, number> = { bad: 0, warn: 1, info: 2, ok: 3, idle: 4 };
 
 export function kindLabel(kind: SlotView['kind']): string {
   return kind === 'handheld' ? 'Handheld' : kind === 'bodypack' ? 'Bodypack' : kind === 'iem' ? 'In-ear' : 'Mic';

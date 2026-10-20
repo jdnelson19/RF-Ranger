@@ -6,7 +6,6 @@ import { PresetMenu, SettingsMenu } from '../components/NavMenus';
 import { ShowEditor, presetApi } from '../components/ShowEditor';
 import { Brand, Chip, ServerLink, UpdateLink } from '../components/ui';
 import { TILE_FIELDS, useDisplayOptions } from '../display';
-import { TONE_RANK, shownReadiness, slotTone } from '../format';
 import { href, navigate, type Route } from '../route';
 import type { ShowPreset } from '../types';
 import type { Live } from '../useSnapshot';
@@ -14,12 +13,10 @@ import { Devices } from './Devices';
 import { Inspector } from './Inspector';
 import { PlanningCenter } from './PlanningCenter';
 
-type Sort = 'slot' | 'status';
 
 export function Engineer({ live, route }: { live: Live; route: Route }) {
   const s = live.snapshot;
   const [query, setQuery] = useState('');
-  const [sort, setSort] = useState<Sort>('slot');
   const [open, setOpen] = useState<number | undefined>();
   const [editing, setEditing] = useState<{ preset?: ShowPreset } | undefined>();
   const [displayOpen, setDisplayOpen] = useState(false);
@@ -49,12 +46,8 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
           .some((f) => f?.toLowerCase().includes(q)),
       );
     }
-    if (sort === 'status') {
-      const rank = (x: (typeof list)[number]) => TONE_RANK[slotTone(x, shownReadiness(x, nick(x)))];
-      list = [...list].sort((a, b) => rank(a) - rank(b) || a.slot - b.slot);
-    }
     return list;
-  }, [s, route.view, route.group, query, sort, activePreset]);
+  }, [s, route.view, route.group, query, activePreset]);
 
   // None of the preset's receivers is online: each channel is either missing
   // (its receiver hasn't been found since RF Ranger started) or offline.
@@ -165,10 +158,6 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
               ))}
             </div>
             <div className="toolbar__right">
-              <div className="seg" role="group" aria-label="Sort">
-                <button type="button" className={sort === 'slot' ? 'seg--on' : ''} onClick={() => setSort('slot')}>{activePreset ? 'Preset order' : 'Slot'}</button>
-                <button type="button" className={sort === 'status' ? 'seg--on' : ''} onClick={() => setSort('status')}>Status</button>
-              </div>
               <input className="search" type="search" placeholder="Search name, slot, receiver…" value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
           </div>

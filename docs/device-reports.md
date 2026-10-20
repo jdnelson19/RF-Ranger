@@ -4,13 +4,15 @@ RF Ranger supports the hardware its contributors can test. If you have a receive
 
 ## How to make one
 
-1. Start RF Ranger (`npm run live` or `npm start`) on a computer on the same network as the device.
-2. On **that computer**, open http://localhost:8058 and go to **Engineer → Inspector**. The Inspector only works on the machine running RF Ranger, not from other screens on the network.
+1. Open RF Ranger (the app, or `npm run live` / `npm start`) on a computer on the same network as the device.
+2. On **that computer**, go to **Engineer → ⚙ → Inspector**. The Inspector only works on the machine running RF Ranger, not from other screens on the network.
 3. Enter the device's IP address and press **Watch**.
 4. Press **Get all**. For receivers, also press **Sample meters 30 s** while a transmitter is on and someone is talking into it.
 5. Optional but very useful: switch a transmitter off and on, mute it, and dock it in a charger while watching.
 6. Fill in **What is this device?** (type, model, firmware, and notes on transmitters and batteries).
-7. Press **Export report**, then attach the file to a [Device report issue](https://github.com/jdnelson19/RF-Ranger/issues/new?template=device-report.yml).
+7. Press **Export report**, keeping **Remove names & addresses** on. Then send the file either way:
+   - **Easiest:** use the feedback form at https://rfranger.app/#feedback. Choose **New device / device report** and attach the file. It's stored privately for the RF Ranger developers, and only a short summary (model, firmware, size) is posted publicly. The form only accepts reports exported with names and addresses removed.
+   - **Or** attach it to a [Device report issue](https://github.com/jdnelson19/RF-Ranger/issues/new?template=device-report.yml) on GitHub, which is public.
 
 ## Is it safe?
 
