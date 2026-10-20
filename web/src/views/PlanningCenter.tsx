@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { PcoStatus, ServiceType, UpcomingSummary } from '../types';
+import { MicAssignments } from '../components/MicAssignments';
+import type { PcoStatus, ServiceType, SlotView, UpcomingSummary } from '../types';
 
 const TOKENS_URL = 'https://api.planningcenteronline.com/oauth/applications';
 
@@ -30,7 +31,7 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
  * Link this church's Planning Center account. Each install links its own
  * account; the token stays on this computer and is never shown again.
  */
-export function PlanningCenter() {
+export function PlanningCenter({ slots }: { slots: SlotView[] }) {
   const [status, setStatus] = useState<PcoStatus | undefined>();
   const [forbidden, setForbidden] = useState(false);
   const [types, setTypes] = useState<ServiceType[]>([]);
@@ -121,6 +122,7 @@ export function PlanningCenter() {
           run={run}
           load={load}
           setStatus={setStatus}
+          slots={slots}
         />
       ) : (
         <Connect busy={busy} run={run} onConnected={(s, t) => { setStatus(s); setTypes(t); setTypesError(undefined); }} />
@@ -181,7 +183,7 @@ function Connect({ busy, run, onConnected }: {
   );
 }
 
-function Connected({ status, types, typesError, upcoming, upcomingError, retryUpcoming, busy, run, load, setStatus }: {
+function Connected({ status, types, typesError, upcoming, upcomingError, retryUpcoming, busy, run, load, setStatus, slots }: {
   status: PcoStatus;
   types: ServiceType[];
   typesError: string | undefined;
@@ -192,6 +194,7 @@ function Connected({ status, types, typesError, upcoming, upcomingError, retryUp
   run: (fn: () => Promise<void>) => Promise<void>;
   load: (check?: boolean) => Promise<void>;
   setStatus: (s: PcoStatus) => void;
+  slots: SlotView[];
 }) {
   // Service type names aren't unique (e.g. two "Special Services"), so show the ID where they collide.
   const options = useMemo(() => {
@@ -271,9 +274,11 @@ function Connected({ status, types, typesError, upcoming, upcomingError, retryUp
         </section>
       )}
 
+      {/* Keyed by service type: another type has different teams. */}
+      {status.connected && status.serviceType && <MicAssignments key={status.serviceType.id} slots={slots} />}
+
       <p className="pco__note">
-        Next: linking Planning Center positions (Worship Leader, BGV…) to RF slots, so names and photos fill in on their
-        own. A one-click "Sign in with Planning Center" is planned to replace pasting a token.
+        A one-click "Sign in with Planning Center" is planned to replace pasting a token.
       </p>
     </>
   );

@@ -8,9 +8,9 @@
  * (c) 2018-2023 Joseph Adams).
  */
 import type { PcoClient, PcoDocument, PcoResource } from './client.js';
-import type { Organization, ServiceType } from './types.js';
+import type { Organization, ServiceType, Team, TeamPerson } from './types.js';
 
-export type { Organization, ServiceType } from './types.js';
+export type { Organization, ServiceType, Team, TeamPerson } from './types.js';
 
 const SERVICES = '/services/v2';
 
@@ -39,6 +39,7 @@ export type ScheduleStatus = 'confirmed' | 'unconfirmed' | 'declined';
 export interface ScheduledPerson {
   personId: string;
   name: string;
+  teamId: string;
   team: string;
   position: string;
   /**
@@ -97,6 +98,18 @@ export async function upcomingPlan(client: PcoClient, serviceTypeId: string, now
 export async function scheduledPeople(client: PcoClient, serviceTypeId: string, planId: string): Promise<ScheduledPerson[]> {
   const doc = await client.getAll(`${SERVICES}/service_types/${serviceTypeId}/plans/${planId}/team_members`, { include: 'team' });
   return parseTeamMembers(doc);
+}
+
+/** The service type's teams and each one's positions (Worship Leader, BGV 1, …), scheduled or not. */
+export async function teams(client: PcoClient, serviceTypeId: string): Promise<Team[]> {
+  const doc = await client.getAll(`${SERVICES}/service_types/${serviceTypeId}/teams`, { include: 'team_positions' });
+  return parseTeams(doc);
+}
+
+/** Everyone on a team, for choosing who prefers which mic. Archived people are left out. */
+export async function teamPeople(client: PcoClient, teamId: string): Promise<TeamPerson[]> {
+  const doc = await client.getAll(`${SERVICES}/teams/${teamId}/people`, {});
+  return parseTeamPeople(doc);
 }
 
 export async function liveState(client: PcoClient, serviceTypeId: string, planId: string): Promise<LiveState> {
@@ -172,6 +185,7 @@ export function parseTeamMembers(doc: PcoDocument<PcoResource[]>): ScheduledPers
     return {
       personId: personRef && !Array.isArray(personRef) ? personRef.id : r.id,
       name: a.name,
+      teamId: teamRef && !Array.isArray(teamRef) ? teamRef.id : '',
       team,
       position,
       index,
@@ -179,6 +193,30 @@ export function parseTeamMembers(doc: PcoDocument<PcoResource[]>): ScheduledPers
       photoUrl: a.photo_thumbnail || undefined,
     };
   });
+}
+
+export function parseTeams(doc: PcoDocument<PcoResource[]>): Team[] {
+  const positions = new Map((doc.included ?? []).filter((r) => r.type === 'TeamPosition').map((r) => [r.id, String(r.attributes.name ?? '')]));
+  return doc.data.map((t) => {
+    const refs = t.relationships?.team_positions?.data;
+    return {
+      id: t.id,
+      name: String(t.attributes.name ?? ''),
+      positions: (Array.isArray(refs) ? refs : []).map((r) => positions.get(r.id)).filter((p): p is string => !!p),
+    };
+  });
+}
+
+type PersonAttrs = { full_name?: string | null; first_name?: string | null; last_name?: string | null; photo_thumbnail_url?: string | null; archived?: boolean };
+
+export function parseTeamPeople(doc: PcoDocument<PcoResource[]>): TeamPerson[] {
+  return doc.data
+    .filter((r) => !(r.attributes as PersonAttrs).archived)
+    .map((r) => {
+      const a = r.attributes as PersonAttrs;
+      return { id: r.id, name: a.full_name || [a.first_name, a.last_name].filter(Boolean).join(' '), photoUrl: a.photo_thumbnail_url || undefined };
+    })
+    .sort((x, y) => x.name.localeCompare(y.name));
 }
 
 type ItemAttrs = { title: string; length: number | null; item_type: string };

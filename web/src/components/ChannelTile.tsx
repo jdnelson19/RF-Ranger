@@ -51,7 +51,7 @@ export function ChannelTile({ s, frozen, onOpen, fields, preset }: {
       {show_('transmitter') && <div className="tile__sub">
         {iem
           ? [s.assignment?.role, 'In-ear', value(t.audioMode)].filter(Boolean).join(' · ')
-          : [s.assignment?.role, txOn ? show(t.txModel) : 'TX off', value(t.txDeviceId)].filter(Boolean).join(' · ')}
+          : [s.assignment?.role, s.assignment?.planningCenter?.unconfirmed && 'unconfirmed', txOn ? show(t.txModel) : 'TX off', value(t.txDeviceId)].filter(Boolean).join(' · ')}
       </div>}
 
       {iem ? (

@@ -18,8 +18,8 @@ import {
   settingsPath,
   type PcoSettings,
 } from './credentials.js';
-import { organization, planEndsAt, scheduledPeople, serviceTypes, upcomingPlan } from './services.js';
-import type { Organization, PcoStatus, ServiceType, UpcomingSummary } from './types.js';
+import { organization, planEndsAt, scheduledPeople, serviceTypes, teamPeople, teams, upcomingPlan, type Plan, type ScheduledPerson } from './services.js';
+import type { Organization, PcoStatus, ServiceType, Team, TeamPerson, UpcomingSummary } from './types.js';
 
 export type { PcoStatus, UpcomingSummary } from './types.js';
 
@@ -177,6 +177,33 @@ export class PlanningCenterLink {
       declined: people.filter((p) => p.status === 'declined').length,
       unconfirmed: people.filter((p) => p.status === 'unconfirmed').length,
     };
+  }
+
+  /** The followed service type's teams and their positions, for setting up mic rules. */
+  async teams(): Promise<Team[]> {
+    const id = this.requireServiceType();
+    return this.reported('loading teams', () => teams(this.requireClient(), id));
+  }
+
+  async teamPeople(teamId: string): Promise<TeamPerson[]> {
+    if (!/^\d+$/.test(teamId)) throw new LinkError('Unknown team.');
+    return this.reported('loading team members', () => teamPeople(this.requireClient(), teamId));
+  }
+
+  /** The upcoming plan and everyone scheduled in it, for "Sync from Planning Center". */
+  async schedule(now = Date.now()): Promise<{ plan: Plan | undefined; people: ScheduledPerson[] }> {
+    const client = this.requireClient();
+    const id = this.requireServiceType();
+    const plan = await this.reported('looking up the next plan', () => upcomingPlan(client, id, now));
+    if (!plan) return { plan, people: [] };
+    const people = await this.reported('looking up who is scheduled', () => scheduledPeople(client, id, plan.id));
+    return { plan, people };
+  }
+
+  private requireServiceType(): string {
+    const id = this.settings().serviceTypeId;
+    if (!id) throw new LinkError('Choose a service type first.');
+    return id;
   }
 
   /** Log a Planning Center failure and hand it on with a message for the screen. */

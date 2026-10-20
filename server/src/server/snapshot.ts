@@ -43,7 +43,11 @@ export interface SlotView {
   telemetry: ChannelTelemetry;
   /** The last few seconds of audio and RF level (mic channels). */
   levels?: LevelHistory;
-  assignment?: AssignmentConfig & { photoUrl?: string };
+  assignment?: AssignmentConfig & {
+    photoUrl?: string;
+    /** Present when this service's Planning Center roster put the person on this mic. */
+    planningCenter?: { unconfirmed: boolean; edited: boolean };
+  };
   bay?: BayTelemetry;
   readiness: Readiness;
   alerts: Alert[];

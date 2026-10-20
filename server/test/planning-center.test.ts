@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PcoClient, PcoError, type PcoDocument, type PcoResource } from '../src/integrations/planning-center/client.js';
 import { loadCredentials, saveCredentials } from '../src/integrations/planning-center/credentials.js';
-import { parseLive, parsePlans, parseTeamMembers, pickUpcoming, planEndsAt } from '../src/integrations/planning-center/services.js';
+import { parseLive, parsePlans, parseTeamMembers, parseTeamPeople, parseTeams, pickUpcoming, planEndsAt } from '../src/integrations/planning-center/services.js';
 
 const ref = (type: string, id: string) => ({ data: { type, id } });
 
@@ -77,10 +77,37 @@ describe('team members', () => {
 
   it('maps status, team, photo and person ID', () => {
     expect(people[0]).toEqual({
-      personId: 'person-1', name: 'Maya Torres', team: 'Band', position: 'Worship Leader', index: 1, status: 'confirmed', photoUrl: 'https://avatars.example/maya.jpg',
+      personId: 'person-1', name: 'Maya Torres', teamId: 'band', team: 'Band', position: 'Worship Leader', index: 1, status: 'confirmed', photoUrl: 'https://avatars.example/maya.jpg',
     });
     expect(people.map((p) => p.status)).toEqual(['confirmed', 'confirmed', 'unconfirmed', 'declined', 'confirmed']);
     expect(people[4]!.team).toBe('Tech');
+  });
+});
+
+describe('teams and team people', () => {
+  it('lists each team with its positions in order', () => {
+    const teams = parseTeams({
+      data: [
+        { type: 'Team', id: 'vocals', attributes: { name: 'Vocals' }, relationships: { team_positions: { data: [{ type: 'TeamPosition', id: 'wl' }, { type: 'TeamPosition', id: 'b1' }] } } },
+        { type: 'Team', id: 'band', attributes: { name: 'Band' }, relationships: { team_positions: { data: [] } } },
+      ],
+      included: [
+        { type: 'TeamPosition', id: 'b1', attributes: { name: 'BGV 1' } },
+        { type: 'TeamPosition', id: 'wl', attributes: { name: 'Worship Leader' } },
+      ],
+    });
+    expect(teams).toEqual([{ id: 'vocals', name: 'Vocals', positions: ['Worship Leader', 'BGV 1'] }, { id: 'band', name: 'Band', positions: [] }]);
+  });
+
+  it('lists current team members by name, without archived people', () => {
+    const people = parseTeamPeople({
+      data: [
+        { type: 'Person', id: '2', attributes: { full_name: 'Sam Okafor', photo_thumbnail_url: 'https://avatars.example/s.jpg' } },
+        { type: 'Person', id: '1', attributes: { full_name: 'Jordan Lee' } },
+        { type: 'Person', id: '3', attributes: { full_name: 'Old Member', archived: true } },
+      ],
+    });
+    expect(people).toEqual([{ id: '1', name: 'Jordan Lee', photoUrl: undefined }, { id: '2', name: 'Sam Okafor', photoUrl: 'https://avatars.example/s.jpg' }]);
   });
 });
 

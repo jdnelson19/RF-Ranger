@@ -5,7 +5,34 @@ Goal: fill RF slots with the people scheduled for the next service, and show Ser
 **Status:**
 - Each church links its own account in the app: **Engineer → Planning Center**. It shows the linked organization, the service type to follow, and the next service with its head count.
 - Tested against a real account (Grace Church): 34 service types, and the next plan with 35 scheduled.
-- Positions are not yet mapped to RF slots. That's next.
+- **Mic assignments** (below) put scheduled people on mics, showing their name, position and photo on the engineer tiles and the pickup screen. Services Live timers are still to come.
+
+## Mic assignments
+
+On **Engineer → Planning Center**, under the service to follow:
+
+**Mic rules** are set up once:
+1. **Teams:** pick the teams whose people use wireless, for example *Vocals*. Others, like *Band*, are ignored.
+2. **Mics per position:** under each of the team's positions (*Worship Leader*, *BGV 1*, *BGV 2*, …), click the mics it uses, in the order to fill them. For example, Worship Leader gets RF1, RF2 and RF3, and BGV 1 gets RF5. The list includes every position the team has, scheduled this week or not.
+3. **Preferred mics (optional):** inside a position, "Josh prefers RF1" puts Josh on RF1 whenever he's scheduled in that position. When he isn't, RF1 goes to the next person. A preference only applies to the position's own mics. The picker offers the team's members, plus anyone scheduled on the team at the last sync. Staff are often scheduled on a team without being listed as its members.
+
+**Sync from Planning Center** applies the rules to the upcoming plan:
+- **Order:** for each position, preferences go first. Everyone else gets the next free mic, in Planning Center's order.
+- **Who's skipped:** people who declined are left out. Unconfirmed people get a mic, marked *unconfirmed*. Nobody is put on two mics.
+- **No mic:** anyone left without one is listed, either because every mic for their role is taken or because the role has no mics.
+
+**Changing it by hand:** each mic has a dropdown listing the people scheduled on the wireless teams, **Nobody**, or **Someone else…** for a name that isn't on the schedule.
+- **Moving someone:** picking a person moves them from any other mic. Anyone bumped off a mic is listed under "No mic", so nobody drops off silently.
+- **Edited mics:** these are tagged *edited*.
+- **Syncing again:** this replaces the changes, after a confirmation.
+
+**Where it shows:** the person's name, position and Planning Center photo appear on that channel's engineer tile and on the pickup screen. A mic with someone on it counts as assigned, so a mic that's switched off shows orange "Off", not "Spare". A preset nickname still wins on the engineer screen. Any charger bay and expected transmitter from a show config still apply.
+
+**Storage and access:** the rules and the current assignments are saved in `~/.rf-ranger/mic-assignments.json`, so a restart keeps them. Like the rest of this screen, they can only be changed on the computer running RF Ranger.
+
+Not yet:
+- RF Ranger doesn't sync on its own. Press **Sync** for each service.
+- It doesn't write names back to the receivers.
 
 ## Linking an account (each church, in the app)
 

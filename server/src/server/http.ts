@@ -5,6 +5,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import type { PlanningCenterLink } from '../integrations/planning-center/link.js';
 import { handleInspector, isLocalRequest, type Inspector } from './inspector.js';
 import { handlePco } from './pco-http.js';
+import type { MicRosterStore } from './mic-roster-store.js';
 import type { PresetStore } from './presets.js';
 import { handlePresets } from './presets-http.js';
 import type { Runtime } from './runtime.js';
@@ -38,6 +39,8 @@ export interface HttpOptions {
   planningCenter?: PlanningCenterLink;
   /** Show presets, editable from any engineer screen (see presets-http.ts). */
   presets?: PresetStore;
+  /** Mic assignments from Planning Center, changed through /api/pco (local only). */
+  micRoster?: MicRosterStore;
 }
 
 /**
@@ -79,7 +82,7 @@ export function startHttp(runtime: Runtime, opts: HttpOptions): Promise<http.Ser
     }
 
     if (url.pathname.startsWith('/api/pco') && opts.planningCenter) {
-      void handlePco(opts.planningCenter, req, res, url);
+      void handlePco(opts.planningCenter, opts.micRoster, req, res, url);
       return;
     }
 

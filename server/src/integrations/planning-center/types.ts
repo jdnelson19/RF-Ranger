@@ -8,6 +8,19 @@ export interface ServiceType {
   name: string;
 }
 
+export interface Team {
+  id: string;
+  name: string;
+  /** Position names in Planning Center's order, e.g. "Worship Leader", "BGV 1". */
+  positions: string[];
+}
+
+export interface TeamPerson {
+  id: string;
+  name: string;
+  photoUrl?: string;
+}
+
 export interface Organization {
   id: string;
   name: string;

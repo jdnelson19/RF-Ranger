@@ -115,7 +115,7 @@ describe('/api/pco', () => {
 
   async function serve() {
     const { link } = newLink(fakePco());
-    server = http.createServer((req, res) => void handlePco(link, req, res, new URL(req.url ?? '/', 'http://localhost')));
+    server = http.createServer((req, res) => void handlePco(link, undefined, req, res, new URL(req.url ?? '/', 'http://localhost')));
     await new Promise<void>((r) => server!.listen(0, '127.0.0.1', r));
     return `http://127.0.0.1:${(server!.address() as AddressInfo).port}/api/pco`;
   }

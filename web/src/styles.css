@@ -473,6 +473,8 @@ select.input { padding-right: 6px; }
 .pco__form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
 .pco__field { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); flex: 1 1 220px; }
 .pco__field .input { width: 100%; }
+/* In a card (a column) the field must not grow tall from its 220px flex basis. */
+.pco__card > .pco__field { flex: none; }
 .pco__note { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
 .pco__error { margin: 0; color: var(--bad); font-size: 13px; }
 .pco__account { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
@@ -557,3 +559,42 @@ select.input { padding-right: 6px; }
 .wave__bar--hot { fill: var(--bad); }
 .wave__rf-bin { fill: var(--ok); }
 .wave__rf-bin--weak { fill: var(--warn); }
+
+/* Mic assignments (Planning Center) */
+.pco { max-width: 960px; }
+.mics__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.mics__actions { margin-left: auto; display: flex; gap: 8px; }
+.mics__table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.mics__table th { text-align: left; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 4px 8px; }
+.mics__table td { padding: 6px 8px; border-top: 1px solid var(--line); vertical-align: middle; }
+.mics__label { font-family: var(--mono); font-weight: 700; color: var(--accent); margin-right: 8px; }
+.mics__where { font-family: var(--mono); font-size: 11px; }
+.mics__pick { width: 100%; max-width: 260px; }
+.mics__tags { white-space: nowrap; text-align: right; }
+.mics__tags .tag + .tag { margin-left: 6px; }
+.mics__all { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+.mics__unplaced { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.mics__unplaced--warn { color: var(--warn); }
+.mics__teams { display: flex; flex-wrap: wrap; gap: 6px; }
+.mics__team { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--line); padding-top: 10px; }
+.mics__team h3 { margin: 0 0 4px; font-size: 14px; }
+.mics__role { display: grid; grid-template-columns: 150px 1fr; gap: 6px 12px; align-items: start; padding: 6px 0; }
+.mics__role-name { font-weight: 600; padding-top: 4px; }
+.mics__chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.micpick {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line-2); background: var(--bg-2); color: var(--muted); font: 600 12px var(--mono);
+}
+.micpick:hover { border-color: var(--muted); color: var(--text); }
+.micpick--on { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+.micpick__n { display: grid; place-items: center; min-width: 15px; height: 15px; border-radius: 8px; background: var(--accent); color: #001419; font-size: 10px; }
+.mics__prefs { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 13px; color: var(--text-2); }
+.mics__pref { display: inline-flex; align-items: center; gap: 6px; }
+.mics__pref .icon-btn { width: 22px; height: 22px; font-size: 11px; }
+.mics__pref-add { flex: 1 1 auto; display: flex; flex-wrap: wrap; gap: 6px; }
+.mics__pref-add .input--sm { flex: 0 1 170px; }
+@media (max-width: 640px) {
+  .mics__role { grid-template-columns: 1fr; }
+  .mics__prefs { grid-column: 1; }
+  .mics__actions { margin-left: 0; }
+}

@@ -3,6 +3,7 @@ import type http from 'node:http';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { PlanningCenterLink } from '../integrations/planning-center/link.js';
 import { loadConfig, normalizeConfig, type Config } from './config.js';
+import { MicRosterStore, micRosterPath } from './mic-roster-store.js';
 import { PresetStore, presetsPath } from './presets.js';
 import { startDemo } from './demo.js';
 import { startHttp } from './http.js';
@@ -27,6 +28,8 @@ export interface StartOptions {
   planningCenter?: PlanningCenterLink;
   /** Defaults to ~/.rf-ranger/show-presets.json; demo mode keeps presets in memory. */
   presets?: PresetStore;
+  /** Defaults to ~/.rf-ranger/mic-assignments.json; demo mode keeps them in memory. */
+  micRoster?: MicRosterStore;
   log?: (msg: string) => void;
 }
 
@@ -70,6 +73,9 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
   const presets = opts.presets ?? new PresetStore(opts.mode === 'demo' ? undefined : presetsPath());
   runtime.presets = () => presets.list();
   presets.on('change', () => runtime.emit('dirty'));
+  const micRoster = opts.micRoster ?? new MicRosterStore(opts.mode === 'demo' ? undefined : micRosterPath());
+  runtime.roster = () => micRoster.roster();
+  micRoster.on('change', () => runtime.emit('dirty'));
   let server: http.Server;
   try {
     server = await startHttp(runtime, {
@@ -79,6 +85,7 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
       inspector,
       planningCenter,
       presets,
+      micRoster,
       onQuit: opts.app?.onQuit,
     });
   } catch (err) {

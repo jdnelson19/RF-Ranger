@@ -3,6 +3,7 @@ import { ShureCharger } from '../adapters/shure/charger.js';
 import { ShureReceiver } from '../adapters/shure/receiver.js';
 import { channelAlerts } from '../core/alerts.js';
 import { splitChannelName, type AssignmentConfig, type SlotConfig } from '../core/assignment.js';
+import { EMPTY_ROSTER, type Roster } from '../core/mic-roster.js';
 import { emptyTelemetry, type ChannelTelemetry } from '../core/model.js';
 import { readiness, txPresent } from '../core/readiness.js';
 import type { ChargerConfig, Config, ReceiverConfig } from './config.js';
@@ -22,6 +23,8 @@ export class Runtime extends EventEmitter<Events> {
   discovered: () => DiscoveredView[] = () => [];
   /** Set at startup to share show presets with every screen. */
   presets: () => ShowPreset[] = () => [];
+  /** Set at startup: this service's mic assignments from Planning Center (see core/mic-roster.ts). */
+  roster: () => Roster = () => EMPTY_ROSTER;
   /** Running as the desktop app (offers Quit in the UI). */
   app = false;
   private running = false;
@@ -89,6 +92,7 @@ export class Runtime extends EventEmitter<Events> {
 
   snapshot(now = Date.now()): Snapshot {
     const th = this.config.thresholds;
+    const roster = this.roster();
 
     const slots = [...this.config.slots]
       .sort((a, b) => a.slot - b.slot)
@@ -96,7 +100,15 @@ export class Runtime extends EventEmitter<Events> {
         const rx = this.receivers.get(s.receiver)!;
         const state = rx.channels.get(s.channel);
         const telemetry = state?.telemetry ?? emptyTelemetry();
-        const { label, assignment: a } = s.autoName ? fromChannelName(s, telemetry) : { label: s.label ?? String(s.slot), assignment: s.assignment };
+        const key = `${s.receiver}/${s.channel}`;
+        const named = s.autoName ? fromChannelName(s, telemetry) : { label: s.label ?? String(s.slot), assignment: s.assignment };
+        const label = named.label;
+        // This service's Planning Center roster names who is on the mic; the
+        // configured charger bay and expected transmitter still apply.
+        const scheduled = roster.entries[key];
+        const a: AssignmentConfig | undefined = scheduled
+          ? { ...named.assignment, artist: scheduled.name, role: scheduled.role, photo: scheduled.photoUrl }
+          : named.assignment;
         const charger = a?.charger ? this.chargers.get(a.charger.id) : undefined;
         const bay = charger && a?.charger ? charger.bays.get(a.charger.bay) : undefined;
 
@@ -116,7 +128,7 @@ export class Runtime extends EventEmitter<Events> {
 
         return {
           slot: s.slot,
-          key: `${s.receiver}/${s.channel}`,
+          key,
           label,
           kind: s.kind,
           group: s.group,
@@ -127,7 +139,11 @@ export class Runtime extends EventEmitter<Events> {
           txOn: role === 'mic' && txPresent(telemetry),
           telemetry,
           levels: role === 'mic' ? state?.levels.bins(now) : undefined,
-          assignment: a &&{ ...a, photoUrl: photoUrl(a.photo) },
+          assignment: a && {
+            ...a,
+            photoUrl: photoUrl(a.photo),
+            ...(scheduled ? { planningCenter: { unconfirmed: !!scheduled.unconfirmed, edited: scheduled.source === 'manual' } } : {}),
+          },
           bay,
           readiness: ready,
           alerts: channelAlerts(
