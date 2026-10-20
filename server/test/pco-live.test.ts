@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { leaderNames, namesPerson } from '../src/core/live.js';
+import { leaderNames, namesPerson, pairIems } from '../src/core/live.js';
 import type { PlanningCenterLink } from '../src/integrations/planning-center/link.js';
 import { parseItemLeaders } from '../src/integrations/planning-center/services.js';
 import { LiveWatcher } from '../src/server/live-watch.js';
@@ -82,5 +82,20 @@ describe('LiveWatcher', () => {
     });
     await t.w.tick();
     expect(changed).toBe(1); // only when something changes
+  });
+});
+
+describe('pairIems', () => {
+  const mic = (key: string, artist: string) => ({ key, role: 'mic', assignment: { artist } });
+  const iem = (key: string, artist: string) => ({ key, role: 'iem', assignment: { artist } });
+
+  it('pairs a mic with the IEM channel named for its person', () => {
+    const pairs = pairIems([mic('rx/1', 'Sam Lee'), mic('rx/2', 'Alex Kim'), mic('rx/3', 'Jo Park'), iem('p10/1', 'Sam'), iem('p10/2', 'Alex Kim')]);
+    expect([...pairs]).toEqual([['rx/1', 'p10/1'], ['rx/2', 'p10/2']]);
+  });
+
+  it('shares a mix named for two people, and skips a first name two people share', () => {
+    const pairs = pairIems([mic('rx/1', 'Sam Lee'), mic('rx/2', 'Alex Kim'), mic('rx/3', 'Sam Ray'), iem('p10/1', 'Alex/Sam Lee')]);
+    expect([...pairs]).toEqual([['rx/1', 'p10/1'], ['rx/2', 'p10/1']]);
   });
 });

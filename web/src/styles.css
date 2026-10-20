@@ -706,3 +706,71 @@ select.input { padding-right: 6px; }
 .settings-btn { display: grid; place-items: center; width: 34px; height: 34px; }
 .settings-btn--on { color: var(--accent); border-color: var(--accent); }
 .showbar__label { white-space: nowrap; }
+
+/* ---------- Pickup board: one column per person (Micboard style) ---------- */
+.pickup--board { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+.pickup--board .pickup__body { min-height: 0; padding: 14px 16px 16px; gap: 14px; }
+.board { flex: 1; min-height: 0; display: grid; gap: 12px; }
+.col {
+  position: relative; overflow: hidden; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column; border-radius: 14px;
+  background: var(--panel); border: 2px solid var(--line);
+  container-type: size;
+}
+.col--ok { border-color: #1df08d77; }
+.col--warn { border-color: var(--warn); }
+.col--bad { border-color: var(--bad); }
+.col--leading { box-shadow: 0 0 0 3px var(--accent), 0 0 40px #00d8ff40; }
+.col__photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 20%; }
+.col__initials {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-size: min(48cqw, 34cqh); font-weight: 800; color: var(--panel-3); letter-spacing: -0.04em; user-select: none;
+}
+/* Keeps text readable over any photo: clear at the top, dark from the middle down. */
+.col__shade { position: absolute; inset: 0; background: linear-gradient(180deg, #0000 0%, #0000 25%, #000a 55%, #000e 100%); }
+.col:not(.col--photo) .col__shade { background: linear-gradient(180deg, #0000 40%, #0006 100%); }
+
+.col__top {
+  position: relative; display: flex; align-items: baseline; justify-content: space-between; gap: 6px;
+  padding: 6px 10px; background: var(--idle); color: #001419;
+}
+.col--ok .col__top { background: var(--ok); }
+.col--warn .col__top { background: var(--warn); }
+.col--bad .col__top { background: var(--bad); color: #fff; }
+.col__label { font-family: var(--mono); font-weight: 800; font-size: clamp(16px, 15cqw, 44px); line-height: 1; }
+.col__status { font-weight: 800; font-size: clamp(11px, 7cqw, 20px); text-transform: uppercase; letter-spacing: 0.04em; text-align: right; }
+.col__leading {
+  position: relative; align-self: center; margin-top: 8px; padding: 3px 10px; border-radius: 999px;
+  background: var(--accent); color: #001419; font-size: clamp(10px, 6cqw, 16px); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.col__body { position: relative; margin-top: auto; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; color: #fff; }
+.col__name {
+  font-size: clamp(18px, min(17cqw, 7cqh), 60px); font-weight: 800; line-height: 1.02; letter-spacing: -0.01em;
+  overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  text-shadow: 0 2px 12px #000c;
+}
+.col__role { font-size: clamp(12px, min(8.5cqw, 3.4cqh), 26px); color: #ffffffcc; text-shadow: 0 1px 8px #000c; }
+.col__kind { font-size: clamp(10px, 5.5cqw, 15px); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #ffffff99; }
+.col__line { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 4px; font-size: clamp(13px, min(10cqw, 4cqh), 30px); font-weight: 700; }
+.col__line--dim { color: #ffffffa0; font-weight: 600; }
+.col__line .battery { gap: clamp(2px, 1cqw, 3px); border-width: 2px; }
+.col__line .battery__seg { width: clamp(9px, min(5.5cqw, 2.2cqh), 20px); height: clamp(12px, min(8cqw, 3.2cqh), 28px); }
+.col__line .battery__nub { right: -6px; width: 4px; height: clamp(7px, 4cqw, 12px); }
+.col__pct { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.col__sub { font-size: 0.7em; color: #ffffffb0; font-weight: 600; }
+.col__bad { color: var(--bad); font-weight: 800; text-transform: uppercase; }
+.col__iem {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin-top: 6px; padding-top: 8px;
+  border-top: 1px solid #ffffff33; font-size: clamp(12px, min(8.5cqw, 3.4cqh), 26px);
+}
+.col__iem-tag { padding: 1px 6px; border-radius: 4px; background: #ffffff22; font-size: 0.7em; font-weight: 800; letter-spacing: 0.08em; }
+.col__iem-label { font-family: var(--mono); font-weight: 800; }
+.col__line--iem { margin: 0; font-size: 1em; }
+.col__notes { font-size: clamp(11px, 6cqw, 17px); color: #ffffffb0; }
+.pickup__body--offline .col { opacity: 0.5; }
+
+/* Phones: two columns a row, scrolling, each a portrait card. */
+@media (max-width: 640px) {
+  .pickup--board { height: auto; overflow: visible; }
+  .board { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; grid-template-rows: none !important; grid-auto-rows: 62vw; }
+}

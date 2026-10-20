@@ -4,7 +4,7 @@ import type { ReceiverDevice } from '../adapters/device.js';
 import { createReceiverDevice } from '../adapters/families.js';
 import { channelAlerts } from '../core/alerts.js';
 import { splitChannelName, type AssignmentConfig, type SlotConfig } from '../core/assignment.js';
-import { namesPerson, type LiveNow } from '../core/live.js';
+import { namesPerson, pairIems, type LiveNow } from '../core/live.js';
 import { EMPTY_ROSTER, type Roster } from '../core/mic-roster.js';
 import { emptyTelemetry, type ChannelTelemetry } from '../core/model.js';
 import { readiness, txPresent } from '../core/readiness.js';
@@ -186,6 +186,8 @@ export class Runtime extends EventEmitter<Events> {
       const names = slots.map((x) => x.assignment?.artist).filter((x): x is string => !!x);
       for (const x of slots) if (x.assignment && namesPerson(live.leader, x.assignment.artist, names)) x.leading = true;
     }
+
+    for (const [mic, iem] of pairIems(slots)) slots.find((x) => x.key === mic)!.iem = iem;
 
     const listed = this.config.groups;
     const extra = [...new Set(slots.map((s) => s.group).filter((g): g is string => !!g && !listed.includes(g)))].sort();

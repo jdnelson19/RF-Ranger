@@ -42,3 +42,21 @@ export function namesPerson(leader: string, person: string, others: string[] = [
     return !name.includes(' ') && name === first && !firstShared;
   });
 }
+
+/**
+ * Pair each person's mic with their in-ear monitor channel, by name: the IEM
+ * channel's name (e.g. "IEM1 Sam", or a shared mix "Sam/Alex") names the
+ * person on the mic, with the same rules as a Leader note. Returns mic slot
+ * key → IEM slot key. A person on two mics gets the same IEM on both.
+ */
+export function pairIems(slots: ReadonlyArray<{ key: string; role: string; assignment?: { artist: string } }>): Map<string, string> {
+  const mics = slots.filter((s) => s.role === 'mic' && s.assignment?.artist);
+  const iems = slots.filter((s) => s.role === 'iem' && s.assignment?.artist);
+  const names = mics.map((s) => s.assignment!.artist);
+  const out = new Map<string, string>();
+  for (const mic of mics) {
+    const iem = iems.find((i) => namesPerson(i.assignment!.artist, mic.assignment!.artist, names));
+    if (iem) out.set(mic.key, iem.key);
+  }
+  return out;
+}

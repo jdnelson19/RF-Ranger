@@ -63,6 +63,8 @@ export interface SlotView {
   alerts: Alert[];
   /** The live Planning Center item's Leader note names this mic's person (see core/live.ts). */
   leading?: boolean;
+  /** Mic channels: the key of this person's in-ear monitor channel, paired by name (see pairIems). */
+  iem?: string;
 }
 
 export interface DeviceView<I> {
