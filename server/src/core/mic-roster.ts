@@ -73,6 +73,18 @@ export interface Roster {
   people: RosterPerson[];
 }
 
+/** The scheduled sync, as the Planning Center screen shows it (see server/auto-sync.ts). */
+export interface AutoSyncInfo {
+  /** Minutes before the first rehearsal or service time; absent when off. */
+  leadMinutes?: number;
+  /** The service it will sync next, and when. */
+  next?: { at: number; planDates: string };
+  /** The upcoming service is already synced, so it won't be synced again on its own. */
+  done?: { planDates: string };
+  error?: string;
+  checkedAt?: number;
+}
+
 export const EMPTY_RULES: MicRules = { teamIds: [], roles: [] };
 export const EMPTY_ROSTER: Roster = { entries: {}, unplaced: [], people: [] };
 

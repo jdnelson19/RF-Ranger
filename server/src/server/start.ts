@@ -3,6 +3,7 @@ import type http from 'node:http';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { PlanningCenterLink } from '../integrations/planning-center/link.js';
 import { loadConfig, normalizeConfig, type Config } from './config.js';
+import { AutoSync } from './auto-sync.js';
 import { MicRosterStore, micRosterPath } from './mic-roster-store.js';
 import { PresetStore, presetsPath } from './presets.js';
 import { startDemo } from './demo.js';
@@ -76,6 +77,7 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
   const micRoster = opts.micRoster ?? new MicRosterStore(opts.mode === 'demo' ? undefined : micRosterPath());
   runtime.roster = () => micRoster.roster();
   micRoster.on('change', () => runtime.emit('dirty'));
+  const autoSync = new AutoSync(planningCenter, micRoster, { log: (m) => log(`  ${m}`) });
   let server: http.Server;
   try {
     server = await startHttp(runtime, {
@@ -86,6 +88,7 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
       planningCenter,
       presets,
       micRoster,
+      autoSync,
       onQuit: opts.app?.onQuit,
     });
   } catch (err) {
@@ -94,6 +97,7 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
   }
   runtime.app = opts.app !== undefined;
   runtime.start();
+  autoSync.start();
   // Check a saved Planning Center link in the background; never delays startup.
   if (planningCenter.status().configured) {
     // A failure is logged by the link itself.
@@ -122,6 +126,7 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
     server,
     stop: async () => {
       liveManager?.stop();
+      autoSync.stop();
       await inspector.closeAll();
       server.close();
       await runtime.stop();

@@ -190,6 +190,12 @@ export class PlanningCenterLink {
     return this.reported('loading team members', () => teamPeople(this.requireClient(), teamId));
   }
 
+  /** The plan RF Ranger would prepare for now, with its rehearsal and service times. */
+  async nextPlan(now = Date.now()): Promise<Plan | undefined> {
+    const id = this.requireServiceType();
+    return this.reported('looking up the next plan', () => upcomingPlan(this.requireClient(), id, now));
+  }
+
   /** The upcoming plan and everyone scheduled in it, for "Sync from Planning Center". */
   async schedule(now = Date.now()): Promise<{ plan: Plan | undefined; people: ScheduledPerson[] }> {
     const client = this.requireClient();

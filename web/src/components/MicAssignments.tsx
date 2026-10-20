@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { MicRules, RoleRule, Roster, SlotView, Team, TeamPerson } from '../types';
+import type { AutoSyncInfo, MicRules, RoleRule, Roster, SlotView, Team, TeamPerson } from '../types';
 
-type MicData = { rules: MicRules; roster: Roster };
+type MicData = { rules: MicRules; roster: Roster; auto: AutoSyncInfo };
+
+const LEADS: Array<[minutes: number, label: string]> = [
+  [15, '15 minutes'], [30, '30 minutes'], [60, '1 hour'], [90, '1½ hours'], [120, '2 hours'], [180, '3 hours'],
+  [240, '4 hours'], [360, '6 hours'], [720, '12 hours'], [1440, '1 day'],
+];
 
 async function api<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api/pco${path}`, body === undefined ? {} : {
@@ -52,7 +57,8 @@ export function MicAssignments({ slots }: { slots: SlotView[] }) {
 
   if (!data) return <section className="pco__card"><h2 className="section-title">Mic assignments</h2><p className="dim">{error ?? 'Loading…'}</p></section>;
 
-  const { rules, roster } = data;
+  const { rules, roster, auto } = data;
+  const when = (t: number) => new Date(t).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   const ruleMics = new Set(rules.roles.flatMap((r) => r.mics));
   const edited = Object.values(roster.entries).some((e) => e.source === 'manual');
   // Rows: mics the rules use or someone is on; every mic on request.
@@ -90,6 +96,31 @@ export function MicAssignments({ slots }: { slots: SlotView[] }) {
                 Clear
               </button>
             )}
+          </span>
+        </div>
+        <div className="mics__auto">
+          <label>
+            <span>Auto-sync</span>
+            <select
+              className="input input--sm"
+              value={auto.leadMinutes ?? ''}
+              disabled={busy || !rules.teamIds.length}
+              onChange={(e) => {
+                const v = e.target.value;
+                void run(() => api<MicData>('/mics/auto', v ? { leadMinutes: Number(v) } : { off: true }));
+              }}
+            >
+              <option value="">Off</option>
+              {LEADS.map(([m, l]) => <option key={m} value={m}>{l} before</option>)}
+            </select>
+            <span>the first rehearsal or service</span>
+          </label>
+          <span className="dim">
+            {auto.leadMinutes === undefined ? 'Sync by hand with the button.'
+              : auto.error ? <span className="pco__error">{auto.error}</span>
+              : auto.next ? <>Next: <b>{when(auto.next.at)}</b> for {auto.next.planDates}. Changes made after it stay for the service.</>
+              : auto.done ? <>{auto.done.planDates} is synced and won't sync again on its own, so changes stay.</>
+              : 'Waiting for the next service in Planning Center.'}
           </span>
         </div>
         <p className="pco__note">

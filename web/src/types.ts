@@ -6,3 +6,4 @@ export type { BayTelemetry, ChannelTelemetry, ChargerInfo, ConnectionStatus, Rec
 export type { Reading } from '../../server/src/core/reading.js';
 export type { PcoStatus, ServiceType, Team, TeamPerson, UpcomingSummary } from '../../server/src/integrations/planning-center/types.js';
 export type { MicRules, RoleRule, Roster, RosterEntry, RosterPerson, Unplaced } from '../../server/src/core/mic-roster.js';
+export type { AutoSyncInfo } from '../../server/src/core/mic-roster.js';

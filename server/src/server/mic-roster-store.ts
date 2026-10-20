@@ -30,8 +30,21 @@ interface Events {
   change: [];
 }
 
+/** Sync on its own this long before each service's first rehearsal or service time. */
+export interface AutoSyncSetting {
+  leadMinutes: number;
+}
+
+interface State {
+  rules: MicRules;
+  roster: Roster;
+  autoSync?: AutoSyncSetting;
+}
+
+const MAX_LEAD_MINUTES = 7 * 24 * 60;
+
 export class MicRosterStore extends EventEmitter<Events> {
-  private state: { rules: MicRules; roster: Roster } = { rules: EMPTY_RULES, roster: EMPTY_ROSTER };
+  private state: State = { rules: EMPTY_RULES, roster: EMPTY_ROSTER };
 
   /** Without a path, everything lives in memory only (tests, demo). */
   constructor(private readonly path?: string, private readonly now: () => number = Date.now) {
@@ -45,6 +58,23 @@ export class MicRosterStore extends EventEmitter<Events> {
 
   roster(): Roster {
     return this.state.roster;
+  }
+
+  autoSync(): AutoSyncSetting | undefined {
+    return this.state.autoSync;
+  }
+
+  /** `null` turns the scheduled sync off. */
+  setAutoSync(input: unknown): AutoSyncSetting | undefined {
+    if (input === null || input === undefined) {
+      this.state = { ...this.state, autoSync: undefined };
+    } else {
+      const lead = Number((input as { leadMinutes?: unknown }).leadMinutes);
+      if (!Number.isInteger(lead) || lead < 0 || lead > MAX_LEAD_MINUTES) throw new RosterError('Choose how long before the service to sync.');
+      this.state = { ...this.state, autoSync: { leadMinutes: lead } };
+    }
+    this.persist();
+    return this.state.autoSync;
   }
 
   setRules(input: unknown): MicRules {
@@ -116,8 +146,8 @@ export class MicRosterStore extends EventEmitter<Events> {
   }
 }
 
-function load(path: string): { rules: MicRules; roster: Roster } {
-  let raw: { rules?: unknown; roster?: Partial<Roster> };
+function load(path: string): State {
+  let raw: { rules?: unknown; roster?: Partial<Roster>; autoSync?: { leadMinutes?: unknown } };
   try {
     raw = JSON.parse(readFileSync(path, 'utf8')) as typeof raw;
   } catch {
@@ -133,7 +163,9 @@ function load(path: string): { rules: MicRules; roster: Roster } {
   const roster: Roster = r && typeof r === 'object' && r.entries && typeof r.entries === 'object'
     ? { plan: r.plan, syncedAt: r.syncedAt, entries: r.entries, unplaced: Array.isArray(r.unplaced) ? r.unplaced : [], people: Array.isArray(r.people) ? r.people : [] }
     : EMPTY_ROSTER;
-  return { rules, roster };
+  const lead = Number(raw.autoSync?.leadMinutes);
+  const autoSync = Number.isInteger(lead) && lead >= 0 && lead <= MAX_LEAD_MINUTES ? { leadMinutes: lead } : undefined;
+  return { rules, roster, autoSync };
 }
 
 function text(v: unknown): string {

@@ -19,14 +19,15 @@
  *   POST /api/pco/mics/sync              {}  apply the rules to the upcoming plan
  *   POST /api/pco/mics/assign            { mic, personId } | { mic, name, role? } | { mic, clear: true }
  *   POST /api/pco/mics/clear             {}  empty every mic
+ *   POST /api/pco/mics/auto              { leadMinutes } | { off: true }  scheduled sync before each service
  */
 import type http from 'node:http';
-import type { RosterPerson } from '../core/mic-roster.js';
 import { LinkError, type PlanningCenterLink } from '../integrations/planning-center/link.js';
 import { isLocalRequest, readJson } from './inspector.js';
+import { syncFromPlanningCenter, type AutoSync } from './auto-sync.js';
 import { RosterError, type MicRosterStore } from './mic-roster-store.js';
 
-export async function handlePco(link: PlanningCenterLink, mics: MicRosterStore | undefined, req: http.IncomingMessage, res: http.ServerResponse, url: URL): Promise<void> {
+export async function handlePco(link: PlanningCenterLink, mics: MicRosterStore | undefined, autoSync: AutoSync | undefined, req: http.IncomingMessage, res: http.ServerResponse, url: URL): Promise<void> {
   const json = (status: number, body: unknown) => {
     res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' });
     res.end(JSON.stringify(body));
@@ -45,7 +46,7 @@ export async function handlePco(link: PlanningCenterLink, mics: MicRosterStore |
       if (route === 'upcoming') return json(200, await link.upcoming());
       if (route === 'teams') return json(200, { teams: await link.teams() });
       if (route === 'team-people') return json(200, { people: await link.teamPeople(url.searchParams.get('team') ?? '') });
-      if (route === 'mics' && mics) return json(200, { rules: mics.rules(), roster: mics.roster() });
+      if (route === 'mics' && mics) return json(200, { rules: mics.rules(), roster: mics.roster(), auto: autoSync?.info() ?? {} });
     } else if (req.method === 'POST') {
       if (!(req.headers['content-type'] ?? '').startsWith('application/json')) return json(415, { error: 'Expected JSON' });
       const body = (await readJson(req)) as Record<string, unknown>;
@@ -53,20 +54,20 @@ export async function handlePco(link: PlanningCenterLink, mics: MicRosterStore |
       if (route === 'service-type') return json(200, await link.setServiceType(String(body.id ?? '')));
       if (route === 'disconnect') return json(200, link.disconnect());
       if (mics && route.startsWith('mics/')) {
-        const done = () => json(200, { rules: mics.rules(), roster: mics.roster() });
+        const done = () => json(200, { rules: mics.rules(), roster: mics.roster(), auto: autoSync?.info() ?? {} });
         if (route === 'mics/rules') { mics.setRules(body.rules); return done(); }
         if (route === 'mics/clear') { mics.clear(); return done(); }
+        if (route === 'mics/auto') {
+          mics.setAutoSync(body.off === true ? null : { leadMinutes: body.leadMinutes });
+          await autoSync?.tick(); // so the reply already says when it will run
+          return done();
+        }
         if (route === 'mics/assign') {
           mics.assign(String(body.mic ?? ''), body.clear === true ? null : { personId: body.personId, name: body.name, role: body.role });
           return done();
         }
         if (route === 'mics/sync') {
-          const { plan, people } = await link.schedule();
-          if (!plan) throw new LinkError('There’s no upcoming plan for this service type to sync from.');
-          const scheduled: RosterPerson[] = people.map((p) => ({
-            personId: p.personId, name: p.name, teamId: p.teamId, position: p.position, status: p.status, photoUrl: p.photoUrl,
-          }));
-          mics.sync({ id: plan.id, dates: plan.dates, title: plan.title }, scheduled);
+          if (!(await syncFromPlanningCenter(link, mics))) throw new LinkError('There’s no upcoming plan for this service type to sync from.');
           return done();
         }
       }
