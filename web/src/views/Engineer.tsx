@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ChannelDetail } from '../components/ChannelDetail';
 import { ChannelTile } from '../components/ChannelTile';
 import { ShowEditor } from '../components/ShowEditor';
-import { Brand, Chip, ServerLink } from '../components/ui';
+import { Brand, Chip, ServerLink, UpdateLink } from '../components/ui';
 import { TILE_FIELDS, useDisplayOptions } from '../display';
 import { TONE_RANK, shownReadiness, slotTone } from '../format';
 import { href, navigate, type Route } from '../route';
@@ -87,6 +87,7 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
         </nav>
         <div className="topbar__right">
           <a className="btn btn--ghost" href={href({ view: 'pickup', group: route.group, show: activePreset?.id })}>Pickup view ↗</a>
+          <UpdateLink update={s?.update} />
           <ServerLink online={live.online} version={live.snapshot?.version} />
         </div>
       </header>

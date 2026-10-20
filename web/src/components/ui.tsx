@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { READINESS_TONE, type Tone } from '../format';
-import type { Readiness, SlotView } from '../types';
+import type { Readiness, SlotView, Snapshot } from '../types';
 
 export function Logo({ size = 22 }: { size?: number }) {
   return (
@@ -148,5 +148,15 @@ export function Waveform({ levels, live, tall = false }: { levels: SlotView['lev
       </svg>
       <span className="meter__readout">now</span>
     </div>
+  );
+}
+
+/** A newer RF Ranger is out: a link to download it for the computer running RF Ranger. */
+export function UpdateLink({ update }: { update: Snapshot['update'] }) {
+  if (!update) return null;
+  return (
+    <a className="update-link" href={update.url} target="_blank" rel="noreferrer" title={`Download RF Ranger ${update.version} for the computer running RF Ranger`}>
+      Update available: v{update.version}
+    </a>
   );
 }

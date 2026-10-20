@@ -25,6 +25,8 @@ export class Runtime extends EventEmitter<Events> {
   presets: () => ShowPreset[] = () => [];
   /** Set at startup: this service's mic assignments from Planning Center (see core/mic-roster.ts). */
   roster: () => Roster = () => EMPTY_ROSTER;
+  /** Set at startup: a newer version, once one is found. */
+  update: () => Snapshot['update'] = () => undefined;
   /** Running as the desktop app (offers Quit in the UI). */
   app = false;
   private running = false;
@@ -172,6 +174,7 @@ export class Runtime extends EventEmitter<Events> {
       })),
       discovered: this.discovered(),
       presets: this.presets(),
+      update: this.update(),
     };
   }
 }

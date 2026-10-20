@@ -4,6 +4,8 @@ import { dirname, isAbsolute, resolve } from 'node:path';
 import { PlanningCenterLink } from '../integrations/planning-center/link.js';
 import { loadConfig, normalizeConfig, type Config } from './config.js';
 import { AutoSync } from './auto-sync.js';
+import { UpdateCheck } from './update-check.js';
+import { VERSION } from '../version.js';
 import { MicRosterStore, micRosterPath } from './mic-roster-store.js';
 import { PresetStore, presetsPath } from './presets.js';
 import { startDemo } from './demo.js';
@@ -98,6 +100,9 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
   runtime.app = opts.app !== undefined;
   runtime.start();
   autoSync.start();
+  const updates = new UpdateCheck(VERSION, { log: (m) => log(`  ${m}`) });
+  runtime.update = () => updates.notice();
+  if (!process.env.RF_RANGER_NO_UPDATE_CHECK && opts.mode !== 'demo') updates.start();
   // Check a saved Planning Center link in the background; never delays startup.
   if (planningCenter.status().configured) {
     // A failure is logged by the link itself.
@@ -127,6 +132,7 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
     stop: async () => {
       liveManager?.stop();
       autoSync.stop();
+      updates.stop();
       await inspector.closeAll();
       server.close();
       await runtime.stop();

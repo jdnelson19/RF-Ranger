@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { href } from '../route';
 import type { Live } from '../useSnapshot';
-import { Brand, Chip, ServerLink } from '../components/ui';
+import { Brand, Chip, ServerLink, UpdateLink } from '../components/ui';
 import { navigate } from '../route';
 
 function isThisComputer(): boolean {
@@ -91,6 +91,7 @@ export function Launch({ live }: { live: Live }) {
 
       <footer className="launch__foot">
         <ServerLink online={live.online} version={live.snapshot?.version} />
+        <UpdateLink update={s?.update} />
         {s?.demo && <span className="tag tag--demo">Demo data</span>}
         <span className="dim">Tip: bookmark a view to open it directly, e.g. a TV straight into Pickup.</span>
         {s?.app && isThisComputer() && <QuitButton />}

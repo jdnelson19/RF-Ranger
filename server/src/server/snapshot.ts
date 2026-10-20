@@ -5,6 +5,13 @@ import type { BayTelemetry, ChannelRole, ChannelTelemetry, ChargerInfo, Connecti
 import type { Readiness } from '../core/readiness.js';
 import type { AssignmentConfig, SlotConfig } from '../core/assignment.js';
 
+/** A newer RF Ranger release (see update-check.ts). */
+export interface UpdateNotice {
+  version: string;
+  /** The server computer's download (Mac .dmg or Windows installer), else the release page. */
+  url: string;
+}
+
 /** A named, ordered set of channels to monitor at one point in a service (see presets.ts). */
 export interface ShowPreset {
   id: string;
@@ -91,4 +98,6 @@ export interface Snapshot {
   discovered: DiscoveredView[];
   /** Show presets shared by every engineer screen. */
   presets: ShowPreset[];
+  /** A newer RF Ranger is out (see update-check.ts). */
+  update?: UpdateNotice;
 }
