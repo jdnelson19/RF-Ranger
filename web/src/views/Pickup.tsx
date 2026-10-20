@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
-import { LiveStrip } from '../components/LiveNow';
+import { LiveClock, LiveStrip } from '../components/LiveNow';
 import { Battery, Brand, StatusPill } from '../components/ui';
 import { READINESS_TONE, initials, kindLabel, shownReadiness, value } from '../format';
 import { href, type Route } from '../route';
@@ -54,11 +54,14 @@ export function Pickup({ live, route }: { live: Live; route: Route }) {
     <div className={`pickup pickup--${density}${strips ? ' pickup--strips' : ' pickup--board'}`} ref={ref}>
       <header className="pickup__head">
         <a href={href({ view: 'launch' })} className="pickup__home" title="Back to start (Esc)"><Brand compact /></a>
-        <h1 className="pickup__title">{preset?.name ?? route.group ?? 'Wireless Pickup'}</h1>
+        {/* While a service is live, its clock takes the top center; the title steps aside. */}
+        {s?.live && live.online
+          ? <LiveClock live={live} className="pickup__live-clock" />
+          : <h1 className="pickup__title">{preset?.name ?? route.group ?? 'Wireless Pickup'}</h1>}
         <div className="pickup__clock">{clock}</div>
       </header>
 
-      <LiveStrip live={live} />
+      <LiveStrip live={live} showClock={false} />
 
       {!live.online && (
         <div className="pickup__offline" role="alert">

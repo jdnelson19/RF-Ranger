@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ChannelDetail } from '../components/ChannelDetail';
 import { ChannelTile } from '../components/ChannelTile';
-import { LiveBanner } from '../components/LiveNow';
+import { LiveBanner, LiveClock } from '../components/LiveNow';
 import { PresetMenu, SettingsMenu } from '../components/NavMenus';
 import { ShowEditor, presetApi } from '../components/ShowEditor';
 import { Brand, Chip, ServerLink, UpdateLink } from '../components/ui';
@@ -74,6 +74,7 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
             Devices {rxDown.length > 0 && <span className="tab__badge tab__badge--bad">{rxDown.length}</span>}
           </a>
         </nav>
+        <LiveClock live={live} className="topbar__clock" />
         <div className="topbar__right">
           <a className="btn btn--ghost" href={href({ view: 'pickup' })} title="Opens the pickup display, showing the preset assigned to it">Pickup view ↗</a>
           <UpdateLink update={s?.update} />

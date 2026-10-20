@@ -774,3 +774,17 @@ select.input { padding-right: 6px; }
   .pickup--board { height: auto; overflow: visible; }
   .board { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; grid-template-rows: none !important; grid-auto-rows: 62vw; }
 }
+
+/* Services Live countdown, top center */
+.live-clock { display: flex; flex-direction: column; align-items: center; line-height: 1; min-width: 0; }
+.live-clock__time { font-family: var(--mono); font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text); }
+.live-clock__title { margin-top: 4px; max-width: 40vw; font-weight: 700; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.live-clock--soon .live-clock__time { color: var(--warn); }
+.live-clock--over .live-clock__time { color: var(--bad); }
+.pickup__live-clock .live-clock__time { font-size: 52px; }
+.pickup__live-clock .live-clock__title { font-size: 16px; letter-spacing: 0.02em; }
+.topbar__clock { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+.topbar__clock .live-clock__time { font-size: 26px; }
+.topbar__clock .live-clock__title { margin-top: 2px; font-size: 11px; max-width: 22vw; }
+@media (max-width: 1100px) { .topbar__clock { display: none; } }
+@media (max-width: 640px) { .pickup__live-clock .live-clock__time { font-size: 30px; } .pickup__live-clock .live-clock__title { font-size: 11px; } }

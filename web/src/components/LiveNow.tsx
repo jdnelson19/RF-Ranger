@@ -29,8 +29,24 @@ function clock(sec: number): string {
 
 const tone = (sec: number) => (sec < 0 ? 'over' : sec <= 30 ? 'soon' : 'ok');
 
+/**
+ * The live segment's countdown for the top center of a screen, with the
+ * segment's name under it. Nothing when nothing is live.
+ */
+export function LiveClock({ live, className = '' }: { live: Live; className?: string }) {
+  const left = useCountdown(live);
+  const now = live.snapshot?.live;
+  if (!now || left === undefined || !live.online) return null;
+  return (
+    <div className={`live-clock live-clock--${tone(left)} ${className}`} role="timer" aria-live="off" title={left < 0 ? 'Over time' : 'Time left in this segment'}>
+      <span className="live-clock__time">{clock(left)}</span>
+      <span className="live-clock__title">{left < 0 ? `${now.item.title} · over` : now.item.title}</span>
+    </div>
+  );
+}
+
 /** Pickup display: the segment on now, its clock, and what's next. Nothing when nothing is live. */
-export function LiveStrip({ live }: { live: Live }) {
+export function LiveStrip({ live, showClock = true }: { live: Live; showClock?: boolean }) {
   const left = useCountdown(live);
   const now = live.snapshot?.live;
   if (!now || left === undefined || !live.online) return null;
@@ -38,7 +54,7 @@ export function LiveStrip({ live }: { live: Live }) {
     <div className={`live-strip live-strip--${tone(left)}`} role="status" aria-live="off">
       <span className="live-strip__now">Now</span>
       <span className="live-strip__title">{now.item.title}</span>
-      <span className="live-strip__clock" title={left < 0 ? 'Over time' : 'Time left in this segment'}>{clock(left)}</span>
+      {showClock && <span className="live-strip__clock" title={left < 0 ? 'Over time' : 'Time left in this segment'}>{clock(left)}</span>}
       {now.next && <span className="live-strip__next">Next: {now.next.title}</span>}
     </div>
   );
