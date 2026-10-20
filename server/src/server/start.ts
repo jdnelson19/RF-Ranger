@@ -3,6 +3,7 @@ import type http from 'node:http';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { PlanningCenterLink } from '../integrations/planning-center/link.js';
 import { loadConfig, normalizeConfig, type Config } from './config.js';
+import { loadSettings } from '../integrations/planning-center/credentials.js';
 import { AutoSync } from './auto-sync.js';
 import { UpdateCheck } from './update-check.js';
 import { VERSION } from '../version.js';
@@ -76,7 +77,10 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
   const presets = opts.presets ?? new PresetStore(opts.mode === 'demo' ? undefined : presetsPath());
   runtime.presets = () => presets.list();
   presets.on('change', () => runtime.emit('dirty'));
-  const micRoster = opts.micRoster ?? new MicRosterStore(opts.mode === 'demo' ? undefined : micRosterPath());
+  // Mic rules saved before services existed belong to the service type chosen in the Planning Center settings.
+  const pcoSettings = loadSettings();
+  const legacyType = pcoSettings.serviceTypeId ? { id: pcoSettings.serviceTypeId, name: pcoSettings.serviceTypeName ?? pcoSettings.serviceTypeId } : undefined;
+  const micRoster = opts.micRoster ?? new MicRosterStore(opts.mode === 'demo' ? undefined : micRosterPath(), Date.now, legacyType);
   runtime.roster = () => micRoster.roster();
   micRoster.on('change', () => runtime.emit('dirty'));
   const autoSync = new AutoSync(planningCenter, micRoster, { log: (m) => log(`  ${m}`) });

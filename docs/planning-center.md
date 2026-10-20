@@ -9,9 +9,14 @@ Goal: fill RF slots with the people scheduled for the next service, and show Ser
 
 ## Mic assignments
 
-On **Engineer → Planning Center**, under the service to follow:
+On **Engineer → Planning Center**:
 
-**Mic rules** are set up once:
+**Services:** add each Planning Center service type you fill mics from with **Add a service**, for example a weekend service, a youth night and a midweek service in the same room. In Planning Center, teams and positions belong to a service type, so each service has its own mic rules, its own **Sync now** button and its own auto-sync.
+- **A sync changes only that service's mics:** the mics in its rules, plus any mics it filled before. In a multipurpose room where every service uses RF1–12, each sync switches the room over. Two rooms with separate mics, synced by different services, don't overwrite each other.
+- **Removing a service** deletes its rules. The mics it filled stay until they're changed or cleared.
+- **Rules saved before services existed** become the first service, for the service type that was chosen then.
+
+**Mic rules** (per service) are set up once:
 1. **Teams:** pick the teams whose people use wireless, for example *Vocals*. Others, like *Band*, are ignored.
 2. **Mics per position:** under each of the team's positions (*Worship Leader*, *BGV 1*, *BGV 2*, …), click the mics it uses, in the order to fill them. For example, Worship Leader gets RF1, RF2 and RF3, and BGV 1 gets RF5. The list includes every position the team has, scheduled this week or not.
 3. **Preferred mics (optional):** inside a position, "Sam prefers RF1" puts Sam on RF1 whenever they're scheduled in that position. When they aren't, RF1 goes to the next person. A preference only applies to the position's own mics. The picker offers the team's members, plus anyone scheduled on the team at the last sync. Staff are often scheduled on a team without being listed as its members.
@@ -28,13 +33,18 @@ On **Engineer → Planning Center**, under the service to follow:
 
 **Where it shows:** the person's name, position and Planning Center photo appear on that channel's engineer tile and on the pickup screen. A mic with someone on it counts as assigned, so a mic that's switched off shows orange "Off", not "Spare". A preset nickname still wins on the engineer screen. Any charger bay and expected transmitter from a show config still apply.
 
-**Storage and access:** the rules and the current assignments are saved in `~/.rf-ranger/mic-assignments.json`, so a restart keeps them. Like the rest of this screen, they can only be changed on the computer running RF Ranger.
+**Storage and access:** the services, their rules and the current assignments are saved in `~/.rf-ranger/mic-assignments.json`, so a restart keeps them. Like the rest of this screen, they can only be changed on the computer running RF Ranger.
 
-**Auto-sync** is off by default. Set it to a time between 15 minutes and 1 day before the plan's first rehearsal or service, for example "2 hours before". RF Ranger then syncs that service once, on its own:
-- **Schedule:** it checks Planning Center every 2 minutes. The screen shows when the next sync will run.
-- **Changes stay:** a service that has already been synced, by hand or automatically, is never synced again on its own. A tech can fix things at rehearsal and the changes stay for the service.
-- **Next service:** once the service's last time has ended, the next plan becomes the upcoming one and gets its own sync.
-- **While RF Ranger is closed:** nothing syncs. It catches up when it next runs, as long as the service hasn't started.
+**Auto-sync** is set per service and is off by default. Several services can each sync on their own through the week. There are two kinds:
+- **Before the next rehearsal or service:** a time between 15 minutes and 1 day before the first rehearsal or service time of the service's next plan, for example "2 hours before".
+  - **Changes stay:** it syncs each plan once. A plan already synced, by hand or automatically, is never synced again on its own, so a tech can fix things at rehearsal and the changes stay for the service.
+  - **Next plan:** once the plan's last service time has ended, the next plan gets its own sync.
+  - **While RF Ranger is closed:** it catches up when RF Ranger next runs, as long as the service hasn't started.
+- **Every week at a set time:** for example, every Wednesday at 5:00 PM, on the RF Ranger computer's clock. It syncs the service's upcoming plan at that time each week.
+  - **New schedules:** a time that has already passed today waits for next week rather than running straight away.
+  - **While RF Ranger is closed:** a time missed by less than 12 hours still runs when RF Ranger opens. Otherwise it waits for next week.
+
+RF Ranger checks the schedules every minute, and each service's panel shows when its next sync will run.
 
 Not yet:
 - It doesn't write names back to the receivers.

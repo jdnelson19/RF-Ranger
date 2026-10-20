@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MicAssignments } from '../components/MicAssignments';
-import type { PcoStatus, ServiceType, SlotView, UpcomingSummary } from '../types';
+import type { PcoStatus, ServiceType, SlotView } from '../types';
 
 const TOKENS_URL = 'https://api.planningcenteronline.com/oauth/applications';
 
@@ -36,8 +36,6 @@ export function PlanningCenter({ slots }: { slots: SlotView[] }) {
   const [forbidden, setForbidden] = useState(false);
   const [types, setTypes] = useState<ServiceType[]>([]);
   const [typesError, setTypesError] = useState<string | undefined>();
-  const [upcoming, setUpcoming] = useState<UpcomingSummary | undefined>();
-  const [upcomingError, setUpcomingError] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
 
@@ -60,21 +58,6 @@ export function PlanningCenter({ slots }: { slots: SlotView[] }) {
   };
 
   useEffect(() => { void load(true); }, []);
-
-  // Show what RF Ranger would prepare for, once a service type is chosen.
-  const typeId = status?.connected ? status.serviceType?.id : undefined;
-  const [upcomingTry, setUpcomingTry] = useState(0);
-  useEffect(() => {
-    setUpcoming(undefined);
-    setUpcomingError(undefined);
-    if (!typeId) return;
-    let current = true;
-    api<UpcomingSummary>('/upcoming').then(
-      (u) => current && setUpcoming(u),
-      (e: Error) => current && setUpcomingError(e.message),
-    );
-    return () => { current = false; };
-  }, [typeId, upcomingTry]);
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -115,9 +98,6 @@ export function PlanningCenter({ slots }: { slots: SlotView[] }) {
           status={status}
           types={types}
           typesError={typesError}
-          upcoming={upcoming}
-          upcomingError={upcomingError}
-          retryUpcoming={() => setUpcomingTry((n) => n + 1)}
           busy={busy}
           run={run}
           load={load}
@@ -183,13 +163,10 @@ function Connect({ busy, run, onConnected }: {
   );
 }
 
-function Connected({ status, types, typesError, upcoming, upcomingError, retryUpcoming, busy, run, load, setStatus, slots }: {
+function Connected({ status, types, typesError, busy, run, load, setStatus, slots }: {
   status: PcoStatus;
   types: ServiceType[];
   typesError: string | undefined;
-  upcoming: UpcomingSummary | undefined;
-  upcomingError: string | undefined;
-  retryUpcoming: () => void;
   busy: boolean;
   run: (fn: () => Promise<void>) => Promise<void>;
   load: (check?: boolean) => Promise<void>;
@@ -204,7 +181,6 @@ function Connected({ status, types, typesError, upcoming, upcomingError, retryUp
       .sort((a, b) => a.name.trim().localeCompare(b.name.trim()))
       .map((t) => ({ id: t.id, label: (counts.get(t.name.trim()) ?? 0) > 1 ? `${t.name.trim()} (ID ${t.id})` : t.name.trim() }));
   }, [types]);
-  const tz = status.organization?.timeZone;
 
   return (
     <>
@@ -236,46 +212,14 @@ function Connected({ status, types, typesError, upcoming, upcomingError, retryUp
         {!status.connected && status.error && <p className="pco__error">{status.error}</p>}
       </section>
 
-      {status.connected && (
-        <section className="pco__card">
-          <h2 className="section-title">Service to follow</h2>
-          <label className="pco__field">
-            <span>Service type</span>
-            <select
-              className="input"
-              value={status.serviceType?.id ?? ''}
-              disabled={busy || !options.length}
-              onChange={(e) => {
-                const id = e.target.value;
-                if (id) void run(async () => setStatus(await api<PcoStatus>('/service-type', { id })));
-              }}
-            >
-              <option value="" disabled>{options.length ? 'Choose a service type…' : typesError ? "Service types didn't load" : 'Loading service types…'}</option>
-              {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-            </select>
-          </label>
-          {typesError && !options.length && (
-            <p className="pco__error" role="alert">
-              {typesError}{' '}
-              <button type="button" className="btn btn--ghost btn--sm" disabled={busy} onClick={() => void run(() => load())}>Try again</button>
-            </p>
-          )}
-
-          {status.serviceType && (
-            upcoming ? <Upcoming u={upcoming} tz={tz} />
-              : upcomingError ? (
-                <p className="pco__error" role="alert">
-                  {upcomingError}{' '}
-                  <button type="button" className="btn btn--ghost btn--sm" onClick={retryUpcoming}>Try again</button>
-                </p>
-              )
-              : <p className="dim">Looking up the next service…</p>
-          )}
-        </section>
+      {status.connected && typesError && !types.length && (
+        <p className="pco__error" role="alert">
+          Service types didn't load: {typesError}{' '}
+          <button type="button" className="btn btn--ghost btn--sm" disabled={busy} onClick={() => void run(() => load())}>Try again</button>
+        </p>
       )}
 
-      {/* Keyed by service type: another type has different teams. */}
-      {status.connected && status.serviceType && <MicAssignments key={status.serviceType.id} slots={slots} />}
+      {status.connected && <MicAssignments slots={slots} types={options.map((o) => ({ id: o.id, name: o.label }))} />}
 
       <p className="pco__note">
         A one-click "Sign in with Planning Center" is planned to replace pasting a token.
@@ -284,23 +228,3 @@ function Connected({ status, types, typesError, upcoming, upcomingError, retryUp
   );
 }
 
-function Upcoming({ u, tz }: { u: UpcomingSummary; tz?: string }) {
-  if (!u.plan) return <p className="dim">No upcoming plans for {u.serviceType.name}.</p>;
-  const time = (iso: string) => new Intl.DateTimeFormat(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: tz }).format(new Date(iso));
-  const p = u.plan;
-  return (
-    <div className="pco__upcoming">
-      <div className="pco__plan-date">{p.dates}</div>
-      {(p.title || p.seriesTitle) && <div className="pco__plan-title">{[p.title, p.seriesTitle && `(${p.seriesTitle})`].filter(Boolean).join(' ')}</div>}
-      <dl className="kv">
-        <dt>Services</dt><dd>{p.serviceTimes.length ? p.serviceTimes.map(time).join(' · ') : <span className="dim">no service times</span>}</dd>
-        <dt>Scheduled</dt>
-        <dd>
-          {u.scheduled} people
-          {(u.declined > 0 || u.unconfirmed > 0) && <span className="dim">{` · ${u.declined} declined · ${u.unconfirmed} unconfirmed`}</span>}
-        </dd>
-        {p.endsAt && <><dt>Next plan from</dt><dd>{time(p.endsAt)} <span className="dim">(when this one's last service ends)</span></dd></>}
-      </dl>
-    </div>
-  );
-}

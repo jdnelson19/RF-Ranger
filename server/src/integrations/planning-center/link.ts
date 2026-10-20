@@ -154,11 +154,11 @@ export class PlanningCenterLink {
   }
 
   /** The plan RF Ranger would prepare for now, with a head count, to confirm the setup. */
-  async upcoming(now = Date.now()): Promise<UpcomingSummary> {
+  async upcoming(serviceTypeId?: string, now = Date.now()): Promise<UpcomingSummary> {
     const client = this.requireClient();
     const s = this.settings();
-    if (!s.serviceTypeId) throw new LinkError('Choose a service type first.');
-    const type = { id: s.serviceTypeId, name: s.serviceTypeName ?? s.serviceTypeId };
+    const id = this.requireServiceType(serviceTypeId);
+    const type = { id, name: id === s.serviceTypeId ? s.serviceTypeName ?? id : id };
     const plan = await this.reported('looking up the next plan', () => upcomingPlan(client, type.id, now));
     if (!plan) return { serviceType: type, scheduled: 0, declined: 0, unconfirmed: 0 };
     const people = await this.reported('looking up who is scheduled', () => scheduledPeople(client, type.id, plan.id));
@@ -179,9 +179,9 @@ export class PlanningCenterLink {
     };
   }
 
-  /** The followed service type's teams and their positions, for setting up mic rules. */
-  async teams(): Promise<Team[]> {
-    const id = this.requireServiceType();
+  /** A service type's teams and their positions, for setting up mic rules. */
+  async teams(serviceTypeId?: string): Promise<Team[]> {
+    const id = this.requireServiceType(serviceTypeId);
     return this.reported('loading teams', () => teams(this.requireClient(), id));
   }
 
@@ -190,25 +190,27 @@ export class PlanningCenterLink {
     return this.reported('loading team members', () => teamPeople(this.requireClient(), teamId));
   }
 
-  /** The plan RF Ranger would prepare for now, with its rehearsal and service times. */
-  async nextPlan(now = Date.now()): Promise<Plan | undefined> {
-    const id = this.requireServiceType();
+  /** A service type's next plan, with its rehearsal and service times. */
+  async nextPlan(serviceTypeId: string, now = Date.now()): Promise<Plan | undefined> {
+    const id = this.requireServiceType(serviceTypeId);
     return this.reported('looking up the next plan', () => upcomingPlan(this.requireClient(), id, now));
   }
 
-  /** The upcoming plan and everyone scheduled in it, for "Sync from Planning Center". */
-  async schedule(now = Date.now()): Promise<{ plan: Plan | undefined; people: ScheduledPerson[] }> {
+  /** A service type's upcoming plan and everyone scheduled in it, for a mic sync. */
+  async schedule(serviceTypeId: string, now = Date.now()): Promise<{ plan: Plan | undefined; people: ScheduledPerson[] }> {
     const client = this.requireClient();
-    const id = this.requireServiceType();
+    const id = this.requireServiceType(serviceTypeId);
     const plan = await this.reported('looking up the next plan', () => upcomingPlan(client, id, now));
     if (!plan) return { plan, people: [] };
     const people = await this.reported('looking up who is scheduled', () => scheduledPeople(client, id, plan.id));
     return { plan, people };
   }
 
-  private requireServiceType(): string {
-    const id = this.settings().serviceTypeId;
+  /** The service type in use: the one given, else the one chosen in settings. */
+  private requireServiceType(given?: string): string {
+    const id = given ?? this.settings().serviceTypeId;
     if (!id) throw new LinkError('Choose a service type first.');
+    if (!/^\d+$/.test(id)) throw new LinkError('Unknown service type.');
     return id;
   }
 

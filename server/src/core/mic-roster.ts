@@ -1,12 +1,12 @@
 /**
- * Who is on which mic this service, from Planning Center.
+ * Who is on which mic, from Planning Center.
  *
- * Rules are set up once: which teams carry wireless (e.g. Vocals), and for
- * each of their positions the mics it uses ("Worship Leader" → RF1–RF3,
- * "BGV 1" → RF5), with optional preferences inside a position ("Sam prefers
- * RF1"). "Sync from Planning Center" applies them to the upcoming plan and
- * produces a roster; the A1 can then change any mic by hand. The roster is
- * what the engineer and pickup screens show.
+ * Each service (a Planning Center service type) has rules set up once: which
+ * teams carry wireless (e.g. Vocals), and for each of their positions the
+ * mics it uses ("Worship Leader" → RF1–RF3, "BGV 1" → RF5), with optional
+ * preferences inside a position ("Sam prefers RF1"). Syncing a service
+ * applies its rules to its upcoming plan; the A1 can then change any mic by
+ * hand. The roster is what the engineer and pickup screens show.
  *
  * Mics are identified by slot key (`receiverId/channel`), like show presets.
  * Pure: no I/O. Shared with the web UI.
@@ -64,29 +64,92 @@ export interface RosterPerson {
   photoUrl?: string;
 }
 
-export interface Roster {
-  plan?: { id: string; dates: string; title?: string };
-  syncedAt?: number;
-  entries: Record<string, RosterEntry>;
+/**
+ * When a service syncs on its own: a set time before its next plan's first
+ * rehearsal or service time (once per plan), or at a fixed time every week
+ * on the RF Ranger computer's clock.
+ */
+export type AutoSyncRule =
+  | { kind: 'before'; leadMinutes: number }
+  /** `day`: 0 Sunday to 6 Saturday; `time`: "HH:MM", 24-hour. */
+  | { kind: 'weekly'; day: number; time: string };
+
+/**
+ * One Planning Center service type RF Ranger fills mics from, e.g. a weekend
+ * service, a youth night and a midweek service in the same room. Teams and
+ * positions belong to a service type, so each has its own mic rules.
+ */
+export interface ServiceSetup {
+  id: string;
+  serviceTypeId: string;
+  /** The service type's name, for display. */
+  name: string;
+  rules: MicRules;
+  autoSync?: AutoSyncRule;
+}
+
+/** The last sync of one service. */
+export interface ServiceSync {
+  plan: { id: string; dates: string; title?: string };
+  syncedAt: number;
+  automatic?: boolean;
+  /** People on its wireless teams who got no mic. */
   unplaced: Unplaced[];
-  /** Everyone scheduled on the wireless teams at the last sync, for changing a mic by hand. */
+  /** Everyone scheduled on its wireless teams, for changing a mic by hand. */
   people: RosterPerson[];
 }
 
-/** The scheduled sync, as the Planning Center screen shows it (see server/auto-sync.ts). */
+export interface Roster {
+  /** Mic (slot key) → who is on it now. */
+  entries: Record<string, RosterEntry & { serviceId?: string }>;
+  /** By service id. */
+  synced: Record<string, ServiceSync>;
+}
+
+/** One service's scheduled sync, as the Planning Center screen shows it (see server/auto-sync.ts). */
 export interface AutoSyncInfo {
-  /** Minutes before the first rehearsal or service time; absent when off. */
-  leadMinutes?: number;
-  /** The service it will sync next, and when. */
-  next?: { at: number; planDates: string };
-  /** The upcoming service is already synced, so it won't be synced again on its own. */
+  /** When it will sync next, and the plan it expects (absent for a weekly sync that hasn't looked yet). */
+  next?: { at: number; planDates?: string };
+  /** Synced on its own for this plan; it won't again, so changes made since stay. */
   done?: { planDates: string };
   error?: string;
   checkedAt?: number;
 }
 
 export const EMPTY_RULES: MicRules = { teamIds: [], roles: [] };
-export const EMPTY_ROSTER: Roster = { entries: {}, unplaced: [], people: [] };
+export const EMPTY_ROSTER: Roster = { entries: {}, synced: {} };
+
+/** The mics a service's rules use. A sync of that service replaces just these (and its own earlier entries). */
+export function serviceMics(rules: MicRules): Set<string> {
+  return new Set(rules.roles.flatMap((r) => r.mics));
+}
+
+/** Everyone from every service's last sync, once each, for the "who's on this mic" picker. */
+export function rosterPeople(roster: Roster): RosterPerson[] {
+  const seen = new Map<string, RosterPerson>();
+  for (const s of Object.values(roster.synced)) for (const p of s.people) if (!seen.has(p.personId)) seen.set(p.personId, p);
+  return [...seen.values()];
+}
+
+/**
+ * The next time a weekly sync is due strictly after `after`, on this
+ * computer's clock (so daylight saving is handled by the Date object).
+ */
+export function nextWeekly(rule: { day: number; time: string }, after: number): number {
+  const [h, m] = rule.time.split(':').map(Number) as [number, number];
+  const d = new Date(after);
+  d.setHours(h, m, 0, 0);
+  d.setDate(d.getDate() + ((rule.day - d.getDay() + 7) % 7));
+  if (d.getTime() <= after) d.setDate(d.getDate() + 7);
+  return d.getTime();
+}
+
+/** The most recent time a weekly sync was due, at or before `at`. */
+export function lastWeekly(rule: { day: number; time: string }, at: number): number {
+  const next = new Date(nextWeekly(rule, at));
+  next.setDate(next.getDate() - 7);
+  return next.getTime();
+}
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
@@ -97,7 +160,7 @@ const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLow
  * Center's order onto the position's first free mic. People who declined are
  * skipped; anyone already placed (scheduled twice) keeps their first mic.
  */
-export function assignMics(people: RosterPerson[], rules: MicRules): Pick<Roster, 'entries' | 'unplaced'> {
+export function assignMics(people: RosterPerson[], rules: MicRules): { entries: Record<string, RosterEntry>; unplaced: Unplaced[] } {
   const teams = new Set(rules.teamIds);
   const onWireless = people.filter((p) => teams.has(p.teamId) && p.status !== 'declined');
   const entries: Record<string, RosterEntry> = {};

@@ -1,13 +1,29 @@
 /**
- * Mic rules and this service's roster (see core/mic-roster.ts), saved on the
- * RF Ranger computer so a restart keeps the week's assignments and any
- * changes the A1 made by hand.
+ * The services RF Ranger fills mics from (each a Planning Center service
+ * type with its own mic rules and sync schedule) and the current roster (see
+ * core/mic-roster.ts). Saved on the RF Ranger computer so a restart keeps the
+ * week's assignments and any changes the A1 made by hand.
  */
+import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { EMPTY_ROSTER, EMPTY_RULES, assignMics, type MicRules, type Roster, type RosterEntry, type RosterPerson } from '../core/mic-roster.js';
+import {
+  EMPTY_ROSTER,
+  EMPTY_RULES,
+  assignMics,
+  lastWeekly,
+  rosterPeople,
+  serviceMics,
+  type AutoSyncRule,
+  type MicRules,
+  type Roster,
+  type RosterEntry,
+  type RosterPerson,
+  type ServiceSetup,
+  type ServiceSync,
+} from '../core/mic-roster.js';
 
 export function micRosterPath(home = homedir()): string {
   return join(home, '.rf-ranger', 'mic-assignments.json');
@@ -22,80 +38,134 @@ export class RosterError extends Error {
 }
 
 const MAX_TEXT = 100;
+const MAX_SERVICES = 20;
 const MAX_ROLES = 100;
 const MAX_MICS = 64;
 const MAX_PREFS = 32;
+const MAX_LEAD_MINUTES = 7 * 24 * 60;
 
 interface Events {
   change: [];
 }
 
-/** Sync on its own this long before each service's first rehearsal or service time. */
-export interface AutoSyncSetting {
-  leadMinutes: number;
-}
-
 interface State {
-  rules: MicRules;
+  services: ServiceSetup[];
   roster: Roster;
-  autoSync?: AutoSyncSetting;
+  /** Service id → the weekly due time it last ran for, so a restart doesn't run it twice. */
+  weeklyRuns: Record<string, number>;
 }
 
-const MAX_LEAD_MINUTES = 7 * 24 * 60;
+const EMPTY: State = { services: [], roster: EMPTY_ROSTER, weeklyRuns: {} };
 
 export class MicRosterStore extends EventEmitter<Events> {
-  private state: State = { rules: EMPTY_RULES, roster: EMPTY_ROSTER };
+  private state: State = EMPTY;
 
-  /** Without a path, everything lives in memory only (tests, demo). */
-  constructor(private readonly path?: string, private readonly now: () => number = Date.now) {
+  /**
+   * Without a path, everything lives in memory only (tests, demo).
+   * `legacyServiceType` names the service type a version 1 file (one set of
+   * rules, before services) belonged to, so it becomes the first service.
+   */
+  constructor(
+    private readonly path?: string,
+    private readonly now: () => number = Date.now,
+    legacyServiceType?: { id: string; name: string },
+  ) {
     super();
-    if (path) this.state = load(path);
+    if (path) this.state = load(path, legacyServiceType);
   }
 
-  rules(): MicRules {
-    return this.state.rules;
+  services(): ServiceSetup[] {
+    return this.state.services;
+  }
+
+  service(id: string): ServiceSetup {
+    const s = this.state.services.find((x) => x.id === id);
+    if (!s) throw new RosterError('That service is no longer set up.');
+    return s;
   }
 
   roster(): Roster {
     return this.state.roster;
   }
 
-  autoSync(): AutoSyncSetting | undefined {
-    return this.state.autoSync;
+  weeklyRun(serviceId: string): number | undefined {
+    return this.state.weeklyRuns[serviceId];
   }
 
-  /** `null` turns the scheduled sync off. */
-  setAutoSync(input: unknown): AutoSyncSetting | undefined {
-    if (input === null || input === undefined) {
-      this.state = { ...this.state, autoSync: undefined };
-    } else {
-      const lead = Number((input as { leadMinutes?: unknown }).leadMinutes);
-      if (!Number.isInteger(lead) || lead < 0 || lead > MAX_LEAD_MINUTES) throw new RosterError('Choose how long before the service to sync.');
-      this.state = { ...this.state, autoSync: { leadMinutes: lead } };
-    }
+  addService(input: { serviceTypeId?: unknown; name?: unknown }): ServiceSetup {
+    const serviceTypeId = text(input.serviceTypeId);
+    if (!/^\d+$/.test(serviceTypeId)) throw new RosterError('Choose a Planning Center service type.');
+    if (this.state.services.some((s) => s.serviceTypeId === serviceTypeId)) throw new RosterError('That service is already set up.');
+    if (this.state.services.length >= MAX_SERVICES) throw new RosterError(`There's a limit of ${MAX_SERVICES} services.`);
+    const service: ServiceSetup = { id: randomUUID(), serviceTypeId, name: text(input.name) || `Service type ${serviceTypeId}`, rules: EMPTY_RULES };
+    this.state = { ...this.state, services: [...this.state.services, service] };
     this.persist();
-    return this.state.autoSync;
+    return service;
   }
 
-  setRules(input: unknown): MicRules {
-    this.state = { ...this.state, rules: cleanRules(input) };
+  /** Stop following a service. Mics it filled stay until changed or cleared. */
+  removeService(id: string): void {
+    this.service(id);
+    const { [id]: _synced, ...synced } = this.state.roster.synced;
+    const { [id]: _run, ...weeklyRuns } = this.state.weeklyRuns;
+    this.state = { ...this.state, services: this.state.services.filter((s) => s.id !== id), roster: { ...this.state.roster, synced }, weeklyRuns };
     this.persist();
-    return this.state.rules;
   }
 
-  /** Replace the roster with the rules applied to this plan. Changes made by hand are discarded. */
-  sync(plan: Roster['plan'], scheduled: RosterPerson[]): Roster {
-    const teams = new Set(this.state.rules.teamIds);
+  setRules(id: string, input: unknown): MicRules {
+    return this.updateService(id, { rules: cleanRules(input) }).rules;
+  }
+
+  /**
+   * `null` turns the scheduled sync off. A new weekly time starts from its
+   * next occurrence: one that already passed today doesn't sync right away.
+   */
+  setAutoSync(id: string, input: unknown): AutoSyncRule | undefined {
+    const rule = input === null || input === undefined ? undefined : cleanAutoSync(input);
+    if (rule?.kind === 'weekly') this.state = { ...this.state, weeklyRuns: { ...this.state.weeklyRuns, [id]: lastWeekly(rule, this.now()) } };
+    return this.updateService(id, { autoSync: rule }).autoSync;
+  }
+
+  /**
+   * Apply a service's rules to its plan. Only that service's mics change:
+   * the ones its rules use, and any it filled before. Hand changes on those
+   * mics are replaced; every other mic is left alone.
+   */
+  sync(id: string, plan: ServiceSync['plan'], scheduled: RosterPerson[], opts: { automatic?: boolean; weeklyDue?: number } = {}): Roster {
+    const service = this.service(id);
+    const teams = new Set(service.rules.teamIds);
     const people = scheduled.filter((p) => teams.has(p.teamId) && p.status !== 'declined');
-    this.state = { ...this.state, roster: { plan, syncedAt: this.now(), people, ...assignMics(scheduled, this.state.rules) } };
+    const { entries: fresh, unplaced } = assignMics(scheduled, service.rules);
+    const ours = serviceMics(service.rules);
+
+    const entries: Roster['entries'] = {};
+    for (const [mic, e] of Object.entries(this.state.roster.entries)) {
+      if (ours.has(mic) || e.serviceId === id) continue;
+      // Someone this sync placed elsewhere can't stay on a second mic.
+      if (e.personId && Object.values(fresh).some((f) => f.personId === e.personId)) continue;
+      entries[mic] = e;
+    }
+    for (const [mic, e] of Object.entries(fresh)) entries[mic] = { ...e, serviceId: id };
+
+    this.state = {
+      ...this.state,
+      roster: { entries, synced: { ...this.state.roster.synced, [id]: { plan, syncedAt: this.now(), automatic: opts.automatic || undefined, unplaced, people } } },
+      weeklyRuns: opts.weeklyDue === undefined ? this.state.weeklyRuns : { ...this.state.weeklyRuns, [id]: opts.weeklyDue },
+    };
     this.persist();
     return this.state.roster;
   }
 
+  /** Record that a weekly sync came due and was handled (synced, or nothing to sync). */
+  markWeeklyRun(id: string, due: number): void {
+    this.state = { ...this.state, weeklyRuns: { ...this.state.weeklyRuns, [id]: due } };
+    this.persist();
+  }
+
   /**
-   * Put someone on a mic by hand: a person from the last sync (`personId`),
-   * or anyone by name. Whoever had that person before loses them, so nobody
-   * is on two mics. `null` empties the mic.
+   * Put someone on a mic by hand: a person from any service's last sync
+   * (`personId`), or anyone by name. Whoever had that person before loses
+   * them, so nobody is on two mics. `null` empties the mic.
    */
   assign(mic: string, input: { personId?: unknown; name?: unknown; role?: unknown } | null): Roster {
     if (typeof mic !== 'string' || !mic || mic.length > 200) throw new RosterError('Choose a mic.');
@@ -106,7 +176,7 @@ export class MicRosterStore extends EventEmitter<Events> {
     } else {
       let entry: RosterEntry;
       if (typeof input.personId === 'string' && input.personId) {
-        const p = this.state.roster.people.find((x) => x.personId === input.personId);
+        const p = rosterPeople(this.state.roster).find((x) => x.personId === input.personId);
         if (!p) throw new RosterError('That person isn’t on the schedule from the last sync. Sync again, or type their name.');
         entry = { name: p.name, role: p.position || undefined, personId: p.personId, photoUrl: p.photoUrl, unconfirmed: p.status === 'unconfirmed' || undefined, source: 'manual' };
         for (const [k, e] of Object.entries(entries)) if (e.personId === p.personId) delete entries[k];
@@ -115,57 +185,99 @@ export class MicRosterStore extends EventEmitter<Events> {
         if (!name) throw new RosterError('Enter a name.');
         entry = { name, role: text(input.role) || undefined, source: 'manual' };
       }
-      entries[mic] = entry;
+      // A hand change still belongs to the service that filled the mic, so its next sync can take it back.
+      entries[mic] = { ...entry, serviceId: displaced?.serviceId };
     }
+
     const placed = new Set(Object.values(entries).map((e) => e.personId).filter(Boolean));
-    const unplaced = this.state.roster.unplaced.filter((u) => !placed.has(u.personId));
-    // Whoever was on this mic and now has none is listed, so nobody drops off silently.
-    if (displaced?.personId && !placed.has(displaced.personId) && !unplaced.some((u) => u.personId === displaced.personId)) {
-      unplaced.push({ personId: displaced.personId, name: displaced.name, role: displaced.role ?? '', reason: 'removed' });
+    const synced: Roster['synced'] = {};
+    for (const [id, s] of Object.entries(this.state.roster.synced)) {
+      const unplaced = s.unplaced.filter((u) => !placed.has(u.personId));
+      // Whoever was on this mic and now has none is listed, so nobody drops off silently.
+      if (displaced?.personId && displaced.serviceId === id && !placed.has(displaced.personId) && !unplaced.some((u) => u.personId === displaced.personId)) {
+        unplaced.push({ personId: displaced.personId, name: displaced.name, role: displaced.role ?? '', reason: 'removed' });
+      }
+      synced[id] = { ...s, unplaced };
     }
-    this.state = { ...this.state, roster: { ...this.state.roster, entries, unplaced } };
+    this.state = { ...this.state, roster: { entries, synced } };
     this.persist();
     return this.state.roster;
   }
 
-  /** Empty every mic (e.g. after the service). The rules stay. */
+  /** Empty every mic (e.g. after the service). Services and their rules stay. */
   clear(): Roster {
-    this.state = { ...this.state, roster: EMPTY_ROSTER };
+    this.state = { ...this.state, roster: { entries: {}, synced: {} } };
     this.persist();
     return this.state.roster;
+  }
+
+  private updateService(id: string, patch: Partial<ServiceSetup>): ServiceSetup {
+    const next = { ...this.service(id), ...patch };
+    this.state = { ...this.state, services: this.state.services.map((s) => (s.id === id ? next : s)) };
+    this.persist();
+    return next;
   }
 
   private persist(): void {
     if (this.path) {
       mkdirSync(dirname(this.path), { recursive: true });
       const tmp = `${this.path}.tmp`;
-      writeFileSync(tmp, JSON.stringify({ version: 1, ...this.state }, null, 2) + '\n');
+      writeFileSync(tmp, JSON.stringify({ version: 2, ...this.state }, null, 2) + '\n');
       renameSync(tmp, this.path);
     }
     this.emit('change');
   }
 }
 
-function load(path: string): State {
-  let raw: { rules?: unknown; roster?: Partial<Roster>; autoSync?: { leadMinutes?: unknown } };
+function load(path: string, legacy: { id: string; name: string } | undefined): State {
+  let raw: Record<string, unknown>;
   try {
-    raw = JSON.parse(readFileSync(path, 'utf8')) as typeof raw;
+    raw = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
   } catch {
-    return { rules: EMPTY_RULES, roster: EMPTY_ROSTER };
+    return EMPTY;
   }
+  return raw.version === 2 ? loadV2(raw) : loadV1(raw, legacy);
+}
+
+function loadV2(raw: Record<string, unknown>): State {
+  const services = (Array.isArray(raw.services) ? raw.services : []).slice(0, MAX_SERVICES).flatMap((s): ServiceSetup[] => {
+    const o = (s ?? {}) as Record<string, unknown>;
+    const id = text(o.id);
+    const serviceTypeId = text(o.serviceTypeId);
+    if (!id || !serviceTypeId) return [];
+    let rules = EMPTY_RULES;
+    let autoSync: AutoSyncRule | undefined;
+    try { rules = cleanRules(o.rules); } catch { /* keep the service */ }
+    try { autoSync = o.autoSync ? cleanAutoSync(o.autoSync) : undefined; } catch { /* sync by hand */ }
+    return [{ id, serviceTypeId, name: text(o.name) || serviceTypeId, rules, autoSync }];
+  });
+  const r = (raw.roster ?? {}) as Partial<Roster>;
+  const roster: Roster = {
+    entries: r.entries && typeof r.entries === 'object' ? r.entries : {},
+    synced: r.synced && typeof r.synced === 'object' ? r.synced : {},
+  };
+  const runs = (raw.weeklyRuns ?? {}) as Record<string, unknown>;
+  const weeklyRuns = Object.fromEntries(Object.entries(runs).filter(([, v]) => typeof v === 'number')) as Record<string, number>;
+  return { services, roster, weeklyRuns };
+}
+
+/** Version 1: one set of rules and one roster, for the service type chosen in the Planning Center settings. */
+function loadV1(raw: Record<string, unknown>, legacy: { id: string; name: string } | undefined): State {
   let rules = EMPTY_RULES;
-  try {
-    rules = cleanRules(raw.rules);
-  } catch {
-    // keep the roster even if the rules are damaged
-  }
-  const r = raw.roster;
-  const roster: Roster = r && typeof r === 'object' && r.entries && typeof r.entries === 'object'
-    ? { plan: r.plan, syncedAt: r.syncedAt, entries: r.entries, unplaced: Array.isArray(r.unplaced) ? r.unplaced : [], people: Array.isArray(r.people) ? r.people : [] }
-    : EMPTY_ROSTER;
-  const lead = Number(raw.autoSync?.leadMinutes);
-  const autoSync = Number.isInteger(lead) && lead >= 0 && lead <= MAX_LEAD_MINUTES ? { leadMinutes: lead } : undefined;
-  return { rules, roster, autoSync };
+  try { rules = cleanRules(raw.rules); } catch { /* start over */ }
+  const lead = Number((raw.autoSync as { leadMinutes?: unknown } | undefined)?.leadMinutes);
+  const autoSync: AutoSyncRule | undefined = Number.isInteger(lead) && lead >= 0 && lead <= MAX_LEAD_MINUTES ? { kind: 'before', leadMinutes: lead } : undefined;
+  const hasSetup = rules.teamIds.length > 0 || rules.roles.length > 0;
+  if (!legacy || !hasSetup) return EMPTY;
+
+  const id = randomUUID();
+  const service: ServiceSetup = { id, serviceTypeId: legacy.id, name: legacy.name, rules, autoSync };
+  const r = (raw.roster ?? {}) as { plan?: ServiceSync['plan']; syncedAt?: number; entries?: Record<string, RosterEntry>; unplaced?: ServiceSync['unplaced']; people?: RosterPerson[] };
+  const entries = Object.fromEntries(Object.entries(r.entries ?? {}).map(([k, e]) => [k, { ...e, serviceId: id }]));
+  const synced: Roster['synced'] = r.plan
+    ? { [id]: { plan: r.plan, syncedAt: r.syncedAt ?? 0, unplaced: Array.isArray(r.unplaced) ? r.unplaced : [], people: Array.isArray(r.people) ? r.people : [] } }
+    : {};
+  return { services: [service], roster: { entries, synced }, weeklyRuns: {} };
 }
 
 function text(v: unknown): string {
@@ -175,6 +287,20 @@ function text(v: unknown): string {
 function ids(v: unknown, max: number): string[] {
   if (!Array.isArray(v)) return [];
   return [...new Set(v.filter((x): x is string => typeof x === 'string' && x.length > 0 && x.length <= 200))].slice(0, max);
+}
+
+function cleanAutoSync(v: unknown): AutoSyncRule {
+  const o = (v ?? {}) as Record<string, unknown>;
+  if (o.kind === 'weekly') {
+    const day = Number(o.day);
+    const time = typeof o.time === 'string' ? o.time.trim() : '';
+    const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(time);
+    if (!Number.isInteger(day) || day < 0 || day > 6 || !m) throw new RosterError('Choose a day and a time for the weekly sync.');
+    return { kind: 'weekly', day, time: `${m[1]!.padStart(2, '0')}:${m[2]}` };
+  }
+  const lead = Number(o.leadMinutes);
+  if (!Number.isInteger(lead) || lead < 0 || lead > MAX_LEAD_MINUTES) throw new RosterError('Choose how long before the service to sync.');
+  return { kind: 'before', leadMinutes: lead };
 }
 
 function cleanRules(v: unknown): MicRules {

@@ -628,3 +628,17 @@ select.input { padding-right: 6px; }
 .update-link { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--accent-dim); color: var(--accent); font-size: 12px; font-weight: 700; white-space: nowrap; }
 .update-link::before { content: '↓'; }
 .update-link:hover { background: var(--accent); color: #001419; }
+
+/* Planning Center services */
+.svc { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--panel-2); }
+.svc__head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.svc__name { font-size: 16px; font-weight: 700; }
+.svc__facts { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.svc__facts b { color: var(--text-2); }
+.svc__rules > summary { cursor: pointer; font-weight: 600; font-size: 13px; color: var(--text-2); padding: 4px 0; }
+.svc__rules[open] > summary { margin-bottom: 8px; }
+.mics__rules { display: flex; flex-direction: column; gap: 10px; }
+.mics__add { display: flex; gap: 8px; align-items: center; }
+.mics__add .input--sm { flex: 0 1 280px; }
+.mics__auto input[type='time'] { width: auto; }
+.mics__auto-status { flex-basis: 100%; }
