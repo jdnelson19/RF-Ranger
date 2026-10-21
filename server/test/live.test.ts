@@ -44,6 +44,10 @@ describe('splitChannelName (Micboard naming)', () => {
     ['BP-3', { id: 'BP-3' }],
     ['Pastor Dan', { name: 'Pastor Dan' }],
     ['12 Lead_Vox', { id: '12', name: 'Lead Vox' }],
+    ['BGV 1', { id: 'BGV 1' }],
+    ['RF 2 Josh Collins', { id: 'RF 2', name: 'Josh Collins' }],
+    ['BGV-1 Sam', { id: 'BGV-1', name: 'Sam' }],
+    ['Josh Collins', { name: 'Josh Collins' }],
     ['', {}],
   ])('%j', (raw, expected) => {
     expect(splitChannelName(raw)).toEqual(expected);
@@ -141,8 +145,8 @@ describe('LiveManager', () => {
     expect(snap.slots.map((s) => [s.label, s.assignment?.artist ?? null, s.group])).toEqual([
       ['H1', 'Maya', 'Stage Left'],
       ['H2', 'Jordan', 'Stage Left'],
-      ['3', 'Spare', 'Stage Left'],
-      ['4', null, 'Stage Left'],
+      ['Spare', 'Spare', 'Stage Left'], // no label in the name: the name is the label
+      ['Ch 4', null, 'Stage Left'], // never named
     ]);
     expect(snap.chargers).toHaveLength(1);
     expect(snap.discovered.map((d) => d.state)).toEqual(['monitoring', 'monitoring']);

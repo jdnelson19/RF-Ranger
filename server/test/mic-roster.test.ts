@@ -178,3 +178,29 @@ describe('weekly times', () => {
     expect(lastWeekly(wed5pm, at(2026, 10, 21, 16))).toBe(at(2026, 10, 14, 17));
   });
 });
+
+describe('preferred IEMs', () => {
+  it('puts a person with a preferred IEM on it too, and a preference can be IEM only', () => {
+    const r: MicRules = {
+      teamIds: [VOCALS],
+      roles: [{
+        teamId: VOCALS, position: 'Worship Leader', mics: ['rx/1', 'rx/2'],
+        prefer: [{ personId: 'avery', name: 'Avery', mic: 'rx/2', iem: 'p10/1' }, { personId: 'casey', name: 'Casey', iem: 'p10/2' }],
+      }],
+    };
+    const { entries } = assignMics([person('avery', 'Worship Leader'), person('casey', 'Worship Leader'), person('drew', 'BGV 1')], r);
+    expect(Object.fromEntries(Object.entries(entries).map(([k, v]) => [k, v.personId]))).toEqual({ 'rx/2': 'avery', 'rx/1': 'casey', 'p10/1': 'avery', 'p10/2': 'casey' });
+  });
+
+  it('skips the IEM of someone who got no mic or is not scheduled', () => {
+    const r: MicRules = { teamIds: [VOCALS], roles: [{ teamId: VOCALS, position: 'Worship Leader', mics: [], prefer: [{ personId: 'avery', name: 'Avery', iem: 'p10/1' }] }] };
+    expect(assignMics([person('avery', 'Worship Leader')], r).entries).toEqual({});
+  });
+
+  it('keeps IEM-only preferences when rules are saved', () => {
+    const store = new MicRosterStore();
+    const s = store.addService({ serviceTypeId: '100', name: 'Weekend' });
+    store.setRules(s.id, { teamIds: [VOCALS], roles: [{ teamId: VOCALS, position: 'Worship Leader', mics: ['rx/1'], prefer: [{ personId: 'avery', name: 'Avery', iem: 'p10/1' }, { personId: 'x', name: 'X', mic: 'rx/9' }] }] });
+    expect(store.services()[0]!.rules.roles[0]!.prefer).toEqual([{ personId: 'avery', name: 'Avery', iem: 'p10/1' }]);
+  });
+});

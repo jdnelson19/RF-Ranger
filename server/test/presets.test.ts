@@ -151,3 +151,23 @@ describe('/api/presets', () => {
     expect((await post(port, '/api/presets', { name: 'B', slots: ['a/1'] }, { host: `foh-mac:${port}` })).status).toBe(201);
   });
 });
+
+describe('starred channels', () => {
+  it('makes one preset from the stars, keeps its new name, and goes when the last star does', async () => {
+    const { PresetStore } = await import('../src/server/presets.js');
+    const store = new PresetStore();
+    const first = store.star('rx/1', true)!;
+    expect(first).toMatchObject({ name: 'Synced mics', slots: ['rx/1'], starred: true });
+    store.star('rx/2', true);
+    store.star('rx/1', true); // already starred
+    store.update(first.id, { name: 'Sunday stage' });
+    expect(store.list()).toMatchObject([{ name: 'Sunday stage', slots: ['rx/1', 'rx/2'], starred: true }]);
+    store.setPickupPreset(first.id);
+    store.star('rx/1', false);
+    expect(store.list()[0]!.slots).toEqual(['rx/2']);
+    store.star('rx/2', false);
+    expect(store.list()).toEqual([]);
+    expect(store.pickupPreset()).toBeUndefined();
+    expect(store.star('rx/3', false)).toBeUndefined();
+  });
+});

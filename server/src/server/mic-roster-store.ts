@@ -310,8 +310,9 @@ function cleanRules(v: unknown): MicRules {
     const prefer = (Array.isArray(x.prefer) ? x.prefer : []).slice(0, MAX_PREFS).flatMap((p) => {
       const y = (p ?? {}) as Record<string, unknown>;
       const personId = text(y.personId);
-      const mic = typeof y.mic === 'string' ? y.mic : '';
-      return personId && mics.includes(mic) ? [{ personId, name: text(y.name) || personId, mic }] : [];
+      const mic = typeof y.mic === 'string' && mics.includes(y.mic) ? y.mic : undefined;
+      const iem = typeof y.iem === 'string' && y.iem.length <= 200 && y.iem ? y.iem : undefined;
+      return personId && (mic || iem) ? [{ personId, name: text(y.name) || personId, ...(mic ? { mic } : {}), ...(iem ? { iem } : {}) }] : [];
     });
     return [{ teamId, position, mics, prefer }];
   });

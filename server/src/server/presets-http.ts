@@ -13,6 +13,7 @@
  *   POST /api/presets/:id           { name?, slots?, channels? } change
  *   POST /api/presets/:id/delete    {}                           delete
  *   POST /api/presets/pickup        { id | null }                what #/pickup shows (null: every channel)
+ *   POST /api/presets/star          { key, on }                  star a channel (Planning Center screen)
  *   channels: { "<receiverId/channel>": { nickname?, waveform? } }, pickupColumns: 1-8 | null (auto)
  * Presets are read from the snapshot (`presets`), so every screen updates live.
  */
@@ -35,6 +36,7 @@ export async function handlePresets(store: PresetStore, req: http.IncomingMessag
     const body = (await readJson(req)) as Record<string, unknown>;
     // Before :id routes; preset ids are UUIDs, so they never clash with "pickup".
     if (parts.length === 1 && parts[0] === 'pickup') return json(200, { pickupPreset: store.setPickupPreset(body.id) ?? null });
+    if (parts.length === 1 && parts[0] === 'star') return json(200, { preset: store.star(body.key, body.on === true) ?? null });
     if (parts.length === 0) return json(201, store.create({ name: body.name, slots: body.slots, channels: body.channels, pickupColumns: body.pickupColumns }));
     if (parts.length === 1) return json(200, store.update(parts[0]!, { name: body.name, slots: body.slots, channels: body.channels, pickupColumns: body.pickupColumns }));
     if (parts.length === 2 && parts[1] === 'delete') {

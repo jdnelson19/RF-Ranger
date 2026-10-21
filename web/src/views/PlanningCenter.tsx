@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MicAssignments } from '../components/MicAssignments';
-import type { PcoStatus, ServiceType, SlotView } from '../types';
+import type { PcoStatus, ServiceType, ShowPreset, SlotView } from '../types';
 
 const TOKENS_URL = 'https://api.planningcenteronline.com/oauth/applications';
 
@@ -31,7 +31,7 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
  * Link this church's Planning Center account. Each install links its own
  * account; the token stays on this computer and is never shown again.
  */
-export function PlanningCenter({ slots }: { slots: SlotView[] }) {
+export function PlanningCenter({ slots, presets, pickupPreset }: { slots: SlotView[]; presets: ShowPreset[]; pickupPreset?: string }) {
   const [status, setStatus] = useState<PcoStatus | undefined>();
   const [forbidden, setForbidden] = useState(false);
   const [types, setTypes] = useState<ServiceType[]>([]);
@@ -103,6 +103,8 @@ export function PlanningCenter({ slots }: { slots: SlotView[] }) {
           load={load}
           setStatus={setStatus}
           slots={slots}
+          presets={presets}
+          pickupPreset={pickupPreset}
         />
       ) : (
         <Connect busy={busy} run={run} onConnected={(s, t) => { setStatus(s); setTypes(t); setTypesError(undefined); }} />
@@ -163,7 +165,7 @@ function Connect({ busy, run, onConnected }: {
   );
 }
 
-function Connected({ status, types, typesError, busy, run, load, setStatus, slots }: {
+function Connected({ status, types, typesError, busy, run, load, setStatus, slots, presets, pickupPreset }: {
   status: PcoStatus;
   types: ServiceType[];
   typesError: string | undefined;
@@ -172,6 +174,8 @@ function Connected({ status, types, typesError, busy, run, load, setStatus, slot
   load: (check?: boolean) => Promise<void>;
   setStatus: (s: PcoStatus) => void;
   slots: SlotView[];
+  presets: ShowPreset[];
+  pickupPreset?: string;
 }) {
   // Service type names aren't unique (e.g. two "Special Services"), so show the ID where they collide.
   const options = useMemo(() => {
@@ -219,7 +223,7 @@ function Connected({ status, types, typesError, busy, run, load, setStatus, slot
         </p>
       )}
 
-      {status.connected && <MicAssignments slots={slots} types={options.map((o) => ({ id: o.id, name: o.label }))} />}
+      {status.connected && <MicAssignments slots={slots} presets={presets} pickupPreset={pickupPreset} types={options.map((o) => ({ id: o.id, name: o.label }))} />}
 
       <p className="pco__note">
         A one-click "Sign in with Planning Center" is planned to replace pasting a token.

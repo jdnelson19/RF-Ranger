@@ -215,11 +215,16 @@ export class Runtime extends EventEmitter<Events> {
   }
 }
 
-/** Label and person from the receiver's channel name; the last known name while the receiver is offline. */
+/**
+ * Label and person from the receiver's channel name; the last known name
+ * while the receiver is offline. A name with no label in it ("Pastor Dan")
+ * is the label as well, so the channel always shows the name it was given
+ * on the receiver; only a channel that has never reported one is "Ch n".
+ */
 function fromChannelName(s: SlotConfig, t: ChannelTelemetry, remembered?: string): { label: string; assignment?: AssignmentConfig } {
-  const raw = t.name.state === 'ok' ? t.name.value : remembered ?? '';
+  const raw = (t.name.state === 'ok' ? t.name.value : remembered ?? '').trim();
   const { id, name } = splitChannelName(raw);
-  return { label: id ?? String(s.slot), assignment: name ? { artist: name } : undefined };
+  return { label: id ?? (raw || `Ch ${s.channel}`), assignment: name ? { artist: name } : undefined };
 }
 
 function photoUrl(photo: string | undefined): string | undefined {

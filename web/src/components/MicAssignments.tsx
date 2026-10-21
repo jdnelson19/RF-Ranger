@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { AutoSyncInfo, AutoSyncRule, MicRules, RoleRule, Roster, ServiceSetup, ServiceType, SlotView, Team, TeamPerson, UpcomingSummary } from '../types';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { presetApi } from './ShowEditor';
+import type { AutoSyncInfo, AutoSyncRule, MicRules, RoleRule, Roster, ServiceSetup, ServiceType, ShowPreset, SlotView, Team, TeamPerson, UpcomingSummary } from '../types';
 
 type MicData = { services: ServiceSetup[]; roster: Roster; auto: Record<string, AutoSyncInfo> };
 
@@ -30,7 +31,7 @@ const when = (t: number) => new Date(t).toLocaleString([], { weekday: 'short', m
  * or service, or at a fixed time every week. A sync changes only that
  * service's mics; any mic can then be changed by hand.
  */
-export function MicAssignments({ slots, types }: { slots: SlotView[]; types: ServiceType[] }) {
+export function MicAssignments({ slots, types, presets = [], pickupPreset }: { slots: SlotView[]; types: ServiceType[]; presets?: ShowPreset[]; pickupPreset?: string }) {
   const [data, setData] = useState<MicData | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
@@ -52,8 +53,10 @@ export function MicAssignments({ slots, types }: { slots: SlotView[]; types: Ser
   };
 
   const mics = useMemo(() => slots.filter((s) => s.role === 'mic').sort((a, b) => a.slot - b.slot), [slots]);
+  const iems = useMemo(() => slots.filter((s) => s.role === 'iem').sort((a, b) => a.slot - b.slot), [slots]);
   const byKey = useMemo(() => new Map(mics.map((s) => [s.key, s])), [mics]);
-  const label = (key: string) => byKey.get(key)?.label ?? key;
+  const allByKey = useMemo(() => new Map(slots.map((s) => [s.key, s])), [slots]);
+  const label = (key: string) => allByKey.get(key)?.label ?? key;
 
   if (!data) return <section className="pco__card"><h2 className="section-title">Mic assignments</h2><p className="dim">{error ?? 'Loading…'}</p></section>;
 
@@ -74,6 +77,7 @@ export function MicAssignments({ slots, types }: { slots: SlotView[]; types: Ser
             roster={data.roster}
             auto={data.auto[s.id]}
             mics={mics}
+            iems={iems}
             label={label}
             busy={busy}
             run={run}
@@ -83,7 +87,7 @@ export function MicAssignments({ slots, types }: { slots: SlotView[]; types: Ser
         {error && <p className="pco__error" role="alert">{error}</p>}
       </section>
 
-      <MicsNow data={data} mics={mics} byKey={byKey} label={label} busy={busy} run={run} />
+      <MicsNow data={data} mics={mics} byKey={byKey} label={label} busy={busy} run={run} starred={presets.find((p) => p.starred)} pickupPreset={pickupPreset} />
     </>
   );
 }
@@ -102,11 +106,12 @@ function AddService({ types, busy, onAdd }: { types: ServiceType[]; busy: boolea
   );
 }
 
-function ServicePanel({ service, roster, auto, mics, label, busy, run }: {
+function ServicePanel({ service, roster, auto, mics, iems, label, busy, run }: {
   service: ServiceSetup;
   roster: Roster;
   auto: AutoSyncInfo | undefined;
   mics: SlotView[];
+  iems: SlotView[];
   label: (key: string) => string;
   busy: boolean;
   run: (fn: () => Promise<MicData>) => Promise<void>;
@@ -161,6 +166,7 @@ function ServicePanel({ service, roster, auto, mics, label, busy, run }: {
             serviceTypeId={service.serviceTypeId}
             rules={service.rules}
             mics={mics}
+            iems={iems}
             scheduled={synced?.people ?? []}
             label={label}
             busy={busy}
@@ -246,8 +252,11 @@ function Unplaced({ list }: { list: Roster['synced'][string]['unplaced'] }) {
   );
 }
 
-function MicsNow({ data, mics, byKey, label, busy, run }: {
+function MicsNow({ data, mics, byKey, label, busy, run, starred, pickupPreset }: {
   data: MicData;
+  /** The preset the stars make, if any channel is starred. */
+  starred?: ShowPreset;
+  pickupPreset?: string;
   mics: SlotView[];
   byKey: Map<string, SlotView>;
   label: (key: string) => string;
@@ -255,11 +264,17 @@ function MicsNow({ data, mics, byKey, label, busy, run }: {
   run: (fn: () => Promise<MicData>) => Promise<void>;
 }) {
   const [showAll, setShowAll] = useState(false);
+  const [starError, setStarError] = useState<string>();
+  const stars = new Set(starred?.slots ?? []);
   const { roster, services } = data;
+  const star = (key: string, on: boolean) => {
+    setStarError(undefined);
+    presetApi('/star', { key, on }).catch((e: Error) => setStarError(e.message));
+  };
   const ruleMics = new Set(services.flatMap((s) => s.rules.roles.flatMap((r) => r.mics)));
   const serviceName = (id: string | undefined) => services.find((s) => s.id === id)?.name;
   const rows = showAll ? mics.map((s) => s.key) : [
-    ...mics.map((s) => s.key).filter((k) => ruleMics.has(k) || k in roster.entries),
+    ...mics.map((s) => s.key).filter((k) => ruleMics.has(k) || k in roster.entries || stars.has(k)),
     ...Object.keys(roster.entries).filter((k) => !byKey.has(k)),
   ];
 
@@ -277,17 +292,35 @@ function MicsNow({ data, mics, byKey, label, busy, run }: {
           </span>
         )}
       </div>
+      <p className="mics__star-note">
+        {starred ? (
+          <>
+            ★ Starred mics make the artist preset <b>{starred.name}</b> ({starred.slots.length}). Rename it in the preset menu.{' '}
+            {pickupPreset === starred.id
+              ? <span className="dim">It's on the pickup display.</span>
+              : <button type="button" className="btn btn--ghost btn--sm" onClick={() => void presetApi('/pickup', { id: starred.id }).catch((e: Error) => setStarError(e.message))}>Show it on the pickup display</button>}
+          </>
+        ) : (
+          <span className="dim">Star the mics that are synced to make an artist preset of just those, for the pickup display.</span>
+        )}
+        {starError && <span className="pco__error"> {starError}</span>}
+      </p>
       {rows.length === 0 ? (
         <p className="dim">Give a service's positions their mics, then sync it.</p>
       ) : (
         <table className="mics__table">
-          <thead><tr><th>Mic</th><th>Person</th><th>Role</th><th>From</th><th /></tr></thead>
+          <thead><tr><th aria-label="Starred" /><th>Mic</th><th>Person</th><th>Role</th><th>From</th><th /></tr></thead>
           <tbody>
             {rows.map((key) => {
               const e = roster.entries[key];
               const s = byKey.get(key);
               return (
                 <tr key={key}>
+                  <td className="mics__star-cell">
+                    <button type="button" className={`mics__star${stars.has(key) ? ' mics__star--on' : ''}`} aria-pressed={stars.has(key)}
+                      title={stars.has(key) ? 'Starred: in the artist preset. Click to remove.' : 'Star: add to the artist preset'}
+                      onClick={() => star(key, !stars.has(key))}>{stars.has(key) ? '★' : '☆'}</button>
+                  </td>
                   <td>
                     <span className="mics__label">{label(key)}</span>
                     <span className="dim mics__where">{s ? `${s.receiverId} ch${s.channel}` : 'not connected'}</span>
@@ -360,10 +393,11 @@ function PersonPicker({ roster, value, disabled, onPick }: {
   );
 }
 
-function Rules({ serviceTypeId, rules, mics, scheduled, label, busy, setRules }: {
+function Rules({ serviceTypeId, rules, mics, iems, scheduled, label, busy, setRules }: {
   serviceTypeId: string;
   rules: MicRules;
   mics: SlotView[];
+  iems: SlotView[];
   /** People from this service's last sync: staff can be scheduled on a team without being listed as its members. */
   scheduled: Roster['synced'][string]['people'];
   label: (key: string) => string;
@@ -449,7 +483,7 @@ function Rules({ serviceTypeId, rules, mics, scheduled, label, busy, setRules }:
                   })}
                 </div>
                 {rule.mics.length > 0 && (
-                  <Preferences rule={rule} people={peopleFor(t.id)} label={label} busy={busy} onChange={putRule} />
+                  <Preferences rule={rule} people={peopleFor(t.id)} iems={iems} label={label} busy={busy} onChange={putRule} />
                 )}
               </div>
             );
@@ -460,15 +494,17 @@ function Rules({ serviceTypeId, rules, mics, scheduled, label, busy, setRules }:
   );
 }
 
-function Preferences({ rule, people, label, busy, onChange }: {
+function Preferences({ rule, people, iems, label, busy, onChange }: {
   rule: RoleRule;
   people: TeamPerson[] | undefined;
+  iems: SlotView[];
   label: (key: string) => string;
   busy: boolean;
   onChange: (r: RoleRule) => void;
 }) {
   const [personId, setPersonId] = useState('');
   const [mic, setMic] = useState('');
+  const [iem, setIem] = useState('');
   const free = rule.mics.filter((m) => !rule.prefer.some((p) => p.mic === m));
   const choosable = (people ?? []).filter((p) => !rule.prefer.some((x) => x.personId === p.id));
 
@@ -476,27 +512,34 @@ function Preferences({ rule, people, label, busy, onChange }: {
     <div className="mics__prefs">
       {rule.prefer.map((p) => (
         <span key={p.personId} className="mics__pref">
-          {p.name} prefers <b>{label(p.mic)}</b>
-          <button type="button" className="icon-btn" aria-label={`Remove ${p.name}'s preferred mic`} disabled={busy}
+          {p.name} prefers {[p.mic && <b key="m">{label(p.mic)}</b>, p.iem && <b key="i">IEM {label(p.iem)}</b>].filter(Boolean).reduce<ReactNode[]>((acc, x, i) => (i ? [...acc, ' · ', x] : [x]), [])}
+          <button type="button" className="icon-btn" aria-label={`Remove ${p.name}'s preference`} disabled={busy}
             onClick={() => onChange({ ...rule, prefer: rule.prefer.filter((x) => x.personId !== p.personId) })}>✕</button>
         </span>
       ))}
-      {free.length > 0 && (
+      {(free.length > 0 || iems.length > 0) && (
         <span className="mics__pref-add">
           <select className="input input--sm" value={personId} onChange={(e) => setPersonId(e.target.value)} disabled={busy || !people}>
-            <option value="">{people ? 'Preferred mic for…' : 'Loading people…'}</option>
+            <option value="">{people ? 'Preference for…' : 'Loading people…'}</option>
             {choosable.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           <select className="input input--sm" value={mic} onChange={(e) => setMic(e.target.value)} disabled={busy}>
-            <option value="">Mic…</option>
+            <option value="">{free.length ? 'Mic (any)' : 'Mic: none free'}</option>
             {free.map((m) => <option key={m} value={m}>{label(m)}</option>)}
           </select>
-          <button type="button" className="btn btn--ghost btn--sm" disabled={busy || !personId || !mic}
+          {iems.length > 0 && (
+            <select className="input input--sm" value={iem} onChange={(e) => setIem(e.target.value)} disabled={busy} aria-label="Preferred IEM">
+              <option value="">IEM (none)</option>
+              {iems.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+            </select>
+          )}
+          <button type="button" className="btn btn--ghost btn--sm" disabled={busy || !personId || (!mic && !iem)}
             onClick={() => {
               const p = people!.find((x) => x.id === personId)!;
-              onChange({ ...rule, prefer: [...rule.prefer, { personId, name: p.name, mic }] });
+              onChange({ ...rule, prefer: [...rule.prefer, { personId, name: p.name, ...(mic ? { mic } : {}), ...(iem ? { iem } : {}) }] });
               setPersonId('');
               setMic('');
+              setIem('');
             }}>
             Add
           </button>

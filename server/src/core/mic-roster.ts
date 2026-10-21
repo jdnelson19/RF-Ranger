@@ -16,7 +16,10 @@ export interface MicPreference {
   personId: string;
   /** For display while that person isn't scheduled. */
   name: string;
-  mic: string;
+  /** Their mic, one of the position's; left out when only an IEM is preferred. */
+  mic?: string;
+  /** Their in-ear monitor channel (slot key): a sync puts them on it, so it pairs with their mic. */
+  iem?: string;
 }
 
 export interface RoleRule {
@@ -184,12 +187,21 @@ export function assignMics(people: RosterPerson[], rules: MicRules): { entries: 
     const candidates = onWireless.filter((p) => p.teamId === rule.teamId && same(p.position, rule.position));
     for (const pref of rule.prefer) {
       const p = candidates.find((c) => c.personId === pref.personId && !placed.has(c.personId));
-      if (p && rule.mics.includes(pref.mic) && !taken(pref.mic)) put(p, pref.mic);
+      if (p && pref.mic && rule.mics.includes(pref.mic) && !taken(pref.mic)) put(p, pref.mic);
     }
     for (const p of candidates) {
       if (placed.has(p.personId)) continue;
       const mic = rule.mics.find((m) => !taken(m));
       if (mic) put(p, mic);
+    }
+  }
+
+  // Preferred in-ear channels, for everyone who got a mic (first preference wins a shared IEM).
+  for (const rule of rules.roles) {
+    for (const pref of rule.prefer) {
+      if (!pref.iem || taken(pref.iem) || !placed.has(pref.personId)) continue;
+      const p = onWireless.find((c) => c.personId === pref.personId)!;
+      entries[pref.iem] = { name: p.name, role: p.position || undefined, personId: p.personId, photoUrl: p.photoUrl, unconfirmed: p.status === 'unconfirmed' || undefined, source: 'planning-center' };
     }
   }
 

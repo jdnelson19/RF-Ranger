@@ -36,8 +36,10 @@ export interface SlotConfig {
  */
 export function splitChannelName(raw: string): { id?: string; name?: string } {
   const parts = raw.trim().replace(/_/g, ' ').split(/\s+/).filter(Boolean);
-  const [first, ...rest] = parts;
+  const [first, second, ...rest] = parts;
   if (!first) return {};
-  if (/^[A-Za-z]*-?\d+$/.test(first)) return { id: first, name: rest.join(' ') || undefined };
+  if (/^[A-Za-z]*-?\d+$/.test(first)) return { id: first, name: [second, ...rest].join(' ') || undefined };
+  // "BGV 1", "RF 2 Sam": a short word then a number is the label too.
+  if (second && /^[A-Za-z]{1,6}$/.test(first) && /^\d{1,3}$/.test(second)) return { id: `${first} ${second}`, name: rest.join(' ') || undefined };
   return { name: parts.join(' ') };
 }

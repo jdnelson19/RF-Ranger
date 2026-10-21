@@ -19,6 +19,8 @@ export type { PresetChannel, ShowPreset } from './snapshot.js';
 // Keys for channels not currently present are kept, so a preset survives a receiver being offline.
 
 export const MAX_PRESETS = 50;
+/** Name of the preset the Planning Center stars make, until it's renamed. */
+const STARRED_NAME = 'Synced mics';
 const MAX_NAME = 60;
 const MAX_SLOTS = 512;
 const MAX_NICKNAME = 40;
@@ -102,6 +104,36 @@ export class PresetStore extends EventEmitter<Events> {
     return next;
   }
 
+  /**
+   * Star or unstar a channel on the Planning Center screen. Starred channels
+   * make up one preset (created with the first star, renamable like any
+   * other), so the pickup display can show just the mics that are synced.
+   * Unstarring the last channel deletes it.
+   */
+  star(key: unknown, on: boolean): ShowPreset | undefined {
+    if (typeof key !== 'string' || !key || key.length > 200) throw new PresetError('Choose a channel.');
+    const current = this.presets.find((p) => p.starred);
+    if (!current) {
+      if (!on) return undefined;
+      let name = STARRED_NAME;
+      for (let i = 2; this.presets.some((p) => p.name.toLowerCase() === name.toLowerCase()); i++) name = `${STARRED_NAME} ${i}`;
+      const created = this.create({ name, slots: [key] });
+      return this.mark(created.id);
+    }
+    const slots = on ? [...new Set([...current.slots, key])] : current.slots.filter((k) => k !== key);
+    if (slots.length === 0) {
+      this.delete(current.id);
+      return undefined;
+    }
+    return this.update(current.id, { slots });
+  }
+
+  private mark(id: string): ShowPreset {
+    this.presets = this.presets.map((p) => (p.id === id ? { ...p, starred: true as const } : p));
+    this.persist();
+    return this.presets.find((p) => p.id === id)!;
+  }
+
   delete(id: string): void {
     if (!this.presets.some((p) => p.id === id)) throw new PresetError('That preset no longer exists.');
     this.presets = this.presets.filter((p) => p.id !== id);
@@ -152,7 +184,7 @@ function loadPresets(list: unknown): ShowPreset[] {
         } catch {
           // keep the preset; only its per-channel settings are lost
         }
-        return [{ id: String(o.id), name: cleanName(o.name), slots, channels, ...cleanColumns(o.pickupColumns), updatedAt: Number(o.updatedAt) || 0 }];
+        return [{ id: String(o.id), name: cleanName(o.name), slots, channels, ...cleanColumns(o.pickupColumns), ...(o.starred === true ? { starred: true as const } : {}), updatedAt: Number(o.updatedAt) || 0 }];
       } catch {
         return []; // skip a damaged entry rather than losing the rest
       }

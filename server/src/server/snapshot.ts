@@ -23,6 +23,8 @@ export interface ShowPreset {
   channels: Record<string, PresetChannel>;
   /** Columns on the pickup display; automatic (as many as fit) when left out. */
   pickupColumns?: number;
+  /** The preset the stars on the Planning Center screen edit (at most one). */
+  starred?: true;
   updatedAt: number;
 }
 
