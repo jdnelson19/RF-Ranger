@@ -171,3 +171,45 @@ describe('starred channels', () => {
     expect(store.star('rx/3', false)).toBeUndefined();
   });
 });
+
+describe('auto-star on sync', () => {
+  it('stars exactly the mics a sync filled, keeping the existing order and name', async () => {
+    const { PresetStore } = await import('../src/server/presets.js');
+    const store = new PresetStore();
+    store.starSynced(['rx/2', 'rx/1']);
+    const p = store.list()[0]!;
+    expect(p).toMatchObject({ name: 'Synced mics', slots: ['rx/2', 'rx/1'], starred: true });
+    store.update(p.id, { name: 'Sunday' });
+    store.starSynced(['rx/1', 'rx/5']);
+    expect(store.list()).toMatchObject([{ name: 'Sunday', slots: ['rx/1', 'rx/5'] }]);
+    store.starSynced([]); // nobody placed: stars stay
+    expect(store.list()[0]!.slots).toEqual(['rx/1', 'rx/5']);
+  });
+
+  it('leaves the stars alone when switched off, and remembers the setting', async () => {
+    const { PresetStore } = await import('../src/server/presets.js');
+    const { mkdtempSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const path = join(mkdtempSync(join(tmpdir(), 'rf-ranger-stars-')), 'show-presets.json');
+    const store = new PresetStore(path);
+    expect(store.autoStar()).toBe(true);
+    store.star('rx/9', true);
+    store.setAutoStar(false);
+    store.starSynced(['rx/1']);
+    expect(store.list()[0]!.slots).toEqual(['rx/9']);
+    expect(new PresetStore(path).autoStar()).toBe(false);
+  });
+
+  it('hears about each sync from the roster store', async () => {
+    const { MicRosterStore } = await import('../src/server/mic-roster-store.js');
+    const roster = new MicRosterStore();
+    const s = roster.addService({ serviceTypeId: '100', name: 'Weekend' });
+    roster.setRules(s.id, { teamIds: ['v'], roles: [{ teamId: 'v', position: 'Lead', mics: ['rx/1', 'rx/2'], prefer: [] }] });
+    const heard: string[][] = [];
+    roster.on('synced', (mics) => heard.push(mics));
+    roster.sync(s.id, { id: 'p', dates: 'Sunday' }, [{ personId: 'a', name: 'A', teamId: 'v', position: 'Lead', status: 'confirmed' }]);
+    await Promise.resolve();
+    expect(heard).toEqual([['rx/1']]);
+  });
+});

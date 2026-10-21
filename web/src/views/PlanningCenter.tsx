@@ -31,7 +31,7 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
  * Link this church's Planning Center account. Each install links its own
  * account; the token stays on this computer and is never shown again.
  */
-export function PlanningCenter({ slots, presets, pickupPreset }: { slots: SlotView[]; presets: ShowPreset[]; pickupPreset?: string }) {
+export function PlanningCenter({ slots, presets, pickupPreset, autoStar = true }: { slots: SlotView[]; presets: ShowPreset[]; pickupPreset?: string; autoStar?: boolean }) {
   const [status, setStatus] = useState<PcoStatus | undefined>();
   const [forbidden, setForbidden] = useState(false);
   const [types, setTypes] = useState<ServiceType[]>([]);
@@ -105,6 +105,7 @@ export function PlanningCenter({ slots, presets, pickupPreset }: { slots: SlotVi
           slots={slots}
           presets={presets}
           pickupPreset={pickupPreset}
+          autoStar={autoStar}
         />
       ) : (
         <Connect busy={busy} run={run} onConnected={(s, t) => { setStatus(s); setTypes(t); setTypesError(undefined); }} />
@@ -165,7 +166,7 @@ function Connect({ busy, run, onConnected }: {
   );
 }
 
-function Connected({ status, types, typesError, busy, run, load, setStatus, slots, presets, pickupPreset }: {
+function Connected({ status, types, typesError, busy, run, load, setStatus, slots, presets, pickupPreset, autoStar }: {
   status: PcoStatus;
   types: ServiceType[];
   typesError: string | undefined;
@@ -176,6 +177,7 @@ function Connected({ status, types, typesError, busy, run, load, setStatus, slot
   slots: SlotView[];
   presets: ShowPreset[];
   pickupPreset?: string;
+  autoStar: boolean;
 }) {
   // Service type names aren't unique (e.g. two "Special Services"), so show the ID where they collide.
   const options = useMemo(() => {
@@ -223,7 +225,7 @@ function Connected({ status, types, typesError, busy, run, load, setStatus, slot
         </p>
       )}
 
-      {status.connected && <MicAssignments slots={slots} presets={presets} pickupPreset={pickupPreset} types={options.map((o) => ({ id: o.id, name: o.label }))} />}
+      {status.connected && <MicAssignments slots={slots} presets={presets} pickupPreset={pickupPreset} autoStar={autoStar} types={options.map((o) => ({ id: o.id, name: o.label }))} />}
 
       <p className="pco__note">
         A one-click "Sign in with Planning Center" is planned to replace pasting a token.

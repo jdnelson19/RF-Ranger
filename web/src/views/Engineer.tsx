@@ -92,7 +92,7 @@ export function Engineer({ live, route }: { live: Live; route: Route }) {
       {route.view === 'inspector' ? (
         <Inspector live={live} />
       ) : route.view === 'planning-center' ? (
-        <PlanningCenter slots={s?.slots ?? []} presets={s?.presets ?? []} pickupPreset={s?.pickupPreset} />
+        <PlanningCenter slots={s?.slots ?? []} presets={s?.presets ?? []} pickupPreset={s?.pickupPreset} autoStar={s?.autoStar ?? true} />
       ) : route.view === 'devices' ? (
         <Devices live={live} />
       ) : (

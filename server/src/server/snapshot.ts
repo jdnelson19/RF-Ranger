@@ -108,6 +108,8 @@ export interface Snapshot {
   presets: ShowPreset[];
   /** The preset the pickup display (#/pickup) shows, set from the engineer view; absent: every channel. */
   pickupPreset?: string;
+  /** A Planning Center sync stars the mics it fills (see PresetStore.starSynced). */
+  autoStar?: boolean;
   /** A newer RF Ranger is out (see update-check.ts). */
   update?: UpdateNotice;
   /** What is live in Planning Center Services Live right now (see live-watch.ts). */

@@ -795,3 +795,4 @@ select.input { padding-right: 6px; }
 .mics__star { background: none; border: 0; padding: 2px 4px; font-size: 18px; line-height: 1; color: var(--muted); cursor: pointer; border-radius: 4px; }
 .mics__star:hover { color: var(--text); background: var(--panel-2); }
 .mics__star--on { color: #ffc531; }
+.mics__autostar { margin: -4px 0 10px; }

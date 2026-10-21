@@ -44,11 +44,12 @@ interface Events {
 export class PresetStore extends EventEmitter<Events> {
   private presets: ShowPreset[] = [];
   private pickup: string | undefined;
+  private auto = true;
 
   /** Without a path, presets live in memory only (tests, demo). */
   constructor(private readonly path?: string, private readonly now: () => number = Date.now) {
     super();
-    if (path) ({ presets: this.presets, pickup: this.pickup } = load(path));
+    if (path) ({ presets: this.presets, pickup: this.pickup, autoStar: this.auto } = load(path));
   }
 
   list(): ShowPreset[] {
@@ -128,6 +129,36 @@ export class PresetStore extends EventEmitter<Events> {
     return this.update(current.id, { slots });
   }
 
+  /** Whether a Planning Center sync stars the mics it fills (on unless switched off). */
+  autoStar(): boolean {
+    return this.auto;
+  }
+
+  setAutoStar(on: boolean): boolean {
+    this.auto = on;
+    this.persist();
+    return on;
+  }
+
+  /**
+   * After a sync, when auto-star is on: the starred mics become exactly the
+   * ones it filled. A sync that filled nothing leaves the stars as they are.
+   */
+  starSynced(keys: string[]): void {
+    if (!this.auto || keys.length === 0) return;
+    const current = this.presets.find((p) => p.starred);
+    if (current) {
+      if (current.slots.length === keys.length && current.slots.every((k) => keys.includes(k))) return;
+      // Keep the order the stars already had, then the new ones in the sync's order.
+      this.update(current.id, { slots: [...current.slots.filter((k) => keys.includes(k)), ...keys.filter((k) => !current.slots.includes(k))] });
+      return;
+    }
+    const [first, ...rest] = keys;
+    this.star(first, true);
+    const created = this.presets.find((p) => p.starred)!;
+    if (rest.length) this.update(created.id, { slots: [first!, ...rest] });
+  }
+
   private mark(id: string): ShowPreset {
     this.presets = this.presets.map((p) => (p.id === id ? { ...p, starred: true as const } : p));
     this.persist();
@@ -152,23 +183,23 @@ export class PresetStore extends EventEmitter<Events> {
       mkdirSync(dirname(this.path), { recursive: true });
       // Write then rename, so a crash mid-write can't leave a half-written file.
       const tmp = `${this.path}.tmp`;
-      writeFileSync(tmp, JSON.stringify({ version: 1, presets: this.presets, pickupPreset: this.pickup }, null, 2) + '\n');
+      writeFileSync(tmp, JSON.stringify({ version: 1, presets: this.presets, pickupPreset: this.pickup, autoStar: this.auto }, null, 2) + '\n');
       renameSync(tmp, this.path);
     }
     this.emit('change');
   }
 }
 
-function load(path: string): { presets: ShowPreset[]; pickup: string | undefined } {
-  let raw: { presets?: unknown; pickupPreset?: unknown };
+function load(path: string): { presets: ShowPreset[]; pickup: string | undefined; autoStar: boolean } {
+  let raw: { presets?: unknown; pickupPreset?: unknown; autoStar?: unknown };
   try {
     raw = JSON.parse(readFileSync(path, 'utf8')) as typeof raw;
   } catch {
-    return { presets: [], pickup: undefined };
+    return { presets: [], pickup: undefined, autoStar: true };
   }
   const presets = loadPresets(raw.presets);
   const pickup = typeof raw.pickupPreset === 'string' && presets.some((p) => p.id === raw.pickupPreset) ? raw.pickupPreset : undefined;
-  return { presets, pickup };
+  return { presets, pickup, autoStar: raw.autoStar !== false };
 }
 
 function loadPresets(list: unknown): ShowPreset[] {

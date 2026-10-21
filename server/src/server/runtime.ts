@@ -27,6 +27,7 @@ export class Runtime extends EventEmitter<Events> {
   presets: () => ShowPreset[] = () => [];
   /** Set at startup: the preset assigned to the pickup display. */
   pickupPreset: () => string | undefined = () => undefined;
+  autoStar: () => boolean = () => true;
   /** Set at startup: this service's mic assignments from Planning Center (see core/mic-roster.ts). */
   roster: () => Roster = () => EMPTY_ROSTER;
   /** Set by live mode: a channel's last known name, for receivers that are offline now. */
@@ -209,6 +210,7 @@ export class Runtime extends EventEmitter<Events> {
       discovered: this.discovered(),
       presets: this.presets(),
       pickupPreset: this.pickupPreset(),
+      autoStar: this.autoStar(),
       update: this.update(),
       live,
     };

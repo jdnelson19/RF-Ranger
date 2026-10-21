@@ -45,6 +45,8 @@ const MAX_LEAD_MINUTES = 7 * 24 * 60;
 
 interface Events {
   change: [];
+  /** A sync ran: the mics (slot keys) it put people on. */
+  synced: [mics: string[]];
 }
 
 interface State {
@@ -140,6 +142,7 @@ export class MicRosterStore extends EventEmitter<Events> {
 
     const entries: Roster['entries'] = {};
     for (const [mic, e] of Object.entries(fresh)) entries[mic] = { ...e, serviceId: id };
+    queueMicrotask(() => this.emit('synced', Object.keys(fresh)));
 
     this.state = {
       ...this.state,

@@ -81,6 +81,7 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
   const presets = opts.presets ?? new PresetStore(opts.mode === 'demo' ? undefined : presetsPath());
   runtime.presets = () => presets.list();
   runtime.pickupPreset = () => presets.pickupPreset();
+  runtime.autoStar = () => presets.autoStar();
   presets.on('change', () => runtime.emit('dirty'));
   // Mic rules saved before services existed belong to the service type chosen in the Planning Center settings.
   const pcoSettings = loadSettings();
@@ -88,6 +89,8 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
   const micRoster = opts.micRoster ?? new MicRosterStore(opts.mode === 'demo' ? undefined : micRosterPath(), Date.now, legacyType);
   runtime.roster = () => micRoster.roster();
   micRoster.on('change', () => runtime.emit('dirty'));
+  // Star the mics each sync fills, so the starred artist preset follows the service (unless switched off).
+  micRoster.on('synced', (mics) => presets.starSynced(mics));
   const liveWatch = new LiveWatcher(planningCenter, micRoster, { log: (m) => log(`  ${m}`) });
   // Demo mode plays a made-up running order instead of a real Services Live.
   runtime.live = opts.mode === 'demo' ? () => demoLive() : () => liveWatch.live();

@@ -31,7 +31,7 @@ const when = (t: number) => new Date(t).toLocaleString([], { weekday: 'short', m
  * or service, or at a fixed time every week. A sync changes only that
  * service's mics; any mic can then be changed by hand.
  */
-export function MicAssignments({ slots, types, presets = [], pickupPreset }: { slots: SlotView[]; types: ServiceType[]; presets?: ShowPreset[]; pickupPreset?: string }) {
+export function MicAssignments({ slots, types, presets = [], pickupPreset, autoStar = true }: { slots: SlotView[]; types: ServiceType[]; presets?: ShowPreset[]; pickupPreset?: string; autoStar?: boolean }) {
   const [data, setData] = useState<MicData | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
@@ -87,7 +87,7 @@ export function MicAssignments({ slots, types, presets = [], pickupPreset }: { s
         {error && <p className="pco__error" role="alert">{error}</p>}
       </section>
 
-      <MicsNow data={data} mics={mics} byKey={byKey} label={label} busy={busy} run={run} starred={presets.find((p) => p.starred)} pickupPreset={pickupPreset} />
+      <MicsNow data={data} mics={mics} byKey={byKey} label={label} busy={busy} run={run} starred={presets.find((p) => p.starred)} pickupPreset={pickupPreset} autoStar={autoStar} />
     </>
   );
 }
@@ -252,8 +252,9 @@ function Unplaced({ list }: { list: Roster['synced'][string]['unplaced'] }) {
   );
 }
 
-function MicsNow({ data, mics, byKey, label, busy, run, starred, pickupPreset }: {
+function MicsNow({ data, mics, byKey, label, busy, run, starred, pickupPreset, autoStar }: {
   data: MicData;
+  autoStar: boolean;
   /** The preset the stars make, if any channel is starred. */
   starred?: ShowPreset;
   pickupPreset?: string;
@@ -301,10 +302,15 @@ function MicsNow({ data, mics, byKey, label, busy, run, starred, pickupPreset }:
               : <button type="button" className="btn btn--ghost btn--sm" onClick={() => void presetApi('/pickup', { id: starred.id }).catch((e: Error) => setStarError(e.message))}>Show it on the pickup display</button>}
           </>
         ) : (
-          <span className="dim">Star the mics that are synced to make an artist preset of just those, for the pickup display.</span>
+          <span className="dim">{autoStar ? 'The next sync stars the mics it fills, making an artist preset of just those for the pickup display. You can also star mics yourself.' : 'Star the mics that are synced to make an artist preset of just those, for the pickup display.'}</span>
         )}
         {starError && <span className="pco__error"> {starError}</span>}
       </p>
+      <label className="mics__all mics__autostar" title="Off: stars change only when you click them">
+        <input type="checkbox" checked={autoStar}
+          onChange={(ev) => void presetApi('/auto-star', { on: ev.target.checked }).catch((e: Error) => setStarError(e.message))} />
+        Star the synced mics on each sync
+      </label>
       {rows.length === 0 ? (
         <p className="dim">Give a service's positions their mics, then sync it.</p>
       ) : (
