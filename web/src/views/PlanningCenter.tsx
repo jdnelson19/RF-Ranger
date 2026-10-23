@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MicAssignments } from '../components/MicAssignments';
+import { AdminSignIn } from '../components/ui';
 import type { PcoStatus, ServiceType, ShowPreset, SlotView } from '../types';
 
 const TOKENS_URL = 'https://api.planningcenteronline.com/oauth/applications';
@@ -73,10 +74,9 @@ export function PlanningCenter({ slots, presets, pickupPreset, autoStar = true }
 
   if (forbidden) {
     return (
-      <div className="empty">
-        <p className="empty__title">Planning Center settings are only available on the computer running RF Ranger.</p>
-        <p>Open RF Ranger on that computer to connect or change the Planning Center account.</p>
-      </div>
+      <AdminSignIn title="Planning Center settings are only available on the computer running RF Ranger."
+        why="Open RF Ranger on that computer to connect or change the Planning Center account."
+        onSignedIn={() => { setForbidden(false); void load(true); }} />
     );
   }
   if (!status) {

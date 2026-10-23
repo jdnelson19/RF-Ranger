@@ -1,7 +1,8 @@
 /**
  * /api/pco: connect and configure Planning Center from the app. Like the
- * Device Inspector, it answers only the computer running RF Ranger (it
- * handles a token that is as good as a password), and changes must be JSON
+ * Device Inspector, it answers only the computer running RF Ranger or a
+ * screen signed in as admin (it handles a token that is as good as a
+ * password; see admin.ts), and changes must be JSON
  * POSTs, which other websites can't send without a preflight we refuse.
  *
  *   GET  /api/pco[?check=1]       status (never includes the secret); check=1 re-tests the token
@@ -29,13 +30,13 @@ import { isLocalRequest, readJson } from './inspector.js';
 import { syncService, type AutoSync } from './auto-sync.js';
 import { RosterError, type MicRosterStore } from './mic-roster-store.js';
 
-export async function handlePco(link: PlanningCenterLink, mics: MicRosterStore | undefined, autoSync: AutoSync | undefined, req: http.IncomingMessage, res: http.ServerResponse, url: URL): Promise<void> {
+export async function handlePco(link: PlanningCenterLink, mics: MicRosterStore | undefined, autoSync: AutoSync | undefined, req: http.IncomingMessage, res: http.ServerResponse, url: URL, allows: (req: http.IncomingMessage) => boolean = isLocalRequest): Promise<void> {
   const json = (status: number, body: unknown) => {
     res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' });
     res.end(JSON.stringify(body));
   };
 
-  if (!isLocalRequest(req)) {
+  if (!allows(req)) {
     json(403, { error: 'Planning Center settings are only available on the computer running RF Ranger.' });
     return;
   }

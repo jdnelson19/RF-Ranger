@@ -11,11 +11,13 @@
  *   rf-ranger            launcher
  *   rf-ranger --serve    the server itself (started by the launcher)
  *   rf-ranger --quit     stop a running server (the Windows installer uses it before upgrading or uninstalling)
+ *   rf-ranger --set-password    the admin password for other screens (--clear-password removes it)
  *
  * Files:
  *   macOS    ~/Library/Application Support/RF Ranger/   rf-ranger.config.json (optional), photos, server.json
  *            ~/Library/Logs/RF Ranger/rf-ranger.log
  *   Windows  %APPDATA%\RF Ranger\  (logs in logs\)
+ *   Linux    ~/.rf-ranger/  (logs in logs/); a Raspberry Pi runs --serve as a service, see packaging/linux
  *
  * With no rf-ranger.config.json, the app runs in live mode: it discovers
  * Shure devices and names slots from channel names.
@@ -25,7 +27,9 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync
 import http from 'node:http';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { createInterface } from 'node:readline';
 import { format } from 'node:util';
+import { adminPath, setAdminPassword } from '../server/admin.js';
 import { startRfRanger, type Running } from '../server/start.js';
 import { VERSION } from '../version.js';
 
@@ -195,6 +199,44 @@ async function quit(): Promise<void> {
   if (running && !(await replaceRunning(running))) process.exitCode = 1;
 }
 
+/**
+ * `--set-password`: the admin password other screens sign in with (see
+ * server/admin.ts). Typed at a terminal, or piped in by an installer.
+ * `--clear-password` removes it, so admin is this computer only again.
+ */
+async function setPassword(): Promise<void> {
+  if (process.argv.includes('--clear-password')) {
+    setAdminPassword(adminPath(), null);
+    console.log('Admin password removed: admin settings work on this computer only.');
+    return;
+  }
+  let password: string;
+  if (process.stdin.isTTY) {
+    password = await askHidden('New admin password: ');
+    if ((await askHidden('Again: ')) !== password) throw new Error('The passwords didn’t match; nothing changed.');
+  } else {
+    let piped = '';
+    for await (const chunk of process.stdin) piped += String(chunk);
+    password = piped.split(/\r?\n/)[0] ?? '';
+  }
+  setAdminPassword(adminPath(), password);
+  console.log(`Admin password saved (${adminPath()}). Screens signed in with the old one are signed out.`);
+}
+
+/** A line from the terminal without echoing it. */
+function askHidden(prompt: string): Promise<string> {
+  return new Promise((done) => {
+    const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+    const out = rl as unknown as { _writeToOutput: (s: string) => void };
+    out._writeToOutput = (s) => { if (s.includes(prompt)) process.stdout.write(prompt); };
+    rl.question(prompt, (answer) => {
+      rl.close();
+      process.stdout.write('\n');
+      done(answer);
+    });
+  });
+}
+
 // ---- server -----------------------------------------------------------------
 
 async function serve(): Promise<void> {
@@ -287,7 +329,8 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-const main = process.argv.includes('--serve') ? serve : process.argv.includes('--quit') ? quit : launch;
+const arg = (name: string) => process.argv.includes(name);
+const main = arg('--serve') ? serve : arg('--quit') ? quit : arg('--set-password') || arg('--clear-password') ? setPassword : launch;
 main().catch((err: Error) => {
   console.error(err.stack ?? String(err));
   void alert(`${APP_NAME} couldn't start`, `${err.message}\n\nLog: ${logFile}`).then(() => process.exit(1));

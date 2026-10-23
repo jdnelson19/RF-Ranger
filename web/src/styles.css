@@ -378,6 +378,11 @@ button { font: inherit; color: inherit; }
 .add-device { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
 .add-device .input { width: min(280px, 100%); }
 .add-device__error { color: var(--bad); font-size: 13px; }
+.admin-signin { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; }
+.admin-signin .input { width: min(240px, 100%); flex: 0 1 240px; }
+.admin-signin__error { flex-basis: 100%; color: var(--bad); font-size: 13px; }
+.add-device .admin-signin { margin-top: 0; }
+.menu__item.admin-signout { margin-top: 4px; border-top: 1px solid var(--line); border-radius: 0; color: var(--text-2); }
 .empty__title { color: var(--text); font-size: 20px; font-weight: 700; margin-bottom: 8px; }
 .empty p { margin: 6px 0; }
 .link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }

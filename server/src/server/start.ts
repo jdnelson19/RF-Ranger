@@ -11,6 +11,7 @@ import { VERSION } from '../version.js';
 import { MicRosterStore, micRosterPath } from './mic-roster-store.js';
 import { PresetStore, presetsPath } from './presets.js';
 import { demoLive, startDemo } from './demo.js';
+import { AdminAuth, adminPath } from './admin.js';
 import { startHttp } from './http.js';
 import { Inspector } from './inspector.js';
 import { KnownDevices, knownDevicesPath } from './known-devices.js';
@@ -36,6 +37,8 @@ export interface StartOptions {
   presets?: PresetStore;
   /** Defaults to ~/.rf-ranger/mic-assignments.json; demo mode keeps them in memory. */
   micRoster?: MicRosterStore;
+  /** Defaults to ~/.rf-ranger/admin.json: the password other screens sign in with (see admin.ts). */
+  adminPath?: string;
   log?: (msg: string) => void;
 }
 
@@ -113,6 +116,7 @@ export async function startRfRanger(opts: StartOptions): Promise<Running> {
         return addDevice.current(spec);
       },
       onQuit: opts.app?.onQuit,
+      admin: new AdminAuth(opts.adminPath ?? adminPath()),
     });
   } catch (err) {
     await stopDemo?.();

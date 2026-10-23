@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { READINESS_TONE, antennasInUse, antennasText, type Tone } from '../format';
 import type { Readiness, SlotView, Snapshot } from '../types';
 
@@ -170,4 +170,91 @@ export function AntennaLights({ field }: { field: string }) {
       {ants.map((a) => <span key={a.name} className={`ant__seg${a.on ? ' ant__seg--on' : ''}`}>{a.name}</span>)}
     </span>
   );
+}
+
+/** Who this screen is to RF Ranger's admin settings (see server/src/server/admin.ts). */
+export interface AdminState {
+  /** The computer running RF Ranger. */
+  local: boolean;
+  /** An admin password exists, so other screens can sign in. */
+  passwordSet: boolean;
+  signedIn: boolean;
+}
+
+export function useAdmin(): { state?: AdminState; refresh: () => void } {
+  const [state, setState] = useState<AdminState>();
+  const refresh = useCallback(() => {
+    fetch('/api/admin').then((r) => (r.ok ? r.json() : undefined)).then(setState, () => setState(undefined));
+  }, []);
+  useEffect(refresh, [refresh]);
+  return { state, refresh };
+}
+
+/**
+ * The admin settings from another screen: a password form when an admin
+ * password is set (a Raspberry Pi behind a TV has no screen of its own to
+ * sit at), otherwise how to set one.
+ */
+export function AdminSignIn({ title, why, onSignedIn, compact = false }: { title: string; why?: string; onSignedIn: () => void; compact?: boolean }) {
+  const { state } = useAdmin();
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string>();
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(undefined);
+    try {
+      const res = await fetch('/api/admin/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password }) });
+      if (res.ok) {
+        setPassword('');
+        onSignedIn();
+      } else {
+        setError(((await res.json().catch(() => ({}))) as { error?: string }).error ?? 'Couldn’t sign in.');
+      }
+    } catch (e) {
+      setError(`Can't reach RF Ranger: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const form = state?.passwordSet && (
+    <form className="admin-signin" onSubmit={submit}>
+      <input className="input" type="password" autoComplete="current-password" placeholder="Admin password" aria-label="Admin password"
+        value={password} onChange={(e) => setPassword(e.target.value)} />
+      <button type="submit" className="btn btn--primary" disabled={busy || !password}>Sign in</button>
+      {error && <span className="admin-signin__error">{error}</span>}
+    </form>
+  );
+
+  if (compact) return form || null;
+  return (
+    <div className="empty">
+      <p className="empty__title">{title}</p>
+      {why && <p className="dim">{why}</p>}
+      {form ? (
+        <>
+          <p>Sign in with the admin password to use it from this screen.</p>
+          {form}
+        </>
+      ) : (
+        state && <p className="dim">To use it from other screens, set an admin password on that computer: <code>rf-ranger --set-password</code></p>
+      )}
+    </div>
+  );
+}
+
+/** Settings menu: sign out of admin on a screen that signed in. */
+export function AdminSignOut({ onDone }: { onDone?: () => void }) {
+  const { state, refresh } = useAdmin();
+  if (!state?.signedIn || state.local) return null;
+  const signOut = async () => {
+    await fetch('/api/admin/logout', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }).catch(() => undefined);
+    refresh();
+    onDone?.();
+    window.location.reload();
+  };
+  return <button type="button" role="menuitem" className="menu__item admin-signout" onClick={() => void signOut()}>Sign out of admin</button>;
 }

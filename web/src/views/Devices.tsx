@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { AdminSignIn, useAdmin } from '../components/ui';
 import type { ConnectionStatus } from '../types';
 import type { Live } from '../useSnapshot';
 
@@ -28,8 +29,7 @@ const FOUND_TEXT = {
   unreachable: 'No answer',
 } as const;
 
-/** Forgetting a device changes what is monitored, so like the Inspector it's only offered on this computer. */
-const local = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+/** Adding and forgetting change what is monitored, so like the Inspector they need this computer or an admin sign-in. */
 
 async function forget(host: string): Promise<void> {
   if (!window.confirm(`Forget ${host}? RF Ranger stops monitoring it and won't remember it at the next start. Its channels leave every screen.`)) return;
@@ -65,6 +65,8 @@ function AddDevice() {
 
 /** Network and integration status for every configured device. */
 export function Devices({ live }: { live: Live }) {
+  const admin = useAdmin();
+  const local = admin.state?.local === true || admin.state?.signedIn === true;
   const s = live.snapshot;
   if (!s) return <div className="empty">Connecting to RF Ranger…</div>;
   const now = s.serverTime;
@@ -74,7 +76,9 @@ export function Devices({ live }: { live: Live }) {
       {s.mode === 'live' && (
         <section>
           <h2 className="section-title">Found on the network</h2>
-          {local && <AddDevice />}
+          {local ? <AddDevice /> : admin.state?.passwordSet && (
+            <div className="add-device"><span className="dim">Sign in as admin to add or forget devices:</span><AdminSignIn compact title="" onSignedIn={admin.refresh} /></div>
+          )}
           {s.discovered.length === 0 ? (
             <p className="dim">
               Listening for Shure and Sennheiser devices… They announce themselves every so often, so this can take a minute. If nothing

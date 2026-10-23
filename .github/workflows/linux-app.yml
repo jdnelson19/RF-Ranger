@@ -1,0 +1,75 @@
+name: Linux app
+
+# Tags like v0.3.0 build the Linux .tar.gz files (arm64 for a Raspberry Pi,
+# and x64) and attach them to the GitHub release. Pushes that touch
+# packaging, and manual runs, build downloadable artifacts. Every build also
+# runs install.sh on the runner, so the systemd service is tested for real.
+on:
+  push:
+    tags: ['v*']
+    branches: ['**']
+    paths:
+      - 'packaging/linux/**'
+      - '.github/workflows/linux-app.yml'
+      - 'server/src/app/**'
+      - 'server/src/server/admin.ts'
+      - 'server/scripts/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+          - arch: x64
+            runner: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      # The Node shipped inside the rf-ranger binary.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=$(node -p "require('./server/package.json').version")" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build
+        run: bash packaging/linux/build.sh "$VERSION"
+
+      - name: Install as a service, check it answers, uninstall
+        run: |
+          mkdir -p "$RUNNER_TEMP/try" && tar -xzf dist-linux/RF-Ranger-*-Linux-${{ matrix.arch }}.tar.gz -C "$RUNNER_TEMP/try"
+          bash "$RUNNER_TEMP/try/rf-ranger/install.sh" --server < /dev/null
+          systemctl is-active rf-ranger
+          curl -fsS http://localhost:8058/api/snapshot | grep -q "\"version\":\"$VERSION\""
+          curl -fsS http://localhost:8058/ | grep -qi '<html'
+          bash "$RUNNER_TEMP/try/rf-ranger/install.sh" --uninstall
+          ! systemctl is-active rf-ranger
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RF-Ranger-${{ env.VERSION }}-Linux-${{ matrix.arch }}
+          path: dist-linux/RF-Ranger-*-Linux-*.tar.gz
+          if-no-files-found: error
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # The macOS or Windows job may have created the release already.
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist-linux/RF-Ranger-*-Linux-*.tar.gz --title "RF Ranger $VERSION" --generate-notes \
+            || gh release upload "$GITHUB_REF_NAME" dist-linux/RF-Ranger-*-Linux-*.tar.gz --clobber

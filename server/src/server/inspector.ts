@@ -384,13 +384,13 @@ export function isLocalRequest(req: http.IncomingMessage): boolean {
   return true;
 }
 
-export async function handleInspector(inspector: Inspector, req: http.IncomingMessage, res: http.ServerResponse, url: URL): Promise<void> {
+export async function handleInspector(inspector: Inspector, req: http.IncomingMessage, res: http.ServerResponse, url: URL, allows: (req: http.IncomingMessage) => boolean = isLocalRequest): Promise<void> {
   const json = (status: number, body: unknown) => {
     res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' });
     res.end(JSON.stringify(body));
   };
 
-  if (!isLocalRequest(req)) {
+  if (!allows(req)) {
     json(403, { error: 'The Device Inspector is only available on the computer running RF Ranger.' });
     return;
   }

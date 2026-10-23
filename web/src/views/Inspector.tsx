@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { AdminSignIn } from '../components/ui';
 import type { Live } from '../useSnapshot';
 
 // Mirrors server/src/server/inspector.ts (that module imports Node APIs, so its types aren't shared directly).
@@ -97,10 +98,9 @@ export function Inspector({ live }: { live: Live }) {
 
   if (allowed === false) {
     return (
-      <div className="empty">
-        <div className="empty__title">Inspector is only available on the computer running RF Ranger</div>
-        <p className="dim">It can connect to devices and send queries, so it's disabled for other screens on the network.</p>
-      </div>
+      <AdminSignIn title="Inspector is only available on the computer running RF Ranger"
+        why="It can connect to devices and send queries, so it's disabled for other screens on the network."
+        onSignedIn={() => void refreshSessions()} />
     );
   }
 

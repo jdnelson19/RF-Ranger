@@ -3,6 +3,7 @@ import http from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { PlanningCenterLink } from '../integrations/planning-center/link.js';
+import { AdminAuth, handleAdmin } from './admin.js';
 import { handleInspector, isLocalRequest, readJson, type Inspector } from './inspector.js';
 import { handlePco } from './pco-http.js';
 import type { AutoSync } from './auto-sync.js';
@@ -48,14 +49,20 @@ export interface HttpOptions {
   forgetDevice?: (host: string) => boolean;
   /** Live mode: monitor a device by address (Devices, Add device). This computer only. */
   addDevice?: (spec: string) => string;
+  /** Who may use the admin settings: this computer, or a screen signed in with the admin password. */
+  admin?: AdminAuth;
 }
 
 /**
  * Read-only API: GET /api/snapshot and a /ws stream of snapshots, safe to
  * expose to the production network for TVs and tablets. The exceptions,
- * /api/inspector and /api/pco, answer only the computer running RF Ranger.
+ * /api/inspector, /api/pco and adding or forgetting devices, answer only
+ * the computer running RF Ranger or a screen signed in as admin (admin.ts).
  */
 export function startHttp(runtime: Runtime, opts: HttpOptions): Promise<http.Server> {
+  // No password file: admin stays on this computer only.
+  const admin = opts.admin ?? new AdminAuth();
+  const allows = (req: http.IncomingMessage) => admin.allows(req);
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
 
@@ -78,8 +85,13 @@ export function startHttp(runtime: Runtime, opts: HttpOptions): Promise<http.Ser
       return;
     }
 
+    if (url.pathname.startsWith('/api/admin')) {
+      void handleAdmin(admin, req, res, url);
+      return;
+    }
+
     if (url.pathname.startsWith('/api/inspector') && opts.inspector) {
-      void handleInspector(opts.inspector, req, res, url);
+      void handleInspector(opts.inspector, req, res, url, allows);
       return;
     }
 
@@ -89,17 +101,17 @@ export function startHttp(runtime: Runtime, opts: HttpOptions): Promise<http.Ser
     }
 
     if (url.pathname === '/api/devices/forget' && opts.forgetDevice) {
-      void forget(opts.forgetDevice, req, res);
+      void forget(opts.forgetDevice, allows, req, res);
       return;
     }
 
     if (url.pathname === '/api/devices/add' && opts.addDevice) {
-      void addDevice(opts.addDevice, req, res);
+      void addDevice(opts.addDevice, allows, req, res);
       return;
     }
 
     if (url.pathname.startsWith('/api/pco') && opts.planningCenter) {
-      void handlePco(opts.planningCenter, opts.micRoster, opts.autoSync, req, res, url);
+      void handlePco(opts.planningCenter, opts.micRoster, opts.autoSync, req, res, url, allows);
       return;
     }
 
@@ -178,14 +190,14 @@ function serveFile(res: http.ServerResponse, root: string, rel: string, spaFallb
   createReadStream(path).pipe(res);
 }
 
-/** POST /api/devices/add { address }: only from the computer running RF Ranger, like Forget. */
-async function addDevice(fn: (spec: string) => string, req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+/** POST /api/devices/add { address }: this computer or an admin screen, like Forget. */
+async function addDevice(fn: (spec: string) => string, allows: (req: http.IncomingMessage) => boolean, req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
   const json = (status: number, body: unknown) => {
     res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' });
     res.end(JSON.stringify(body));
   };
   if (req.method !== 'POST') return json(405, { error: 'POST only' });
-  if (!isLocalRequest(req)) return json(403, { error: 'Devices can only be added on the computer running RF Ranger.' });
+  if (!allows(req)) return json(403, { error: 'Devices can only be added on the computer running RF Ranger, or after signing in as admin.' });
   if (!(req.headers['content-type'] ?? '').startsWith('application/json')) return json(415, { error: 'Expected JSON' });
   try {
     const body = (await readJson(req)) as { address?: unknown };
@@ -197,14 +209,14 @@ async function addDevice(fn: (spec: string) => string, req: http.IncomingMessage
   }
 }
 
-/** POST /api/devices/forget { host }: only from the computer running RF Ranger, like the Inspector. */
-async function forget(fn: (host: string) => boolean, req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+/** POST /api/devices/forget { host }: this computer or an admin screen, like the Inspector. */
+async function forget(fn: (host: string) => boolean, allows: (req: http.IncomingMessage) => boolean, req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
   const json = (status: number, body: unknown) => {
     res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' });
     res.end(JSON.stringify(body));
   };
   if (req.method !== 'POST') return json(405, { error: 'POST only' });
-  if (!isLocalRequest(req)) return json(403, { error: 'Devices can only be forgotten on the computer running RF Ranger.' });
+  if (!allows(req)) return json(403, { error: 'Devices can only be forgotten on the computer running RF Ranger, or after signing in as admin.' });
   if (!(req.headers['content-type'] ?? '').startsWith('application/json')) return json(415, { error: 'Expected JSON' });
   try {
     const body = (await readJson(req)) as { host?: unknown };

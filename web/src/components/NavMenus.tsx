@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { href, navigate, type Route } from '../route';
 import type { ShowPreset } from '../types';
+import { AdminSignOut } from './ui';
 
 /** Close a menu with Escape. */
 function useEscape(open: boolean, close: () => void) {
@@ -99,6 +100,7 @@ export function SettingsMenu({ route }: { route: Route }) {
                 <span className="menu__name">{i.label}<span className="dim menu__hint">{i.hint}</span></span>
               </a>
             ))}
+            <AdminSignOut onDone={close} />
           </div>
         </>
       )}
